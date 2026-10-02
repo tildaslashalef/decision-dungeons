@@ -439,6 +439,91 @@ tower of Port Alder International's single runway 27 after dark.
   same 50 ms steps as headless and stops at each question, so a browser
   shift is the headless one (`tests/tower.test.ts` asserts it).
 
+## Dungeon 3: The Oracle
+
+Every other dungeon's case has a right answer. Here each case has a
+**true probability**, so a decider's probabilities are scored against
+the truth itself, apart from luck: the one thing a labelled dataset
+cannot measure. nuclis says Laya's probabilities are calibrated
+likelihoods and clef-flash's are an uncalibrated softmax; the cascade
+(*Progress*) failed because laya-multilingual's confidence did not track
+its errors. The Oracle measures both directly.
+
+- **The world.** Harborline's harbour runs a morning ferry. Each case is
+  one day's harbour log, and the question is "Will the morning ferry
+  sail?" (`noul`). A seeded hidden formula turns the day's facts into a
+  real chance: a logistic over wind and gusts, swell, visibility and fog,
+  the wind's direction against the harbour mouth (an interaction), crew on
+  duty against crew required, an engine notice, a port-authority
+  advisory, and the captain's record; then the outcome is drawn from that
+  chance with the case's seeded generator. The case stores both the true
+  probability and the outcome (`TextCase.odds`, beside `truth`).
+- **What the decider reads.** The log, and in the question's instructions
+  the harbour master's handbook: the formula's directions in words ("high
+  gusts rarely let her sail; a westerly at the mouth is worse than the
+  same wind from the east"), never its weights. The best a reader can do
+  is approach the true chance.
+- **Levels.** `numbers`: the facts as a table. `log`: the same facts in a
+  day's prose log, among routine entries. `scattered`: the facts across
+  several notices, some corrected by a later one. `contradiction`: the
+  captain's note disagrees with the instruments, and the formula follows
+  the instruments. `many` (tagged `many-questions`): several questions
+  about each day, each with its own true chance (sails at all, sails on
+  time, carries over 200 passengers, the café opens). Cases live in a case
+  set like the text dungeons' (`bun run seed`), generator `oracle@1`.
+- **Scoring.** Per run: `truth_gap`, the mean |p − true p|; Brier against
+  the outcomes beside the **oracle's Brier**, that of the true
+  probabilities (the floor no decider beats in expectation); skill
+  against climatology (the base rate); log loss; and calibration, the
+  outcome rate per bin of the decider's p (and the true p per bin). A run
+  passes when its truth gap is under a bound set from the measured
+  deciders (record it in *Decisions*). Truths are never labels a model
+  wrote: the formula and the draw are seeded code.
+- **The rule** is a deliberately partial forecaster (a logistic on wind
+  and swell only), a baseline between random and the oracle; the oracle
+  itself is a reference column in results, not a decider.
+- **The view.** The day's log on the left; on the right the decider's p,
+  the true p, and the outcome, then a live reliability chart over the run
+  (follow the `dataviz` skill) and the truth gap so far.
+
+## Dungeon 4: Undercroft, a dungeon crawler
+
+The project's name made literal, and the first dungeon whose decisions
+compound: each move changes the next situation, as an agent's does.
+
+- **The world.** A seeded grid of rooms and corridors (9×9 to 15×15
+  tiles): walls, coloured keys and their locked doors, static monsters
+  (a move next to one costs a hit point), the exit stairs, and some gold.
+  Generated from the seed so the exit is always reachable; the shortest
+  path over (position, keys held) is known by breadth-first search.
+- **The decision.** One per turn: `move`, a `choice` of north, east,
+  south, west, each option saying only the direction (the map carries the
+  facts). Turn-based through `Dungeon.advance`, as driving and Night
+  Tower; no case set, the map comes from the seed.
+- **What the decider sees.** Text levels: an ASCII map with a legend, the
+  hero's position, keys held, hit points, and the goal. Picture levels:
+  the same map as a tile picture (`Request.images`), the facts stated in
+  text kept to hit points and keys. Pictures are drawn in TypeScript, not
+  in a browser: coloured tiles and small pixel sprites (hero, key, door,
+  monster, stairs) encoded by a minimal PNG writer (`src/lib/png.ts`:
+  CRC-32, zlib through `CompressionStream`, which Bun and browsers both
+  have), so the browser and `bun run eval` draw the same bytes and no
+  Chromium is needed at play time.
+- **Levels.** `corridors` (a maze), `keys` (doors in an order),
+  `monsters` (a safe way round), `fog` (only the tiles within two steps
+  are shown, the rest as remembered), `picture` (the keys map as a
+  picture only, tagged `images`), `picture-both` (picture and text).
+- **Scoring.** Reached the exit, steps against the optimal, efficiency,
+  bumps into walls and locked doors (violations), hit points lost, gold;
+  a turn limit of three times the optimal; passed when the exit is
+  reached within twice the optimal steps without dying.
+- **Deciders.** The rule is the breadth-first planner (the optimum);
+  random is the floor; the cascade fits naturally (Laya walks the
+  corridors, clef-flash decides at forks).
+- **The view.** The map drawn from the same tiles at a larger scale, the
+  hero's trail, the decider's probabilities as arrows around the hero,
+  HUD with keys, hit points, steps against the optimal.
+
 ## Headless runs
 
 ```sh
@@ -498,6 +583,9 @@ three.js Ferrari (MIT). Asset license files travel with the assets.
    768×768), so vision levels run turn-based; Laya and the rule cannot
    see images, so image-only levels compare clef-flash with the best
    state-only decider.
+7. **The Oracle** (*Dungeon 3*): calibration against true probabilities.
+8. **Undercroft** (*Dungeon 4*): a dungeon crawler, text maps and tile
+   pictures.
 
 ## Decisions
 
@@ -537,6 +625,9 @@ three.js Ferrari (MIT). Asset license files travel with the assets.
   cases it played before; the set's hash changes with its new levels, so
   results from before name the earlier hash. Generators that gained a
   level are `@2` (2026-10-03).
+- Next: The Oracle, then Undercroft (*Dungeon 3*, *Dungeon 4*), before
+  the remaining vision dungeons; the user asked for both after the
+  cascade's measurements (2026-10-03).
 - Model ids may hold `:` and `@` (a cascade's); dungeon, set, and decider
   names keep the stricter pattern (2026-10-03).
 - Pictures come from the case set, never from a model or the network: a
@@ -1198,16 +1289,19 @@ Validated on the Apple M4 Pro:
 
 Milestones 1-5 are done; clef-flash is supported, every text dungeon asks
 all its questions at once on one level, the Laya→clef cascade is a
-decider, and milestone 6 has its first dungeon. What is left, in order:
+decider, and milestone 6 has its first dungeon (Receipts). What is left,
+in order:
 
-1. **Milestone 6, the next vision dungeons** (*Milestones*): driving
+1. **Milestone 7, The Oracle** (*Dungeon 3*).
+2. **Milestone 8, Undercroft** (*Dungeon 4*).
+3. **Milestone 6, the next vision dungeons** (*Milestones*): driving
    frames with a blind-state level, dashboards beside logs, interface
    screenshots, rendered inbox mail. Receipts' line prices could be made
    realistic first.
-2. **Wider measurements**: clef-flash and the cascade in the comparison
+4. **Wider measurements**: clef-flash and the cascade in the comparison
    tables (driving turn-based, text dungeons, Night Tower, Receipts) over
    seeds 1-4, one eval at a time since clef holds the GPU; the cascade
    with `laya` (English) as the screener too; TypeSafe Jev when the user
    approves a paid run.
-3. **Night Tower, if the user wants more of it**: a ground radar view,
+5. **Night Tower, if the user wants more of it**: a ground radar view,
    arrivals' speed control, a second runway.
