@@ -5,7 +5,9 @@
   "scripts": {
     "dev": "bun --hot src/server/main.ts",
     "start": "bun src/server/main.ts",
-    "check": "bunx tsc --noEmit && bunx biome check"
+    "eval": "bun src/cli/eval.ts eval",
+    "check": "bun src/cli/eval.ts check",
+    "lint": "bunx tsc --noEmit && bunx biome check"
   },
   "dependencies": {
     "lucide": "0.577.0"
