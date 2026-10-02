@@ -24,8 +24,10 @@ stated pass bound, so each decision is scored.
 
 ## Deciders
 
-- **nuclis**: local decision models (`laya`, `laya-multilingual`, and any
-  decision model nuclis adds) through `nuclis serve`'s HTTP API.
+- **nuclis**: local decision models (`laya`, `laya-multilingual`,
+  `clef-flash`, and any decision model nuclis adds) through `nuclis
+  serve`'s HTTP API. Laya answers in milliseconds; clef-flash, a 9B
+  model, takes about a second or more per state.
 - **TypeSafe Jev**: the hosted API, billed per input token; needs a key.
 - **Fixed rule**: each dungeon's deterministic baseline.
 - **Random**: seeded uniform choice; the floor.
@@ -67,7 +69,8 @@ bun run eval --dungeon logs --level thresholds --decider rule --seeds 1-4 --set 
 
 Each run prints a JSON line, then a markdown table of the same results;
 `--json` prints the lines only. Text dungeons send their independent cases
-to nuclis in batches unless you pass `--sequential`.
+to nuclis in batches unless you pass `--sequential`, when the model packs
+states into one GPU pass (Laya); clef-flash is sent one case at a time.
 
 ## Case sets
 

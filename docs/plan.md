@@ -23,18 +23,18 @@ up here*). A new session starts at *Start here* below.
    in *Progress*.
 
 **What exists and what does not, today.** The user runs `nuclis serve`
-(nuclis 0.4.0-dev) at `http://127.0.0.1:8000/v1` with `laya` and
-`laya-multilingual`; the nuclis decider reaches it over HTTP only
-(`AGENTS.md` § *Typed decisions come from the local nuclis API*). Never
+(nuclis 0.4.0-dev) at `http://127.0.0.1:8000/v1` with `laya`,
+`laya-multilingual`, and `clef-flash`; the nuclis decider reaches it over
+HTTP only (`AGENTS.md` § *Typed decisions come from the local nuclis API*). Never
 start or configure it; if it refuses connections, tell the user. The rule
 and random deciders need nothing. Tests stub the nuclis API
 (`tests/fake-nuclis.ts`, an injected `fetch`) and never need a server, a
 model, a GPU, a key, or the network; `tests/nuclis-live.test.ts` runs
 against the real server only when `GET /v1/health` answers. The TypeSafe
 decider is tested against a stubbed `fetch`; a real Jev call needs
-`TYPESAFE_API_KEY` and is an explicit command, never a default test. No
-nuclis model takes images yet (`GET /v1/models`), so milestone 6 cannot
-start.
+`TYPESAFE_API_KEY` and is an explicit command, never a default test.
+`clef-flash` takes images (`nuclis.images` in `GET /v1/models`), so
+milestone 6 can start.
 
 ## Working notes
 
@@ -54,9 +54,14 @@ in `AGENTS.md`.
 - **nuclis.** `curl -s 127.0.0.1:8000/v1/health` says whether the user's
   server is up and which models are open; the settings page shows the
   same as the nuclis card's badge. `NUCLIS_URL` overrides the configured
-  URL. A warm decision takes 15–35 ms, so evals over many seeds are
-  cheap; concurrent requests are batched by the server.
-- **Check it.** `bun test` (62 tests, 2 of them live against nuclis when
+  URL. Each model's entry in `GET /v1/models` says how it runs
+  (`nuclis.packs`). Laya packs: a warm decision takes 15–35 ms and
+  states sent together share a GPU pass, so evals over many seeds are
+  cheap. `clef-flash` does not: about 1 s for a short request, 4 ms per
+  sequence token, one state after another, and every other request waits
+  behind it (nuclis queues a request up to 300 s). Never leave a clef
+  eval running in the background of a check; it holds the GPU.
+- **Check it.** `bun test` (99 tests, 3 of them live against nuclis when
   it is up; no network or model otherwise), `bun run lint`
   (`tsc --noEmit` and `biome check`), `bun run eval …` and
   `bun run check driving/stop-line --decider rule` (*Headless runs*).
@@ -220,8 +225,14 @@ prepares, times, and validates: no path trusts a decider's answers.
   state (logits, temperatures, tokens read, state kept, `truncated`, and
   timings feed the debug sidebar); status is `GET /v1/health`; models are
   the decision entries of `GET /v1/models` (`nuclis.kind: "decision"`;
-  today `laya`, `laya-multilingual`), so a new nuclis decision model shows
-  up in the picker by itself. `422` is `rejected` with nuclis's code and
+  today `laya`, `laya-multilingual`, `clef-flash`), so a new nuclis
+  decision model shows up in the picker by itself. Its `nuclis.packs`
+  picks the calling pattern: a packing model (Laya) takes up to 64 states
+  per call and a 20 s bound per call; any other (clef-flash) gets one
+  state per request, at most two requests in flight per model in the
+  process, and a bound of nuclis's 300 s queue wait plus 8 ms per
+  estimated sequence token (`Decider.batches`, `Decider.timeoutMs`). An
+  entry without `packs` is listed unavailable. `422` is `rejected` with nuclis's code and
   message; `529` is retried with exponential backoff (4 retries from
   0.1 s), then `unavailable`; a refused connection is `unavailable`,
   "nuclis serve is not running at …". The rewrite
@@ -501,6 +512,17 @@ three.js Ferrari (MIT). Asset license files travel with the assets.
 - clef-flash arrives through nuclis (MODL-34), text first, images later;
   Decision Dungeons adds the turn-based mode for it and plans the vision
   dungeons as milestone 6 (2026-10-02).
+- The nuclis decider calls a model as its `GET /v1/models` entry says
+  (`nuclis.packs`, which nuclis added for this), never by model name or
+  `head_max_len`, and with no fallback for a server that does not send it
+  (the user: there are no older servers). A model that does not pack
+  (clef-flash: one sequence per state, linear in tokens) gets one state
+  per request with every question in it, at most two requests in flight,
+  and a timeout from the work (queue wait plus tokens), so Laya keeps its
+  short bound and a hang still surfaces fast (2026-10-03).
+- Next after clef-flash support: a Laya→clef cascade, Laya screening
+  every state and clef-flash deciding the unsure ones, measured against
+  each alone; clef-flash alone stays a choice (2026-10-03).
 - Scope: the user asked for the whole plan end to end, a second 3D
   dungeon of this project's design (milestone 5), and the text dungeons'
   cases in SQLite under `~/.decision-dungeons` with a seed script that can
@@ -954,14 +976,59 @@ stays easy for everyone (its traffic is spaced). The rule itself leans on
 the planner: it is the experiment's rule, kept as the oracle of the reference comparison.
 The text dungeons and Night Tower are measured in their milestones above.
 
+### clef-flash support (2026-10-03)
+
+nuclis now serves `clef-flash` beside Laya and reports in `GET /v1/models`
+how each model runs (`nuclis.family`, `packs`, `images`, `max_len`).
+Delivered: the nuclis decider reads `packs` (*The decision contract*,
+*Decisions*): one state per request and at most two in flight for a
+model that does not pack, a timeout from the work (300 s queue plus 8 ms
+per estimated token) instead of the fixed 20 s, `bun run eval` batching
+only packing models, and an empty `bucket` (clef has none) omitted rather
+than shown. Before the change, Inbox `long` on clef timed out at 20 s
+with nothing decided, and the aborted 20-state request kept the GPU busy
+long enough for a later `laya-multilingual` request to get `529 timeout`.
+
+Validated on the Apple M4 Pro against nuclis 0.4.0-dev on Metal (the
+server at nuclis `5dc6783`, reporting `packs`):
+
+- `bun test`: 99 pass, among them a non-packing model sent one state per
+  request with never more than two in flight, the timeout per packing
+  call and per token, an entry without `packs` listed unavailable and
+  refused, and `tests/nuclis-live.test.ts` deciding a Crossing case with
+  `clef-flash` (no `bucket`, no `tokensRead`). `bun run lint` clean.
+- Measured warm with nuclis's own rate request (two questions, a
+  93-character state), curl on loopback: `laya` 35 ms,
+  `laya-multilingual` 15 ms, `clef-flash` 0.95 s. Four clef states took
+  3.84 s one after another, 3.67 s as one request's `states`, and 3.74 s
+  as four concurrent requests: no gain from batching.
+- `bun run eval --dungeon crossing --level distance --decider nuclis
+  --model clef-flash --seeds 1`: 3 of 12, every case answered stop (the
+  threshold weakness Laya also shows), 732 ms a decision.
+- `bun run eval --dungeon inbox --level long … --model clef-flash
+  --seeds 1`: passed, 20 of 20, none truncated, 4.7 s a decision, 94 s
+  for the run, one request per case (nuclis counted 31 requests in 31
+  passes over both evals). Laya scored 0.60 there with 17–20 of 20
+  states cut (*Milestone 4*).
+
+Not done: the lobby and settings page show clef like any model (no UI
+change was needed, none was checked in a browser this session); clef is
+not yet in the comparison tables.
+
 ### Pick up here
 
-Milestones 1-5 are done. What is left, in order:
+Milestones 1-5 are done, and clef-flash is supported. What is left, in
+order:
 
-1. **Milestone 6, vision**, once nuclis serves an image model
-   (`GET /v1/models` lists none on 2026-10-02): see *Milestones*.
-2. **Wider measurements**: the text dungeons and Night Tower over seeds
+1. **The Laya→clef cascade** (*Decisions*, 2026-10-03): a nuclis choice
+   where Laya screens every state and clef-flash decides the ones Laya is
+   unsure of, measured against each alone on the text dungeons; then
+   clef-flash in the comparison tables (driving turn-based, text
+   dungeons, Night Tower), one eval at a time, since clef holds the GPU.
+2. **Milestone 6, vision**: `clef-flash` reads images (`nuclis.images`);
+   see *Milestones*.
+3. **Wider measurements**: the text dungeons and Night Tower over seeds
    1-4 for every decider, uncontended (one eval at a time), and TypeSafe
    Jev when the user approves a paid run.
-3. **Night Tower, if the user wants more of it**: a ground radar view,
+4. **Night Tower, if the user wants more of it**: a ground radar view,
    arrivals' speed control, a second runway.

@@ -1,7 +1,11 @@
 import { describe, expect, test } from "bun:test";
 import { decideManyWith, decideWith } from "../src/contract/decider.ts";
 import type { Request } from "../src/contract/request.ts";
-import { bulkLast, nuclisDecider } from "../src/deciders/nuclis.ts";
+import {
+  bulkLast,
+  nuclisDecider,
+  sequenceTokens,
+} from "../src/deciders/nuclis.ts";
 import { apiBase, nuclisHttp } from "../src/deciders/nuclis-http.ts";
 import { randomDecider } from "../src/deciders/random.ts";
 import {
@@ -12,8 +16,10 @@ import {
 import {
   decideOutput,
   FAKE_NUCLIS_URL,
+  type FakeNuclis,
   type FakeRoutes,
   fakeNuclis,
+  modelEntry,
   modelListing,
   ok,
 } from "./fake-nuclis.ts";
@@ -28,6 +34,9 @@ const request: Request = {
     },
   },
 };
+/** The decision calls a fake received, without the model listing reads. */
+const posts = (fake: FakeNuclis) =>
+  fake.calls.filter((c) => c.method === "POST");
 const options = (model = "laya") => ({
   model,
   signal: AbortSignal.timeout(5000),
@@ -47,7 +56,7 @@ describe("nuclis over its API", () => {
       decisions: () => ok(decideOutput("stop")),
     });
     const decision = await decideWith(decider, request, options());
-    expect(fake.calls).toEqual([
+    expect(posts(fake)).toEqual([
       {
         method: "POST",
         path: "/decisions?explain=1",
@@ -80,18 +89,109 @@ describe("nuclis over its API", () => {
     expect(decision.costUsd).toBe(0);
   });
 
+  test("an empty bucket is not reported, so no field looks measured", async () => {
+    const output = decideOutput("stop");
+    const motion = output.results[0]?.answers.motion;
+    if (motion) {
+      motion.nuclis.bucket = "";
+      const { sequence_tokens: _t, state_kept: _k, ...rest } = motion.nuclis;
+      motion.nuclis = rest as typeof motion.nuclis;
+    }
+    const { decider } = setup({ decisions: () => ok(output) });
+    const decision = await decideWith(decider, request, options("clef-flash"));
+    expect(decision.answers.motion?.debug).toEqual({
+      logits: [-0.38, 0.37],
+      temperature: 1.9,
+      answerConfidence: 0.5984,
+    });
+  });
+
   test("lists the decision models nuclis serves, and only those", async () => {
-    const { decider } = setup({ models: () => ok(modelListing) });
+    const listing = {
+      ...modelListing,
+      data: [
+        ...modelListing.data,
+        modelEntry("mystery", "decision", true, null),
+      ],
+    };
+    const { decider } = setup({ models: () => ok(listing) });
     expect(await decider.models()).toEqual([
       { id: "laya", label: "laya", available: true },
       { id: "laya-multilingual", label: "laya-multilingual", available: true },
+      { id: "clef-flash", label: "clef-flash", available: true },
       {
-        id: "clef-flash",
-        label: "clef-flash",
+        id: "laya-next",
+        label: "laya-next",
         available: false,
-        reason: "not pulled: nuclis model pull clef-flash",
+        reason: "not pulled: nuclis model pull laya-next",
+      },
+      {
+        id: "mystery",
+        label: "mystery",
+        available: false,
+        reason: "nuclis does not say how it runs (nuclis.packs)",
       },
     ]);
+    await expect(
+      decideWith(decider, request, options("mystery")),
+    ).rejects.toMatchObject({ code: "rejected" });
+    expect(posts(setup({}).fake)).toHaveLength(0);
+  });
+
+  test("a model that does not pack gets one state per request, two in flight", async () => {
+    let inFlight = 0;
+    let most = 0;
+    const { fake, decider } = setup({
+      decisions: () => {
+        most = Math.max(most, ++inFlight);
+        return ok(decideOutput("stop"));
+      },
+    });
+    // The fake answers at once; hold each answer a tick so calls overlap.
+    const slow = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      const res = await fake.fetch(input, init);
+      await Bun.sleep(5);
+      if (init?.method === "POST") inFlight--;
+      return res;
+    }) as typeof fetch;
+    const clef = nuclisDecider(
+      nuclisHttp({ url: FAKE_NUCLIS_URL, fetch: slow }),
+    );
+    expect(await clef.batches?.("clef-flash")).toBe(false);
+    expect(await decider.batches?.("laya")).toBe(true);
+    const many = Array.from({ length: 5 }, (_, n) => ({
+      ...request,
+      state: { n },
+    }));
+    const batched = await decideManyWith(clef, many, options("clef-flash"));
+    expect(batched).toHaveLength(5);
+    const alone = await Promise.all(
+      many.map((r) => decideWith(clef, r, options("clef-flash"))),
+    );
+    expect(alone).toHaveLength(5);
+    const bodies = posts(fake).map((c) => c.body as Record<string, unknown>);
+    expect(bodies).toHaveLength(10);
+    expect(bodies.every((b) => "state" in b && !("states" in b))).toBe(true);
+    expect(most).toBe(2);
+  });
+
+  test("bounds a packing model per call and any other by its tokens", async () => {
+    const { decider } = setup({});
+    const seventy = Array.from({ length: 70 }, () => request);
+    expect(await decider.timeoutMs?.([request], "laya")).toBe(20_000);
+    expect(await decider.timeoutMs?.(seventy, "laya")).toBe(40_000);
+    const tokens = sequenceTokens(request);
+    expect(tokens).toBeGreaterThan(150);
+    expect(await decider.timeoutMs?.([request, request], "clef-flash")).toBe(
+      300_000 + 2 * tokens * 8,
+    );
+    const huge = { ...request, state: "x".repeat(200_000) };
+    expect(sequenceTokens(huge, 16_384)).toBe(16_384);
+    // Unreachable: the short bound, since the call fails fast.
+    const down = setup({ models: () => ({ throws: new Error("down") }) });
+    expect(await down.decider.timeoutMs?.([request], "clef-flash")).toBe(
+      20_000,
+    );
   });
 
   test("reports its version from /health, or why it cannot be reached", async () => {
@@ -167,7 +267,7 @@ describe("nuclis over its API", () => {
     });
     const decision = await decideWith(decider, request, options());
     expect(decision.answers.motion).toMatchObject({ choice: "drive" });
-    expect(fake.calls).toHaveLength(3);
+    expect(posts(fake)).toHaveLength(3);
   });
 
   test("a server that stays busy is unavailable", async () => {
@@ -183,7 +283,7 @@ describe("nuclis over its API", () => {
         message: "nuclis /decisions?explain=1: busy: 64 waiting",
       },
     );
-    expect(fake.calls).toHaveLength(5);
+    expect(posts(fake)).toHaveLength(5);
   });
 
   test("malformed output and invalid answers are typed errors", async () => {
@@ -225,7 +325,7 @@ describe("nuclis over its API", () => {
     expect(decisions).toHaveLength(71);
     // 70 with one question set: 64 then 6; the odd one alone.
     expect(
-      fake.calls.map((c) => (c.body as { states: unknown[] }).states.length),
+      posts(fake).map((c) => (c.body as { states: unknown[] }).states.length),
     ).toEqual([64, 6, 1]);
     expect(decisions[0]?.debug?.batch).toBe(64);
     expect(decisions[70]?.debug?.batch).toBe(1);

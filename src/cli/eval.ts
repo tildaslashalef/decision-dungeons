@@ -8,14 +8,13 @@
 
 import { parseArgs } from "node:util";
 import {
-  BATCH_LIMIT,
   type Decider,
   decideManyWith,
   decideWith,
 } from "../contract/decider.ts";
 import {
   createDeciders,
-  DECIDE_TIMEOUT_MS,
+  decideTimeoutMs,
   isDeciderId,
 } from "../deciders/registry.ts";
 import { dungeonById, dungeons } from "../dungeons/registry.ts";
@@ -159,6 +158,10 @@ async function main(argv: string[]): Promise<void> {
     deciderId === "rule"
       ? dungeon.rule
       : createDeciders(store.effective(await store.load()))[deciderId];
+  const batches =
+    !!decider.decideBatch &&
+    !values.sequential &&
+    (await (decider.batches?.(model) ?? true));
   const results: RunResult[] = [];
   for (const level of levels)
     for (const seed of seeds) {
@@ -167,24 +170,25 @@ async function main(argv: string[]): Promise<void> {
         level,
         seed,
         { id: deciderId, model },
-        (request) =>
+        async (request) =>
           decideWith(decider, request, {
             model,
             seed,
-            signal: AbortSignal.timeout(DECIDE_TIMEOUT_MS[deciderId]),
+            signal: AbortSignal.timeout(
+              await decideTimeoutMs(deciderId, decider, [request], model),
+            ),
           }),
         {
           evaluation: values.evaluation,
           ...(cases ? { cases } : {}),
         },
-        decider.decideBatch && !values.sequential
-          ? (requests) =>
+        batches
+          ? async (requests) =>
               decideManyWith(decider, requests, {
                 model,
                 seed,
                 signal: AbortSignal.timeout(
-                  DECIDE_TIMEOUT_MS[deciderId] *
-                    Math.max(1, Math.ceil(requests.length / BATCH_LIMIT)),
+                  await decideTimeoutMs(deciderId, decider, requests, model),
                 ),
               })
           : undefined,

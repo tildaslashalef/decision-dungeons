@@ -54,6 +54,16 @@ export interface Decider {
     requests: Request[],
     options: DecideOptions,
   ): Promise<Decision[]>;
+  /**
+   * Whether `decideBatch` is faster than one request at a time for this
+   * model. Absent: it is, when `decideBatch` exists.
+   */
+  batches?(model: string): Promise<boolean>;
+  /**
+   * The bound on deciding these requests (one, or a batch), from the work
+   * they ask of this model. Absent: the caller's constant per decision.
+   */
+  timeoutMs?(requests: Request[], model: string): Promise<number>;
 }
 
 /** Requests per batch call; nuclis's states-per-request limit. */

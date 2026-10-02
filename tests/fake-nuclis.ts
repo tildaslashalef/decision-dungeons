@@ -63,7 +63,8 @@ export function fakeNuclis(routes: FakeRoutes = {}): FakeNuclis {
     calls.push({ method, path, body });
     if (path === "/health")
       return reply((routes.health ?? (() => ok(healthBody)))());
-    if (path === "/models") return reply((routes.models ?? notFound)());
+    if (path === "/models")
+      return reply((routes.models ?? (() => ok(modelListing)))());
     if (path.startsWith("/decisions"))
       return reply(routes.decisions ? routes.decisions(body) : notFound());
     return reply(notFound());
@@ -107,18 +108,27 @@ export function decideOutput(choice = "stop") {
   };
 }
 
-const model = (id: string, kind: string, present: boolean) => ({
+/** A `GET /v1/models` entry; `packs` false is a model that reads one state per pass (clef), null an entry that does not say. */
+export const modelEntry = (
+  id: string,
+  kind: string,
+  present: boolean,
+  packs: boolean | null = true,
+) => ({
   id,
   object: "model",
   created: 0,
-  owned_by: "convaiinnovations",
+  owned_by: packs === false ? "Cloudflare" : "convaiinnovations",
   nuclis: {
     kind,
+    ...(packs === null
+      ? {}
+      : { family: packs ? "laya" : "clef", packs, images: !packs }),
     present,
     loaded: false,
     default: id === "laya",
-    max_len: present ? 512 : null,
-    head_max_len: present ? 192 : null,
+    max_len: present ? (packs === false ? 16384 : 512) : null,
+    head_max_len: present && packs !== false ? 192 : null,
     repo: `convaiinnovations/${id}`,
     revision: null,
   },
@@ -128,9 +138,10 @@ const model = (id: string, kind: string, present: boolean) => ({
 export const modelListing = {
   object: "list",
   data: [
-    model("qwen3.8-27b", "generation", true),
-    model("laya", "decision", true),
-    model("laya-multilingual", "decision", true),
-    model("clef-flash", "decision", false),
+    modelEntry("qwen3.8-27b", "generation", true),
+    modelEntry("laya", "decision", true),
+    modelEntry("laya-multilingual", "decision", true),
+    modelEntry("clef-flash", "decision", true, false),
+    modelEntry("laya-next", "decision", false),
   ],
 };

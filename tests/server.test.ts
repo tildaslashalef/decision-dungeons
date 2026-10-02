@@ -228,6 +228,7 @@ describe("deciders", () => {
       "laya",
       "laya-multilingual",
       "clef-flash",
+      "laya-next",
     ]);
     expect(byId.typesafe?.status.configured).toBe(false);
     expect(byId.rule?.models.map((m) => m.id)).toEqual(["baseline"]);

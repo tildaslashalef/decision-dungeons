@@ -14,9 +14,9 @@ import { type DecideErrorCode, isDecideError } from "../contract/errors.ts";
 import { parseRequest, RequestError } from "../contract/validate.ts";
 import {
   createDeciders,
-  DECIDE_TIMEOUT_MS,
   type DeciderId,
   type DeciderSettings,
+  decideTimeoutMs,
   isDeciderId,
 } from "../deciders/registry.ts";
 import { dungeonById } from "../dungeons/registry.ts";
@@ -191,7 +191,9 @@ export function createApp(options: AppOptions) {
         id === "rule" && dungeon ? dungeon.rule : (await deciders())[id];
       const signal = AbortSignal.any([
         req.signal,
-        AbortSignal.timeout(DECIDE_TIMEOUT_MS[id]),
+        AbortSignal.timeout(
+          await decideTimeoutMs(id, decider, [body.request], body.model),
+        ),
       ]);
       const decision = await decideWith(decider, body.request, {
         model: body.model,
