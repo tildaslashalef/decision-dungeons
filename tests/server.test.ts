@@ -155,6 +155,18 @@ describe("config", () => {
     ).toThrow("NUCLIS_URL must be an http(s) URL");
   });
 
+  test("a nuclis URL without a path is saved with /v1", async () => {
+    const { send, store, server } = start();
+    const res = await send("PUT", "/api/config", {
+      nuclis: { url: "http://127.0.0.1:8000" },
+    });
+    expect(res.status).toBe(200);
+    expect(JSON.parse(readFileSync(store.file, "utf8")).nuclis.url).toBe(
+      "http://127.0.0.1:8000/v1",
+    );
+    server.stop(true);
+  });
+
   test("bad patches are refused with a reason", async () => {
     const { send, server } = start();
     for (const body of [

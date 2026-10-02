@@ -13,7 +13,7 @@ import type {
   PublicConfig,
   Source,
 } from "../contract/api.ts";
-import { DEFAULT_NUCLIS_URL } from "../deciders/nuclis-http.ts";
+import { apiBase, DEFAULT_NUCLIS_URL } from "../deciders/nuclis-http.ts";
 
 export interface StoredConfig {
   autopilot: Record<string, Autopilot>;
@@ -49,7 +49,7 @@ export function configHome(env: Record<string, string | undefined>): string {
   return join(homedir(), ".decision-dungeons");
 }
 
-/** An http(s) base URL with no credentials, query, or fragment; trailing slashes dropped. */
+/** An http(s) base URL with no credentials, query, or fragment; normalized by `apiBase`. */
 function urlFrom(value: unknown, where: string): string {
   if (typeof value === "string" && value.length <= 1024) {
     let url: URL | undefined;
@@ -64,7 +64,7 @@ function urlFrom(value: unknown, where: string): string {
       !url.search &&
       !url.hash
     )
-      return value.replace(/\/+$/, "");
+      return apiBase(value);
   }
   throw new ConfigError(
     `${where} must be an http(s) URL such as ${DEFAULT_NUCLIS_URL}`,

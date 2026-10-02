@@ -9,6 +9,15 @@ import type { Question } from "../contract/request.ts";
 
 export const DEFAULT_NUCLIS_URL = "http://127.0.0.1:8000/v1";
 
+/**
+ * The API's base URL as given, without trailing slashes; a bare origin
+ * (`http://127.0.0.1:8000`) gets `/v1`, where every nuclis route lives.
+ */
+export function apiBase(url: string): string {
+  const trimmed = url.replace(/\/+$/, "");
+  return new URL(trimmed).pathname === "/" ? `${trimmed}/v1` : trimmed;
+}
+
 /** `529 busy` or `timeout`: retried this many times, backing off from the first delay. */
 const RETRIES = 4;
 const FIRST_BACKOFF_MS = 100;
@@ -64,7 +73,7 @@ function sleep(ms: number, signal: AbortSignal): Promise<void> {
 }
 
 export function nuclisHttp(settings: NuclisHttpSettings): NuclisApi {
-  const base = settings.url.replace(/\/+$/, "");
+  const base = apiBase(settings.url);
   const send = settings.fetch ?? fetch;
 
   async function call(
@@ -91,10 +100,12 @@ export function nuclisHttp(settings: NuclisHttpSettings): NuclisApi {
         body = await res.json();
       } catch {
         if (signal.aborted) throw abortError(signal);
-        throw new DecideError(
-          "invalid_answer",
-          `nuclis ${path} sent malformed JSON (HTTP ${res.status})`,
-        );
+        // An error page that is not JSON still has a status worth reporting.
+        if (res.ok)
+          throw new DecideError(
+            "invalid_answer",
+            `nuclis ${path} sent malformed JSON`,
+          );
       }
       if (res.ok) return body;
       const text = `nuclis ${path}: ${errorText(body, res.status)}`;
@@ -103,6 +114,12 @@ export function nuclisHttp(settings: NuclisHttpSettings): NuclisApi {
         await sleep(FIRST_BACKOFF_MS * 2 ** attempt, signal);
         continue;
       }
+      // A 404 on a route this client knows: the URL is not the nuclis API.
+      if (res.status === 404)
+        throw new DecideError(
+          "unavailable",
+          `no nuclis API at ${base} (${errorText(body, res.status)}); its routes are under /v1`,
+        );
       throw new DecideError(
         res.status >= 500 ? "unavailable" : "rejected",
         text,

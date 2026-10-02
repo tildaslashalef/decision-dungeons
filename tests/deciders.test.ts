@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { decideWith } from "../src/contract/decider.ts";
 import type { Request } from "../src/contract/request.ts";
 import { bulkLast, nuclisDecider } from "../src/deciders/nuclis.ts";
-import { nuclisHttp } from "../src/deciders/nuclis-http.ts";
+import { apiBase, nuclisHttp } from "../src/deciders/nuclis-http.ts";
 import { randomDecider } from "../src/deciders/random.ts";
 import {
   JEV_MODEL,
@@ -108,6 +108,28 @@ describe("nuclis over its API", () => {
       configured: true,
       reachable: false,
       reason: `nuclis serve is not running at ${FAKE_NUCLIS_URL}; start it with nuclis serve`,
+    });
+  });
+
+  test("a bare origin gets /v1, and a URL that is not the API says so", async () => {
+    expect(apiBase("http://127.0.0.1:8000")).toBe("http://127.0.0.1:8000/v1");
+    expect(apiBase("http://127.0.0.1:8000/")).toBe("http://127.0.0.1:8000/v1");
+    expect(apiBase("http://127.0.0.1:8000/v1/")).toBe(
+      "http://127.0.0.1:8000/v1",
+    );
+    const elsewhere = nuclisDecider(
+      nuclisHttp({
+        url: "http://127.0.0.1:8000/api",
+        fetch: (async () =>
+          new Response("<h1>Not Found</h1>", {
+            status: 404,
+          })) as unknown as typeof fetch,
+      }),
+    );
+    expect(await elsewhere.status()).toMatchObject({
+      reachable: false,
+      reason:
+        "no nuclis API at http://127.0.0.1:8000/api (HTTP 404); its routes are under /v1",
     });
   });
 
