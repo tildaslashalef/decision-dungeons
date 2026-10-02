@@ -6,17 +6,20 @@ dungeon, its level, and the **autopilot** (which decider, which model), then
 watches it play, with a debug sidebar showing what the decider read and
 answered. The same dungeons run headless and produce comparison tables.
 
-Status: agreed 2026-10-02; milestones 1 (the skeleton) and 2 (driving,
-headless, proven against JevPilot) are built; milestone 3 is
-done but for evaluation mode and the remaining scenario checks
-(*Progress*). A new session starts at *Start here* below.
+Status (2026-10-02): milestones 1 (the skeleton) and 2 (driving,
+headless, proven bit-identical against JevPilot) are done. Milestone 3
+(driving UI) is **in progress**: the scene, HUD, gate, and lobbies are
+done; the inspector's world tab, evaluation mode, and four scenario
+levels remain (*Progress* → *Pick up here*). A new session starts at
+*Start here* below.
 
 ## Start here
 
 1. Read this plan, then `AGENTS.md`.
 2. Read the references below, in that order, before writing code.
-3. Begin milestone 1. Record what each session delivered in *Progress*
-   at the end of this file.
+3. Read *Progress* at the end of this file, then *Working notes* below,
+   and continue from **Pick up here**. Record what each session delivered
+   in *Progress*.
 
 **What exists and what does not, today.** `nuclis` is installed on the
 `PATH` (`nuclis --version`) with `laya` and `laya-multilingual` pulled, so
@@ -29,6 +32,47 @@ output, as JevPilot's `tests/nuclis.test.js` does) and never need a model,
 a GPU, a key, or the network. The TypeSafe decider is tested against a
 stubbed `fetch`; a real Jev call needs `TYPESAFE_API_KEY` and is an
 explicit command, never a default test.
+
+## Working notes
+
+What a new session needs before touching code; the rules themselves are
+in `AGENTS.md`.
+
+- **Run it.** `bun run dev` serves http://127.0.0.1:7000 (`/` the gate,
+  `/d/<dungeon>` a lobby, `/play`, `/config`). For checks use a
+  throwaway config home and another port, so the user's
+  `~/.decision-dungeons` and dev server are untouched:
+  `DECISION_DUNGEONS_HOME=/tmp/dd-home DECISION_DUNGEONS_PORT=7100 bun src/server/main.ts`.
+  The user's shell sets `TYPESAFE_API_KEY`; never call TypeSafe in a
+  check (it is billed).
+- **Check it.** `bun test` (53 tests, no network or model), `bun run lint`
+  (`tsc --noEmit` and `biome check`), `bun run eval …` and
+  `bun run check driving/stop-line --decider rule` (*Headless runs*).
+- **The driving simulation is proven bit-identical to JevPilot.** After
+  any change under `src/dungeons/driving/{world,sim,decide}` or
+  `driving.ts`, run `bun scripts/driving-reference.ts all` (about 15 min;
+  `town 1` and `stop-line 42` take 20 s) and keep every run
+  `"identical": true`. Floating-point operation order matters: reorder
+  no sum, and draw from the seeded generators in the same order. It reads
+  JevPilot from `~/Code/jevpilot` (`JEVPILOT` overrides).
+- **Browser checks.** Playwright is not a dependency. Install it once in
+  a scratch directory and point `NODE_PATH` at it:
+  `mkdir -p /tmp/dd-pw && (cd /tmp/dd-pw && bun add --exact playwright-core@1.63.0)`,
+  then `NODE_PATH=/tmp/dd-pw/node_modules BASE_URL=http://127.0.0.1:7100 bun scripts/browser-check.ts none`
+  (gate, lobbies, settings, Crossing; asserts no page scroll at five
+  desktop sizes) and `… bun scripts/driving-check.ts` (the 3D stage,
+  screenshots to `artifacts/driving/`, frame times). Look at every
+  screenshot before calling UI work done.
+- **Bun gotchas.** Bun's HTML bundler resolves every `href`/`src` in
+  `src/ui/index.html` at build time: link files by relative path (see the
+  icon links), or the whole site returns 500. It does not follow
+  `new Worker(new URL(...))`: the driving worker is built on request and
+  served at `/workers/driving-sim.js` (`src/server/assets.ts`).
+- **The user approved the gate and the settings page as they are.** Do
+  not restructure them without asking; new pages follow their language
+  (night sky, arch gateways, white cards, Fraunces and DM Sans). Icons
+  only where they carry meaning, never in front of a heading or a plain
+  label.
 
 ## How this started: the JevPilot experiment
 
@@ -129,7 +173,9 @@ work beyond what the driving UI already does, training models.
   dungeon interface, and the driving state get real types; JevPilot's
   implicit shapes (state, candidates, answers) were its main source of
   validation code.
-- **three.js** for the driving dungeon; **lucide** icons.
+- **three.js** (0.183.2, as JevPilot) for the driving dungeon; Phosphor
+  and game-icons.net icons on the gate, lobbies, and settings, lucide in
+  the play views; Fraunces and DM Sans, bundled (*Decisions*).
 - **Biome** for formatting and linting (one binary, TypeScript-native, no
   plugin stack), `tsc --noEmit` for types, `bun test` for tests.
 
@@ -189,23 +235,31 @@ decision-dungeons/
   src/
     contract/      request, answer, decider, API types; validation; decideWith
     deciders/      nuclis.ts, nuclis-spawn.ts, typesafe.ts, random.ts, registry.ts
-    lib/           seeded randomness
-    server/        Bun.serve: routes, config store, decide endpoint
+    lib/           seeded randomness (JevPilot's mulberry32, exactly)
+    server/        Bun.serve: app.ts (API), config.ts, assets.ts (models,
+                   textures, draco, the driving worker), icons.ts, main.ts
     dungeons/
-      dungeon.ts   the Dungeon interface; turn.ts, one decision turn
-      crossing/    the stop-line quiz (milestone 1's test bed)
+      dungeon.ts   the Dungeon interface; turn.ts one turn; run.ts a whole
+                   headless run and its RunResult; registry.ts
+      crossing/    the stop-line quiz: crossing.ts, view.ts (card view)
       driving/
-        world/     road graph, worlds (town, city, highway), routing
-        sim/       vehicles, traffic, signals, collisions, safety brake
-        decide/    observation → request, answers → controls, rule baseline
-        checks/    scenario checks (stop line, …) with pass/fail bounds
-        ui/        three.js scene, HUD, minimap, candidates, inspector
-      registry.ts
-    ui/            shell: start screen, config page, debug sidebar, tooltips
-    cli/           eval and check runners
-  tests/
-  scripts/         browser-check.ts (headless UI check, screenshots)
-  public/          assets with their licenses and attributions
+        world/     geometry, grid (town, city), highway, road, reroute
+        sim/       simulation, vehicle, traffic, collisions, courtesy,
+                   rules, navigation, perception, plan (candidates)
+        decide/    state, request, selection, rule
+        driving.ts the dungeon: levels (worlds and checks), turns, outcome
+        ui/        stage.ts (the full-screen view), sim.worker.ts,
+                   playback.ts, protocol.ts, scene/ (three.js), minimap,
+                   inspector, driving.css
+    ui/            gate, lobby, settings (config-page), play (card view and
+                   stage hook), debug sidebar, autopilot picker, sky, icons,
+                   topbar, dungeon-art, store, api, style.css
+    cli/           eval.ts: `bun run eval` and `bun run check`
+  tests/           contract, deciders (fake nuclis), server, crossing,
+                   driving, driving-ui
+  scripts/         browser-check, driving-check, frame-probe,
+                   driving-reference (vs JevPilot), render-icons
+  public/          models, textures, draco, icons, with licenses
   NOTICE.md
 ```
 
@@ -217,7 +271,8 @@ interface Dungeon<Run> {
   create(seed: number, level: string): Run;
   observe(run: Run): { request: Request; resolved?: Answers }; // local answers when one option
   apply(run: Run, answers: Answers): void;
-  step(run: Run, dt: number): void;
+  advance?(run: Run): void;       // turn-based: time to the next decision
+  step(run: Run, dt: number): void; // real time
   outcome(run: Run): Outcome;     // finished, passed, violations, metrics, per-decision records
   rule: Decider;                  // the dungeon's baseline
 }
@@ -240,10 +295,14 @@ interface Dungeon<Run> {
   route requires a loopback `Host` header; writes must be same-origin
   `application/json`, because the config names a binary the server runs.
 
-## The start screen and the debug sidebar
+## The gate, the lobbies, and the debug sidebar
 
-- Start: pick a dungeon, a level, an autopilot (decider and model, the
-  unconfigured ones shown disabled with the reason), a seed; play.
+- The gate (`/`) shows every registered dungeon as a gateway; a dungeon
+  without art in `src/ui/dungeon-art.ts` gets a generic one. Its lobby
+  (`/d/<id>`): pick a level, an autopilot (decider and model, the
+  unconfigured ones shown disabled with the reason), a seed; play. A
+  dungeon either plays in the shared card view (Crossing) or supplies a
+  full-screen stage (driving; `src/ui/views.ts`).
 - The HUD names the active autopilot ("nuclis · laya-multilingual engaged").
 - Debug sidebar (N): the generalized version of the one built in JevPilot:
   time split (model load, tokenize, encode, process, HTTP), tokens and
@@ -263,25 +322,29 @@ Restructured:
 - `simulation.js` (1,471 lines) splits into world, traffic, vehicle, and
   decision-state modules with typed state; `main.js` (1,104 lines of HTML
   strings and globals) becomes small UI components over a single store.
-- The planner worker stays a worker, bundled by Bun.
+- The whole run plays in a Web Worker in the browser (planning would
+  otherwise block frames); the page renders interpolated snapshots.
 - Hosted pieces (OAuth, play credit, Durable Objects, Cloudflare Worker)
   are left out.
 - **A turn-based mode**: simulated time pauses while the autopilot
   decides, so a slow decider (clef-flash, about 1–3 s) plays the same
-  game as a fast one and latency never enters the score. Real-time stays
-  the default for watching fast deciders.
+  game as a fast one and latency never enters the score. It is the
+  default in the browser (*Decisions*); T switches to real time.
 - **An evaluation mode** that turns the safety brake and the candidate
   filter's collision exclusion off, because JevPilot showed they make any
   decider arrive (random arrived on 12 of 12 trips).
-- Scenario checks are first-class levels: the red-light stop line first,
-  then a stop sign with an earlier arrival, a merge gap, a blocked lane,
-  and off-road recovery, each with a pass bound and run by every decider.
+- Scenario checks are first-class levels of the driving dungeon
+  (`driving.ts`, like `stop-line`): the red-light stop line first, then a
+  stop sign with an earlier arrival, a merge gap, a blocked lane, and
+  off-road recovery, each with a pass bound and run by every decider.
 
 **Proving the port.** The rule decider is deterministic, so it is the
 oracle: for seeds 1–4 in each world and for the stop-line check, the port
 and JevPilot (`e1beeb1` plus the `nuclis-decider` branch) must arrive
 alike, with the same violations and stop distances within 0.1 m.
-Differences are explained or fixed before the UI work.
+Differences are explained or fixed before the UI work. Done: every run
+is bit-identical (*Progress*, milestone 2); `scripts/driving-reference.ts`
+keeps it so.
 
 ## Headless runs
 
@@ -369,6 +432,12 @@ three.js Ferrari (MIT). Asset license files travel with the assets.
   stay on the same input); nuclis's `prepare` does only the
   dungeon-agnostic part, moving top-level state fields over 400 characters
   to the end, smallest first (2026-10-02).
+- The driving stage defaults to turn-based play rather than real time:
+  a browser run is then exactly the headless run of the same seed, and a
+  slow decider plays the same game (2026-10-02).
+- Manual driving (WASD, J, Space) and JevPilot's touch controls are not
+  in the plan's milestones; whether to port them is the user's call, not
+  yet made (2026-10-02).
 - A fifth decide error, `unavailable` (cannot reach the decider, HTTP 5xx,
   cancelled), beside `unconfigured`, `rejected`, `timeout`, and
   `invalid_answer` (2026-10-02).
@@ -511,7 +580,7 @@ Validated on the Apple M4 Pro, Bun 1.4.2, against JevPilot `4cca4fc`:
   the server's parser, the rule on the stop line, and a replay with the
   random decider.
 
-### Milestone 3, driving UI: mostly done (2026-10-02, commits `36ba18e`, `8d9b72c`)
+### Milestone 3, driving UI: in progress (2026-10-02, commits `36ba18e`, `8d9b72c`)
 
 Delivered:
 
@@ -548,10 +617,42 @@ Validated on the Apple M4 Pro, headless Chromium on Metal at 1440×900,
 - With `laya-multilingual` deciding, 22 slow frames and no main-thread
   long task: nuclis shares the GPU on Metal; its `cpu` backend avoids it.
 
-Not done: manual driving (WASD) and touch controls; JevPilot's full-world
-inspector tab (a perception tab instead).
+Not done (see *Pick up here*): JevPilot's full-world inspector tab (a
+perception tab stands in), evaluation mode, and four scenario levels.
+Manual driving and touch controls are a separate, undecided question
+(*Decisions*).
 
-**Pick up**: milestone 3's remainder: evaluation mode (safety brake and
-the candidate filter's collision exclusion off) and the remaining
-scenario checks (stop sign with an earlier arrival, merge gap, blocked
-lane, off-road recovery).
+### Pick up here
+
+Finish milestone 3, in this order, each a commit with its tests, checks,
+and a *Progress* entry:
+
+1. **The inspector's world tab.** Port JevPilot's full-world JSON tab
+   (its `observation(true)`: junctions with signals, roads, static
+   objects, traffic controls, vehicles, pedestrians, the planned route,
+   occluded ids) into `src/dungeons/driving/ui/inspector.ts`, built from
+   the worker's snapshot; keep the perception tab. Read JevPilot's
+   `src/simulation.js` `observation()` and `src/main.js` inspector.
+2. **Evaluation mode.** A run option that turns off the safety brake
+   (`sim.safety = false`) and the candidate filter's collision exclusion
+   (`movingCandidates` in `decide/selection.ts`, and the plan's
+   `safe` filter in `sim/plan.ts`), so a decider's choice decides the
+   outcome. Expose it as a lobby toggle and an `eval`/`check` flag
+   (`--evaluation`), carry it in `RunResult`, and record it in every
+   result. Default runs must stay bit-identical (run
+   `driving-reference.ts`). Then measure: rule and random (and `laya`,
+   `laya-multilingual` if time allows) on town, city, highway seeds 1–4
+   with and without it, a table in *Progress* naming machine, deciders,
+   seeds, commit, and nuclis version.
+3. **Scenario levels**, each a deterministic setup in `driving.ts` like
+   `stop-line` (place the car, freeze or script the other agents, hold a
+   signal) with a stated pass bound, a test that the rule passes it, and
+   a `bun run check` entry: a stop sign with an earlier arrival (yield,
+   then go once the other car clears), a merge gap (match an interstate
+   gap from the on-ramp without contact), a blocked lane (a stopped car
+   ahead: stop within 2.5 m without contact, or pass when allowed),
+   off-road recovery (start off the asphalt: back on the route within a
+   time bound without hitting a building). Add each to the lobby and to
+   `scripts/driving-check.ts` with a screenshot.
+
+Then milestone 4 (text dungeons) per *Milestones*.
