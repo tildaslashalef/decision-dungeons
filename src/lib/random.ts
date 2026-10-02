@@ -3,11 +3,16 @@
 
 export type Rng = () => number;
 
-/** mulberry32: a 32-bit seeded generator, uniform in [0, 1). */
+/**
+ * mulberry32: a 32-bit seeded generator, uniform in [0, 1). The counter
+ * grows as a float instead of wrapping, exactly as JevPilot's does, so the
+ * driving port draws the same numbers; the two agree for the first ~4.9
+ * million draws regardless.
+ */
 export function seeded(seed: number): Rng {
   let a = seed >>> 0;
   return () => {
-    a = (a + 0x6d2b79f5) >>> 0;
+    a += 0x6d2b79f5;
     let t = a;
     t = Math.imul(t ^ (t >>> 15), t | 1);
     t ^= t + Math.imul(t ^ (t >>> 7), t | 61);

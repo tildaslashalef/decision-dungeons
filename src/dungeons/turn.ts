@@ -1,5 +1,6 @@
-// One decision turn of a run, shared by the browser and the CLI so both
-// produce the same records from the same seed and answers.
+// One decision turn of a run (observe, decide, apply, advance), shared by
+// the browser and the CLI so both produce the same records from the same
+// seed and answers.
 
 import type { Answers, Decision } from "../contract/answer.ts";
 import type { Request } from "../contract/request.ts";
@@ -25,6 +26,7 @@ export async function playTurn(
   const decision = asked ? await decide(observation.request) : undefined;
   const answers: Answers = { ...observation.resolved, ...decision?.answers };
   dungeon.apply(run, answers);
+  dungeon.advance?.(run);
   return {
     observation,
     ...(decision ? { decision } : {}),

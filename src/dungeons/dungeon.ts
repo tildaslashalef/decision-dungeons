@@ -46,7 +46,12 @@ export interface Dungeon<Run> {
   create(seed: number, level: string): Run;
   observe(run: Run): Observation;
   apply(run: Run, answers: Answers): void;
-  /** Advances simulated time; a turn-based dungeon advances in `apply` and ignores this. */
+  /**
+   * Turn-based play: advances simulated time from one decision to the next.
+   * Time stands still while a decider thinks, so latency never scores.
+   */
+  advance?(run: Run): void;
+  /** Real-time play: advances simulated time by `dt` seconds. */
   step(run: Run, dt: number): void;
   outcome(run: Run): Outcome;
   /** The dungeon's deterministic baseline. */
