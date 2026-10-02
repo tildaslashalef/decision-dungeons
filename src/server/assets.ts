@@ -3,6 +3,7 @@
 // leaves them is refused before the filesystem is touched.
 
 import { join, normalize, sep } from "node:path";
+import { log } from "./log.ts";
 
 const PUBLIC = join(import.meta.dir, "../../public");
 export const ASSET_DIRECTORIES = ["models", "textures", "draco"] as const;
@@ -74,7 +75,7 @@ export async function serveWorker(
     });
   } catch (error) {
     built.delete(name);
-    console.error(`worker ${name} failed to build:`, error);
+    log.error(`worker ${name} failed to build`, { error });
     return new Response("Worker build failed", { status: 500 });
   }
 }

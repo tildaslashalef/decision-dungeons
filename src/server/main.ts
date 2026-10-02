@@ -6,6 +6,7 @@ import { createApp } from "./app.ts";
 import { serveAsset, serveWorker } from "./assets.ts";
 import { ConfigStore, configHome } from "./config.ts";
 import { iconRoutes } from "./icons.ts";
+import { log } from "./log.ts";
 
 const DEFAULT_PORT = 7000;
 /** Bun's own cap; each route enforces a smaller one. */
@@ -15,6 +16,7 @@ const env = process.env;
 const store = new ConfigStore(configHome(env), env);
 const app = createApp({ store });
 const port = Number(env.DECISION_DUNGEONS_PORT ?? DEFAULT_PORT);
+const http = log.child("http");
 
 const server = Bun.serve({
   hostname: "127.0.0.1",
@@ -26,7 +28,17 @@ const server = Bun.serve({
     "/play": index,
     "/d/*": index,
     "/config": index,
-    "/api/*": (req, srv) => app.fetch(req, srv.port ?? port),
+    "/api/*": async (req, srv) => {
+      const started = performance.now();
+      const res = await app.fetch(req, srv.port ?? port);
+      const ms = Math.round(performance.now() - started);
+      const line = `${req.method} ${new URL(req.url).pathname}`;
+      (res.status >= 400 ? http.warn : http.info)(line, {
+        status: res.status,
+        ms,
+      });
+      return res;
+    },
     ...iconRoutes,
     "/models/*": (req) => serveAsset(new URL(req.url).pathname),
     "/textures/*": (req) => serveAsset(new URL(req.url).pathname),
@@ -37,4 +49,4 @@ const server = Bun.serve({
   fetch: () => new Response("Not found", { status: 404 }),
 });
 
-console.log(`Decision Dungeons on ${server.url} (config in ${store.home})`);
+log.info(`Decision Dungeons on ${server.url}`, { config: store.home });

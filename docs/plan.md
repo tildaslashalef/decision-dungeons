@@ -44,8 +44,11 @@ in `AGENTS.md`.
   `~/.decision-dungeons` and dev server are untouched:
   `DECISION_DUNGEONS_HOME=/tmp/dd-home DECISION_DUNGEONS_PORT=7100 bun src/server/main.ts`.
   The user's shell sets `TYPESAFE_API_KEY`; never call TypeSafe in a
-  check (it is billed).
-- **Check it.** `bun test` (53 tests, no network or model), `bun run lint`
+  check (it is billed). The server logs to stdout through
+  `src/server/log.ts` (one line per API request; colored on a terminal,
+  `NO_COLOR`/`FORCE_COLOR` honored; `DECISION_DUNGEONS_LOG=debug|info|warn|error`,
+  default `info`). `bun run eval` keeps stdout for its JSON lines.
+- **Check it.** `bun test` (58 tests, no network or model), `bun run lint`
   (`tsc --noEmit` and `biome check`), `bun run eval …` and
   `bun run check driving/stop-line --decider rule` (*Headless runs*).
 - **The driving simulation is proven bit-identical to JevPilot.** After
@@ -616,6 +619,12 @@ Validated on the Apple M4 Pro, headless Chromium on Metal at 1440×900,
   `artifacts/screenshots/r3-*` (gate, lobbies, settings at five sizes).
 - With `laya-multilingual` deciding, 22 slow frames and no main-thread
   long task: nuclis shares the GPU on Metal; its `cpu` backend avoids it.
+
+Server logging (2026-10-02): a leveled, colored stdout logger
+(`src/server/log.ts`) replaces the server's `console` calls and logs each
+API request with its status and time (4xx/5xx at `warn`). `bun test`
+58 pass; `bun run lint` clean; checked on a throwaway server (port 7101)
+with `GET /api/config`, a 404, and a 400.
 
 Not done (see *Pick up here*): JevPilot's full-world inspector tab (a
 perception tab stands in), evaluation mode, and four scenario levels.

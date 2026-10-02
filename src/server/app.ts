@@ -21,6 +21,7 @@ import {
 } from "../deciders/registry.ts";
 import { dungeonById } from "../dungeons/registry.ts";
 import { ConfigError, type ConfigStore, parsePatch } from "./config.ts";
+import { log } from "./log.ts";
 
 /** Body bounds per route, in bytes. */
 export const DECIDE_BODY_LIMIT = 256 * 1024;
@@ -247,7 +248,7 @@ export function createApp(options: AppOptions) {
         // A stored config that no longer parses: the player must fix the file.
         if (error instanceof ConfigError)
           return fail(500, "config_error", error.message);
-        console.error(`${req.method} ${path} failed:`, error);
+        log.error(`${req.method} ${path} failed`, { error });
         return fail(500, "unavailable", "the server failed; see its log");
       }
     },
