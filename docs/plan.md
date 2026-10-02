@@ -7,7 +7,8 @@ watches it play, with a debug sidebar showing what the decider read and
 answered. The same dungeons run headless and produce comparison tables.
 
 Status: agreed 2026-10-02; milestones 1 (the skeleton) and 2 (driving,
-headless, proven against JevPilot) are built; milestone 3 is under way
+headless, proven against JevPilot) are built; milestone 3 is
+done but for evaluation mode and the remaining scenario checks
 (*Progress*). A new session starts at *Start here* below.
 
 ## Start here
@@ -510,8 +511,47 @@ Validated on the Apple M4 Pro, Bun 1.4.2, against JevPilot `4cca4fc`:
   the server's parser, the rule on the stop line, and a replay with the
   random decider.
 
-**Pick up at milestone 3**: the 3D scene, HUD, minimap, candidates, and
-inspector at JevPilot's look (in progress in this session); then
-evaluation mode (safety brake and the candidate filter's collision
-exclusion off) and the remaining scenario checks (stop sign with an
-earlier arrival, merge gap, blocked lane, off-road recovery).
+### Milestone 3, driving UI: mostly done (2026-10-02, commits `36ba18e`, `8d9b72c`)
+
+Delivered:
+
+- The gate (`/`): a night-sky world select, every dungeon a lit gateway,
+  keyboard ←/→ and Enter; each dungeon's lobby at `/d/<id>` (levels,
+  autopilot, seed); a settings page; the app icon set. Approved by the
+  user on screen; all desktop pages fit one viewport (1024×640 to
+  2000×1020), asserted by `scripts/browser-check.ts`.
+- The driving stage (`src/dungeons/driving/ui/`): JevPilot's scene (Model
+  Y, town, city, interstate, traffic, pedestrians, signals, sky, shadows),
+  chase, driver, and bird's-eye cameras, HUD, minimap, candidate paths
+  with probabilities, inspector (decider input, decision state, response,
+  perception), crash effects, result cards, the debug sidebar (N), and a
+  turn-based / real-time toggle (T). The run plays in a Web Worker and the
+  page renders interpolated snapshots.
+
+Validated on the Apple M4 Pro, headless Chromium on Metal at 1440×900,
+20 s of town driving with the rule (`scripts/driving-check.ts`,
+`scripts/frame-probe.ts`; headless numbers, not a user's screen):
+
+- Frame time, ours with the run on the main thread: 53.6 fps, p95 33.4 ms,
+  21 frames over 50 ms. In the worker: 60 fps, p95 16.7 ms, none over
+  50 ms, turn-based and real-time. JevPilot under the same conditions
+  (its own nuclis `laya` decider): 58 fps, p95 16.8 ms, one over 50 ms.
+- In the browser, turn-based town seed 1 gives 155 decisions, 435 m,
+  46 s, no violation, as `bun run eval` does; the stop-line check passes
+  at 3.07 m. `bun scripts/driving-reference.ts` on town 1 and the stop
+  line is still bit-identical after the stage's refactor.
+- `bun test`: 53 pass; `bunx tsc --noEmit`, `bunx biome check` clean.
+- Screenshots looked at: `artifacts/driving/` (town chase, candidates,
+  driver, bird's-eye, debug, inspector, real-time, finished; city;
+  highway on-ramp and interstate; stop line at red and finished) and
+  `artifacts/screenshots/r3-*` (gate, lobbies, settings at five sizes).
+- With `laya-multilingual` deciding, 22 slow frames and no main-thread
+  long task: nuclis shares the GPU on Metal; its `cpu` backend avoids it.
+
+Not done: manual driving (WASD) and touch controls; JevPilot's full-world
+inspector tab (a perception tab instead).
+
+**Pick up**: milestone 3's remainder: evaluation mode (safety brake and
+the candidate filter's collision exclusion off) and the remaining
+scenario checks (stop sign with an earlier arrival, merge gap, blocked
+lane, off-road recovery).
