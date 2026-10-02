@@ -101,7 +101,7 @@ function defaultSelect(
       onchange: (event: Event) =>
         onChoose((event.target as HTMLSelectElement).value),
     },
-    h("option", { value: "" }, "First ready autopilot"),
+    h("option", { value: "" }, "Default: nuclis · laya-multilingual"),
     groups,
   );
   select.value = current ? `${current.decider}/${current.model}` : "";

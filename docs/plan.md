@@ -514,6 +514,10 @@ three.js Ferrari (MIT). Asset license files travel with the assets.
   skeleton plays end to end before driving: drive or stop at a signalled
   line, a known answer per seeded case, levels for the signal, the
   distance, and both (2026-10-02).
+- Every lobby selects nuclis · `laya-multilingual` unless the settings
+  page saved another default for that dungeon; when nuclis is not ready
+  it falls back to the first ready decider (rule, random, nuclis,
+  TypeSafe) (2026-10-02).
 - The text dungeons are Inbox, Ticket triage, and Logs, built on one
   builder (`src/dungeons/text/`): each case one decision, scored against
   known answers (a noul right at 0.5, a choice by option, a score by the

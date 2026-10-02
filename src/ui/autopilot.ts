@@ -73,12 +73,23 @@ export function usable(
   );
 }
 
-/** The first usable autopilot, preferring `wanted` when it is usable. */
+/** The autopilot every lobby selects unless the settings name another. */
+export const PREFERRED_AUTOPILOT: Autopilot = {
+  decider: "nuclis",
+  model: "laya-multilingual",
+};
+
+/**
+ * `wanted` (the dungeon's saved default) when usable, else the preferred
+ * autopilot, else the first usable one, so a lobby always has one when any
+ * decider is ready.
+ */
 export function defaultAutopilot(
   deciders: DeciderView[],
   wanted?: Autopilot,
 ): Autopilot | undefined {
   if (wanted && usable(deciders, wanted)) return wanted;
+  if (usable(deciders, PREFERRED_AUTOPILOT)) return PREFERRED_AUTOPILOT;
   for (const id of ["rule", "random", "nuclis", "typesafe"]) {
     const view = deciders.find((d) => d.id === id);
     const model = view?.models.find((m) => m.available);
