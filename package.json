@@ -7,7 +7,8 @@
     "start": "bun src/server/main.ts",
     "eval": "bun src/cli/eval.ts eval",
     "check": "bun src/cli/eval.ts check",
-    "lint": "bunx tsc --noEmit && bunx biome check"
+    "lint": "bunx tsc --noEmit && bunx biome check",
+    "seed": "bun src/cli/seed.ts"
   },
   "dependencies": {
     "@fontsource-variable/dm-sans": "5.3.0",

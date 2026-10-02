@@ -47,6 +47,7 @@ function enterSelection(current: Selection, dungeon: string): Selection {
     dungeon,
     level: dungeonById(dungeon)?.levels[0]?.id ?? "",
     evaluation: false,
+    caseSet: "base",
   };
 }
 
@@ -62,6 +63,7 @@ const store = new Store({
       model: "baseline",
       seed: 1,
       evaluation: false,
+      caseSet: "base",
     },
     initial.dungeon ?? first?.id ?? "",
   ),
@@ -181,16 +183,44 @@ function render(): void {
   window.scrollTo(0, 0);
 }
 
+/** Lists a text dungeon's case sets the first time its lobby opens. */
+async function loadCaseSets(dungeon: string): Promise<void> {
+  if (!dungeonById(dungeon)?.caseSets || store.get().caseSets?.[dungeon])
+    return;
+  try {
+    const { sets } = await api.caseSets(dungeon);
+    store.set({
+      caseSets: { ...store.get().caseSets, [dungeon]: sets },
+      caseSetsError: undefined,
+    });
+  } catch (error) {
+    store.set({ caseSetsError: message(error) });
+  }
+}
+
 store.subscribe((state, previous) => {
   if (state.selection.dungeon !== previous.selection.dungeon)
     applyDefaultAutopilot();
+  if (
+    state.route === "lobby" &&
+    (state.route !== previous.route ||
+      state.selection.dungeon !== previous.selection.dungeon)
+  )
+    void loadCaseSets(state.selection.dungeon);
   const changed = (keys: (keyof State)[]) =>
     keys.some((key) => state[key] !== previous[key]);
   if (
     changed(["route"]) ||
     (state.route === "gate" && changed(["deciders", "decidersError"])) ||
     (state.route === "lobby" &&
-      changed(["deciders", "decidersError", "config", "selection"])) ||
+      changed([
+        "deciders",
+        "decidersError",
+        "config",
+        "selection",
+        "caseSets",
+        "caseSetsError",
+      ])) ||
     (state.route === "config" &&
       changed(["deciders", "config", "configError", "configNotice"])) ||
     (state.route === "play" && changed(["play", "debugOpen"]))
@@ -218,3 +248,5 @@ window.addEventListener("keydown", (event) => {
 render();
 await load();
 applyDefaultAutopilot();
+if (store.get().route === "lobby")
+  void loadCaseSets(store.get().selection.dungeon);

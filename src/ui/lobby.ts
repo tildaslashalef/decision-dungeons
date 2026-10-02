@@ -1,6 +1,6 @@
 // A dungeon's lobby: its art and story on one side; level, autopilot,
-// evaluation mode (when the dungeon has safety nets), and seed on the
-// other; then start the run.
+// evaluation mode (when the dungeon has safety nets), the case set (when
+// it plays from one), and seed on the other; then start the run.
 
 import { dungeonById } from "../dungeons/registry.ts";
 import { autopilotPicker, usable } from "./autopilot.ts";
@@ -21,13 +21,17 @@ export interface LobbyActions {
 const freshSeed = () => Math.floor(Math.random() * 10_000);
 
 export function lobbyPage(store: Store, actions: LobbyActions): HTMLElement {
-  const { selection, deciders, decidersError } = store.get();
+  const { selection, deciders, decidersError, caseSets, caseSetsError } =
+    store.get();
   const dungeon = dungeonById(selection.dungeon);
   if (!dungeon) return h("main", { class: "lobby" });
   const art = artFor(dungeon.id);
   const select = (patch: Partial<typeof selection>) =>
     store.set({ selection: { ...store.get().selection, ...patch } });
-  const ready = usable(deciders, selection);
+  const sets = caseSets?.[dungeon.id];
+  const ready =
+    usable(deciders, selection) &&
+    (!dungeon.caseSets || !!sets?.some((s) => s.name === selection.caseSet));
   const autopilot = deciders?.find((d) => d.id === selection.decider);
 
   const hero = h(
@@ -125,6 +129,50 @@ export function lobbyPage(store: Store, actions: LobbyActions): HTMLElement {
       )
     : null;
 
+  const chosenSet = sets?.find((s) => s.name === selection.caseSet);
+  const cases = dungeon.caseSets
+    ? h(
+        "section",
+        { class: "lobby-step" },
+        h("h2", {}, "Cases"),
+        sets
+          ? h(
+              "label",
+              { class: "case-set" },
+              h(
+                "select",
+                {
+                  class: "select",
+                  name: "case-set",
+                  onchange: (event: Event) =>
+                    select({
+                      caseSet: (event.target as HTMLSelectElement).value,
+                    }),
+                },
+                sets.map((s) =>
+                  h(
+                    "option",
+                    { value: s.name, selected: s.name === selection.caseSet },
+                    `${s.name} · ${s.count} cases · seed ${s.seed}`,
+                  ),
+                ),
+              ),
+              h(
+                "span",
+                { class: "switch-hint" },
+                chosenSet
+                  ? `${chosenSet.levels[selection.level] ?? 0} ${selection.level} cases, ${chosenSet.generator}, hash ${chosenSet.hash}. A run asks 20, picked by the seed. bun run seed writes more sets.`
+                  : "Choose a case set.",
+              ),
+            )
+          : h(
+              "p",
+              { class: caseSetsError ? "error-text" : "" },
+              caseSetsError ?? "Reading the case sets…",
+            ),
+      )
+    : null;
+
   const start = h(
     "footer",
     { class: "lobby-start" },
@@ -201,7 +249,7 @@ export function lobbyPage(store: Store, actions: LobbyActions): HTMLElement {
     h(
       "div",
       { class: "lobby-panel glass" },
-      h("div", { class: "lobby-scroll" }, levels, pilots, evaluation),
+      h("div", { class: "lobby-scroll" }, levels, pilots, evaluation, cases),
       start,
     ),
   );

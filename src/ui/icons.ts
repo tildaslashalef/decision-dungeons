@@ -21,13 +21,25 @@ import checkCircle from "@phosphor-icons/core/assets/duotone/check-circle-duoton
 import doorOpen from "@phosphor-icons/core/assets/duotone/door-open-duotone.svg" with {
   type: "text",
 };
+import envelope from "@phosphor-icons/core/assets/duotone/envelope-simple-duotone.svg" with {
+  type: "text",
+};
+import fish from "@phosphor-icons/core/assets/duotone/fish-simple-duotone.svg" with {
+  type: "text",
+};
 import floppy from "@phosphor-icons/core/assets/duotone/floppy-disk-duotone.svg" with {
+  type: "text",
+};
+import gauge from "@phosphor-icons/core/assets/duotone/gauge-duotone.svg" with {
   type: "text",
 };
 import gear from "@phosphor-icons/core/assets/duotone/gear-duotone.svg" with {
   type: "text",
 };
 import hash from "@phosphor-icons/core/assets/duotone/hash-duotone.svg" with {
+  type: "text",
+};
+import headset from "@phosphor-icons/core/assets/duotone/headset-duotone.svg" with {
   type: "text",
 };
 import key from "@phosphor-icons/core/assets/duotone/key-duotone.svg" with {
@@ -39,10 +51,25 @@ import play from "@phosphor-icons/core/assets/duotone/play-duotone.svg" with {
 import plugs from "@phosphor-icons/core/assets/duotone/plugs-connected-duotone.svg" with {
   type: "text",
 };
+import scroll from "@phosphor-icons/core/assets/duotone/scroll-duotone.svg" with {
+  type: "text",
+};
 import shuffle from "@phosphor-icons/core/assets/duotone/shuffle-duotone.svg" with {
   type: "text",
 };
+import siren from "@phosphor-icons/core/assets/duotone/siren-duotone.svg" with {
+  type: "text",
+};
 import stack from "@phosphor-icons/core/assets/duotone/stack-duotone.svg" with {
+  type: "text",
+};
+import terminal from "@phosphor-icons/core/assets/duotone/terminal-window-duotone.svg" with {
+  type: "text",
+};
+import ticket from "@phosphor-icons/core/assets/duotone/ticket-duotone.svg" with {
+  type: "text",
+};
+import translate from "@phosphor-icons/core/assets/duotone/translate-duotone.svg" with {
   type: "text",
 };
 import trash from "@phosphor-icons/core/assets/duotone/trash-duotone.svg" with {
@@ -91,6 +118,16 @@ const SOURCES = {
   plugs,
   trash,
   warning,
+  // Phosphor: the text dungeons' marks.
+  envelope,
+  ticket,
+  terminal,
+  translate,
+  fish,
+  siren,
+  gauge,
+  headset,
+  scroll,
   // game-icons.net: dungeon accents.
   dungeonGate: gameDungeonGate,
   cityCar: gameCityCar,

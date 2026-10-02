@@ -119,8 +119,11 @@ stays as one decider among others, chosen by the player).
 
 ## Security and user data
 
-- `~/.decision-dungeons/` holds the config (`config.json`, mode 600);
-  `DECISION_DUNGEONS_HOME` may override it with an absolute path.
+- `~/.decision-dungeons/` holds the config (`config.json`) and the text
+  dungeons' case sets (`dungeons.db`, SQLite), both mode 600;
+  `DECISION_DUNGEONS_HOME` may override it with an absolute path. Case
+  sets are immutable once written (`bun run seed` writes new ones); every
+  case is synthetic, labelled by its seeded generator, never by a model.
 - API keys live only on the server: environment variables or the config
   file. The browser may set a key but never reads one back; keys never
   enter logs, responses, or error messages.

@@ -5,6 +5,7 @@
 import type { Answers } from "../contract/answer.ts";
 import type { Decider } from "../contract/decider.ts";
 import type { Request } from "../contract/request.ts";
+import type { CaseSet } from "./text/cases.ts";
 
 export interface Level {
   id: string;
@@ -45,6 +46,8 @@ export interface RunOptions {
    * decider's choices alone decide the outcome.
    */
   evaluation?: boolean;
+  /** The case set a text dungeon plays from (`Dungeon.caseSets`). */
+  cases?: CaseSet;
 }
 
 export interface Dungeon<Run> {
@@ -54,6 +57,8 @@ export interface Dungeon<Run> {
   levels: Level[];
   /** What evaluation mode turns off; absent when the dungeon has no safety nets. */
   evaluation?: string;
+  /** Plays cases from a stored case set, which `create` must be given. */
+  caseSets?: true;
   create(seed: number, level: string, options?: RunOptions): Run;
   observe(run: Run): Observation;
   apply(run: Run, answers: Answers): void;

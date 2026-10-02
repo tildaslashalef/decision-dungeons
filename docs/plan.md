@@ -247,27 +247,38 @@ decision-dungeons/
     contract/      request, answer, decider, API types; validation; decideWith
     deciders/      nuclis.ts, nuclis-http.ts, typesafe.ts, random.ts, registry.ts
     lib/           seeded randomness (JevPilot's mulberry32, exactly)
-    server/        Bun.serve: app.ts (API), config.ts, assets.ts (models,
-                   textures, draco, the driving worker), icons.ts, main.ts
+    server/        Bun.serve: app.ts (API), config.ts, cases.ts (case sets in
+                   SQLite, the generators' registry), assets.ts (models,
+                   textures, draco, the driving worker), icons.ts, log.ts,
+                   main.ts
     dungeons/
       dungeon.ts   the Dungeon interface; turn.ts one turn; run.ts a whole
                    headless run and its RunResult; registry.ts
       crossing/    the stop-line quiz: crossing.ts, view.ts (card view)
+      text/        the text dungeons' shared parts: cases.ts (case and set
+                   types, picking by seed), text-dungeon.ts (the builder,
+                   scoring), view.ts (the document card), vocab.ts
+      inbox/       inbox.ts (levels, rule), generate.ts, text.ts (mail in
+                   four languages, digest paragraphs)
+      tickets/     tickets.ts, generate.ts, text.ts
+      logs/        logs.ts, generate.ts
       driving/
         world/     geometry, grid (town, city), highway, road, reroute
         sim/       simulation, vehicle, traffic, collisions, courtesy,
                    rules, navigation, perception, plan (candidates)
         decide/    state, request, selection, rule
         driving.ts the dungeon: levels (worlds and checks), turns, outcome
+        scenarios.ts the scenario levels and their verdicts
         ui/        stage.ts (the full-screen view), sim.worker.ts,
                    playback.ts, protocol.ts, scene/ (three.js), minimap,
                    inspector, driving.css
     ui/            gate, lobby, settings (config-page), play (card view and
                    stage hook), debug sidebar, autopilot picker, sky, icons,
                    topbar, dungeon-art, store, api, style.css
-    cli/           eval.ts: `bun run eval` and `bun run check`
+    cli/           eval.ts: `bun run eval` and `bun run check`; seed.ts:
+                   `bun run seed`
   tests/           contract, deciders (stubbed nuclis API), nuclis-live,
-                   server, log, crossing, driving, driving-ui
+                   server, log, crossing, driving, driving-ui, text
   scripts/         browser-check, driving-check, frame-probe,
                    driving-reference (vs JevPilot), render-icons
   public/          models, textures, draco, icons, with licenses
@@ -469,6 +480,23 @@ three.js Ferrari (MIT). Asset license files travel with the assets.
   skeleton plays end to end before driving: drive or stop at a signalled
   line, a known answer per seeded case, levels for the signal, the
   distance, and both (2026-10-02).
+- The text dungeons are Inbox, Ticket triage, and Logs, built on one
+  builder (`src/dungeons/text/`): each case one decision, scored against
+  known answers (a noul right at 0.5, a choice by option, a score by the
+  nearest level; Brier and mean absolute error as metrics), 20 cases a
+  run, passed at 90% right. Their cases live in SQLite (`bun:sqlite`, no
+  dependency) at `dungeons.db` in the config home: immutable named sets,
+  each with its generator id, seed, and a content hash every result
+  records (`RunResult.caseSet`); a run picks its cases from one set by
+  seed. Generators are seeded code, so labels follow from construction and
+  `bun run seed` reproduces a set exactly; the server writes each base set
+  on first use. The world is a fictional company (Harborline), with real
+  service names only where real mail carries them (2026-10-02).
+- The text dungeons' gate marks are Phosphor icons (envelope, ticket,
+  terminal), already a dependency, rather than new game-icons.net
+  downloads (2026-10-02).
+- `RunResult.truncated` counts decisions whose state the model cut, from
+  the decider's own report (2026-10-02).
 - The short-budget rewrite is split. Dungeons put each option's facts in
   its text and situational instructions first in the one request every
   decider receives (JevPilot showed this costs Jev nothing, and comparisons
@@ -748,6 +776,44 @@ Not done: the measurement table across deciders (*Pick up here*).
 Manual driving and touch controls are a separate, undecided question
 (*Decisions*).
 
+### Milestone 4, text dungeons: done (2026-10-02)
+
+Delivered: Inbox, Ticket triage, and Logs (four levels each) on one
+builder (`src/dungeons/text/`), seeded generators per dungeon, case sets
+in SQLite (`src/server/cases.ts`, `dungeons.db`), `bun run seed`,
+`GET /api/cases/:dungeon[/:set?level=]`, the lobby's case-set picker, the
+document card view (email, ticket, log window beside answers, known
+answers, and why), gate art, `--set` on `eval`/`check`,
+`RunResult.caseSet` and `RunResult.truncated` (*Decisions*). Base sets:
+inbox 360 cases (hash `547057d4391c013f`), tickets 360
+(`82bdfd3b84a23981`), logs 340 (`407ba5af2d34a56a`), all seed 1.
+
+Validated on the Apple M4 Pro:
+
+- `bun test`: 82 pass (generators reproduce their hash and differ by
+  seed; every case is a valid request whose known answers fit its
+  questions; yes/no levels are balanced 30–70%; the store writes once,
+  refuses a different set under a name, replaces on demand, mode 600; the
+  API lists and sends sets). `bun run lint` clean.
+- `bun run seed` on an empty home: three base sets in 7–17 ms each;
+  rerun: unchanged; a new set name adds cases; a different set under an
+  existing name is refused.
+- The baselines on the base sets, seeds 1–4 (`bun run eval --dungeon
+  <id> --decider rule|random --seeds 1-4`), mean accuracy and passes:
+  the rule passes Inbox phishing and long (1.00), triage 3/4 (0.91),
+  languages 1/4 (0.76, English keywords); Tickets routing 3/4 (0.94),
+  urgency 2/4 (0.89), refunds 4/4, languages 0/4 (0.16); Logs thresholds
+  4/4 (exact arithmetic), root cause 4/4 (0.99), long 4/4, incident 2/4
+  (0.88). Random passes nothing (0.11–0.53, chance for each question).
+- A first real run (`laya`, `laya-multilingual`, Inbox seed 1, while the
+  driving measurements loaded the server): phishing 0.55 and 0.70, triage
+  0.55 and 0.40, languages 0.95 and 0.60, long 0.60 and 0.60 with 20 and
+  17 of 20 states truncated.
+- `scripts/browser-check.ts none` passed: the gate with five gateways,
+  each lobby at five sizes, Inbox phishing, Tickets urgency, and Logs
+  thresholds played by the rule in the browser (pass, 95–100%). Looked at
+  `artifacts/screenshots/{gate-1440x900,lobby-inbox-1440x900,inbox-rule-running,logs-rule-finished}.png`.
+
 ### Pick up here
 
 Finish milestone 3, in this order, each a commit with its tests, checks,
@@ -760,16 +826,9 @@ and a *Progress* entry:
 
 Then, per *Milestones*:
 
-4. **Milestone 4, text dungeons.** `src/store/` over `bun:sqlite` at
-   `~/.decision-dungeons/dungeons.db` (`DECISION_DUNGEONS_HOME` moves it);
-   `bun run seed` writes named case sets from a seeded generator
-   (realistic senders, domains, ticket wording, log formats, some cases in
-   other languages), each case with its known answer; runs pick cases by
-   seed within a set and record the set and its content hash; the browser
-   gets cases through the server. Dungeons: inbox (phishing, priority,
-   routing), ticket triage (team, urgency score), logs (incident or not,
-   numbers against thresholds, long inputs past the budget). Batched
-   `states` on `/v1/decisions` for headless runs.
+4. **Batched decisions for text dungeons**: their cases are independent,
+   so a headless run can send up to 64 states per `/v1/decisions`
+   request; measure the speedup against one request per case.
 5. **Milestone 5, the second 3D dungeon.**
 6. A measurement table: every dungeon, rule, random, `laya`,
    `laya-multilingual`, seeds 1–4, on the real server.

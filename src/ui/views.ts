@@ -7,6 +7,8 @@ import {
   mountDrivingStage,
   type StageContext,
 } from "../dungeons/driving/ui/stage.ts";
+import type { TextRun } from "../dungeons/text/text-dungeon.ts";
+import { textView } from "../dungeons/text/view.ts";
 import { h } from "./dom.ts";
 import type { PlayStatus } from "./store.ts";
 
@@ -14,6 +16,9 @@ type View = (run: unknown, status: PlayStatus) => HTMLElement;
 
 const views: Record<string, View> = {
   crossing: (run, status) => crossingView(run as CrossingRun, status),
+  inbox: (run, status) => textView("email", run as TextRun, status),
+  tickets: (run, status) => textView("ticket", run as TextRun, status),
+  logs: (run, status) => textView("logs", run as TextRun, status),
 };
 
 /**

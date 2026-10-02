@@ -15,6 +15,7 @@ import {
 } from "../deciders/registry.ts";
 import { dungeonById, dungeons } from "../dungeons/registry.ts";
 import { type RunResult, runEpisode } from "../dungeons/run.ts";
+import { BASE_SET, CaseStore } from "../server/cases.ts";
 import { ConfigStore, configHome } from "../server/config.ts";
 
 const DEFAULT_MODEL: Record<string, string> = {
@@ -25,9 +26,10 @@ const DEFAULT_MODEL: Record<string, string> = {
 };
 
 const USAGE = `usage:
-  bun run eval --dungeon <id> --level <id[,id]> --decider <id> [--model <id>] [--seeds 1-4] [--evaluation] [--json]
+  bun run eval --dungeon <id> --level <id[,id]> --decider <id> [--model <id>] [--seeds 1-4] [--evaluation] [--set <name>] [--json]
   bun run check <dungeon>/<level> --decider <id> [--model <id>] [--seeds 42] [--evaluation] [--json]
 --evaluation turns the dungeon's safety nets off (driving: the safety brake and the collision filter)
+--set <name> picks a text dungeon's case set (default base; bun run seed writes more)
 dungeons: ${Object.values(dungeons)
   .map((d) => `${d.id} (${d.levels.map((l) => l.id).join(", ")})`)
   .join("; ")}`;
@@ -49,17 +51,19 @@ function seedsFrom(text: string): number[] {
   return seeds;
 }
 
-const format = (value: number | undefined, digits = 1) =>
+/** Integers as they are; fractions with two decimals under 10, one above. */
+const format = (value: number | undefined, digits?: number) =>
   value === undefined
     ? "—"
     : Number.isInteger(value)
       ? String(value)
-      : value.toFixed(digits);
+      : value.toFixed(digits ?? (Math.abs(value) < 10 ? 2 : 1));
 
 function table(results: RunResult[]): string {
   const metrics = [
     ...new Set(results.flatMap((r) => Object.keys(r.outcome.metrics))),
   ];
+  const truncated = results.some((r) => r.truncated !== undefined);
   const head = [
     "level",
     "seed",
@@ -67,6 +71,7 @@ function table(results: RunResult[]): string {
     "violations",
     ...metrics,
     "asked",
+    ...(truncated ? ["truncated"] : []),
     "ms/decision",
   ];
   const rows = results.map((r) => [
@@ -82,6 +87,7 @@ function table(results: RunResult[]): string {
     String(r.outcome.violations),
     ...metrics.map((m) => format(r.outcome.metrics[m])),
     String(r.asked),
+    ...(truncated ? [format(r.truncated)] : []),
     format(r.meanDecideMs, 0),
   ]);
   const line = (cells: string[]) => `| ${cells.join(" | ")} |`;
@@ -102,6 +108,7 @@ async function main(argv: string[]): Promise<void> {
       model: { type: "string" },
       seeds: { type: "string" },
       evaluation: { type: "boolean", default: false },
+      set: { type: "string" },
       json: { type: "boolean", default: false },
     },
   });
@@ -128,7 +135,17 @@ async function main(argv: string[]): Promise<void> {
     fail(`${dungeon.id} has no evaluation mode`);
 
   const env = process.env;
-  const store = new ConfigStore(configHome(env), env);
+  const home = configHome(env);
+  const store = new ConfigStore(home, env);
+  if (values.set && !dungeon.caseSets) fail(`${dungeon.id} plays no case sets`);
+  let cases: Awaited<ReturnType<CaseStore["load"]>> = null;
+  if (dungeon.caseSets) {
+    const caseStore = new CaseStore(home);
+    caseStore.ensureBase();
+    cases = caseStore.load(dungeon.id, values.set ?? BASE_SET);
+    caseStore.close();
+    if (!cases) fail(`${dungeon.id} has no case set ${values.set}`);
+  }
   const decider: Decider =
     deciderId === "rule"
       ? dungeon.rule
@@ -147,14 +164,17 @@ async function main(argv: string[]): Promise<void> {
             seed,
             signal: AbortSignal.timeout(DECIDE_TIMEOUT_MS[deciderId]),
           }),
-        { evaluation: values.evaluation },
+        {
+          evaluation: values.evaluation,
+          ...(cases ? { cases } : {}),
+        },
       );
       results.push(result);
       console.log(JSON.stringify(result));
     }
   if (!values.json)
     console.log(
-      `\n${dungeon.title} · ${deciderId} · ${model}${values.evaluation ? " · evaluation mode" : ""}\n\n${table(results)}`,
+      `\n${dungeon.title} · ${deciderId} · ${model}${values.evaluation ? " · evaluation mode" : ""}${cases ? ` · cases ${cases.name} ${cases.hash}` : ""}\n\n${table(results)}`,
     );
   if (results.some((r) => r.error || r.outcome.passed === false))
     process.exitCode = 1;

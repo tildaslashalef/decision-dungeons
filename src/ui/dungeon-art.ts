@@ -176,6 +176,137 @@ function drawCrossing(key: string): SVGElement {
   );
 }
 
+/** An envelope on a hook: mail that may be bait. */
+function drawInbox(key: string): SVGElement {
+  const sky = `${key}-sky`;
+  return frame(
+    "An envelope hanging from a fishing hook",
+    svg(
+      "defs",
+      {},
+      gradient(sky, [
+        [0, "#dcefeb"],
+        [1, "#f5f7f6"],
+      ]),
+    ),
+    rect(0, 0, 300, 400, `url(#${sky})`),
+    // The line and the hook.
+    path("M150 0 L150 150", { stroke: "#3b4048", "stroke-width": 2 }),
+    path("M150 150 C150 176, 176 176, 176 156", {
+      stroke: "#3b4048",
+      "stroke-width": 4,
+      fill: "none",
+      "stroke-linecap": "round",
+    }),
+    // The envelope, tilted on the hook.
+    svg(
+      "g",
+      { transform: "rotate(-8 150 240)" },
+      rect(76, 168, 148, 104, "#fdfdfb", { rx: 8, stroke: "#c9ced4" }),
+      path("M76 176 L150 230 L224 176", {
+        stroke: "#9aa3ad",
+        "stroke-width": 3,
+        fill: "none",
+      }),
+      rect(186, 180, 26, 32, "#0e8a7e", { rx: 3 }),
+    ),
+    // Other mail below, waiting.
+    rect(48, 320, 96, 56, "#ffffff", { rx: 6, stroke: "#d5d9de" }),
+    rect(156, 330, 96, 56, "#ffffff", { rx: 6, stroke: "#d5d9de" }),
+    path("M48 324 L96 352 L144 324", {
+      stroke: "#c4cad1",
+      "stroke-width": 2,
+      fill: "none",
+    }),
+    path("M156 334 L204 362 L252 334", {
+      stroke: "#c4cad1",
+      "stroke-width": 2,
+      fill: "none",
+    }),
+  );
+}
+
+/** A queue of support tickets, the top one flagged. */
+function drawTickets(key: string): SVGElement {
+  const sky = `${key}-sky`;
+  const card = (y: number, w: number, tag: string, flagged = false) =>
+    svg(
+      "g",
+      {},
+      rect(150 - w / 2, y, w, 52, "#ffffff", {
+        rx: 10,
+        stroke: flagged ? "#7a4fd6" : "#d5d9de",
+        "stroke-width": flagged ? 3 : 1,
+      }),
+      rect(150 - w / 2 + 14, y + 14, w * 0.45, 7, "#2b3038", { rx: 3 }),
+      rect(150 - w / 2 + 14, y + 30, w * 0.62, 6, "#c4cad1", { rx: 3 }),
+      rect(150 + w / 2 - 54, y + 13, 40, 16, tag, { rx: 8 }),
+    );
+  return frame(
+    "A stack of support tickets, the top one flagged urgent",
+    svg(
+      "defs",
+      {},
+      gradient(sky, [
+        [0, "#ebe4f8"],
+        [1, "#f7f6fa"],
+      ]),
+    ),
+    rect(0, 0, 300, 400, `url(#${sky})`),
+    card(300, 196, "#d5d9de"),
+    card(236, 212, "#9fc5f8"),
+    card(172, 228, "#f6c86b"),
+    card(108, 244, "#e82127", true),
+  );
+}
+
+/** A terminal of log lines, one of them red, and a pulse line. */
+function drawLogs(key: string): SVGElement {
+  const sky = `${key}-sky`;
+  const lines: [number, string][] = [
+    [0.7, "#7f8a96"],
+    [0.55, "#7f8a96"],
+    [0.8, "#7f8a96"],
+    [0.6, "#f6c86b"],
+    [0.75, "#7f8a96"],
+    [0.85, "#ff8a80"],
+    [0.65, "#ff8a80"],
+    [0.5, "#7f8a96"],
+  ];
+  return frame(
+    "A terminal of log lines with errors, and a heartbeat line",
+    svg(
+      "defs",
+      {},
+      gradient(sky, [
+        [0, "#e1efe5"],
+        [1, "#f5f7f5"],
+      ]),
+    ),
+    rect(0, 0, 300, 400, `url(#${sky})`),
+    rect(40, 70, 220, 230, "#15181d", { rx: 12 }),
+    rect(40, 70, 220, 22, "#262a31", { rx: 12 }),
+    ...[0, 1, 2].map((i) =>
+      svg("circle", {
+        cx: 56 + i * 12,
+        cy: 81,
+        r: 3.5,
+        fill: ["#ff5f57", "#febc2e", "#28c840"][i] as string,
+      }),
+    ),
+    ...lines.map(([w, color], i) =>
+      rect(56, 108 + i * 22, 188 * w, 8, color, { rx: 3 }),
+    ),
+    path("M20 340 L110 340 L124 312 L140 368 L156 324 L168 340 L280 340", {
+      stroke: "#2f9e44",
+      "stroke-width": 4,
+      fill: "none",
+      "stroke-linejoin": "round",
+      "stroke-linecap": "round",
+    }),
+  );
+}
+
 /** Any dungeon without its own illustration: a doorway into the dark. */
 function drawDoor(key: string): SVGElement {
   const depth = `${key}-depth`;
@@ -216,6 +347,39 @@ const ART: Record<string, DungeonArt> = {
       { icon: "trafficLights", text: "Stop-line check" },
     ],
     draw: drawDriving,
+  },
+  inbox: {
+    accent: "#0e8a7e",
+    tagline: "Spot the phishing in a finance lead's mail.",
+    emblem: "envelope",
+    facts: [
+      { icon: "fish", text: "Phishing and fraud" },
+      { icon: "translate", text: "Four languages" },
+      { icon: "scroll", text: "Long digests" },
+    ],
+    draw: drawInbox,
+  },
+  tickets: {
+    accent: "#7a4fd6",
+    tagline: "Route support tickets and judge their urgency.",
+    emblem: "ticket",
+    facts: [
+      { icon: "headset", text: "Five teams" },
+      { icon: "gauge", text: "Urgency, not tone" },
+      { icon: "translate", text: "Four languages" },
+    ],
+    draw: drawTickets,
+  },
+  logs: {
+    accent: "#2f9e44",
+    tagline: "Read production logs: page, or let it be.",
+    emblem: "terminal",
+    facts: [
+      { icon: "siren", text: "Page or not" },
+      { icon: "gauge", text: "Numbers against a policy" },
+      { icon: "scroll", text: "Long windows" },
+    ],
+    draw: drawLogs,
   },
   crossing: {
     accent: "#e82127",

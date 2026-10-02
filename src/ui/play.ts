@@ -49,20 +49,55 @@ export class Player {
       });
       return;
     }
-    const run = dungeon.create(selection.seed, selection.level, {
-      evaluation: selection.evaluation,
-    });
     this.nextId = 1;
+    const token = this.token;
+    const begin = (run: unknown) => {
+      if (token !== this.token) return;
+      this.patch({ run, outcome: dungeon.outcome(run), status: "waiting" });
+      void this.loop(token);
+    };
+    const fresh = {
+      finished: false,
+      violations: 0,
+      metrics: {},
+      records: [],
+    };
+    if (!dungeon.caseSets) {
+      const run = dungeon.create(selection.seed, selection.level, {
+        evaluation: selection.evaluation,
+      });
+      this.store.set({
+        debug: [],
+        play: { selection, run, outcome: fresh, status: "waiting" },
+      });
+      begin(run);
+      return;
+    }
+    // A text dungeon's cases come from the server's case set first.
     this.store.set({
       debug: [],
-      play: {
-        selection,
-        run,
-        outcome: dungeon.outcome(run),
-        status: "waiting",
-      },
+      play: { selection, run: null, outcome: fresh, status: "loading" },
     });
-    void this.loop(this.token);
+    api
+      .caseSet(selection.dungeon, selection.caseSet, selection.level)
+      .then((cases) =>
+        begin(
+          dungeon.create(selection.seed, selection.level, {
+            evaluation: selection.evaluation,
+            cases,
+          }),
+        ),
+      )
+      .catch((error: unknown) => {
+        if (token !== this.token) return;
+        this.patch({
+          status: "failed",
+          error: {
+            code: error instanceof ApiError ? error.code : "unavailable",
+            message: error instanceof Error ? error.message : String(error),
+          },
+        });
+      });
   }
 
   pause(): void {
@@ -72,6 +107,10 @@ export class Player {
   resume(): void {
     const play = this.store.get().play;
     if (!play || play.status === "finished") return;
+    if (play.run === null) {
+      this.start(play.selection);
+      return;
+    }
     this.token++;
     this.patch({ status: "waiting" });
     void this.loop(this.token);
@@ -107,7 +146,7 @@ export class Player {
     const live = () => token === this.token;
     while (live()) {
       const play = this.store.get().play;
-      if (!play || play.status === "paused") return;
+      if (!play || play.status === "paused" || play.run === null) return;
       const dungeon = dungeonById(play.selection.dungeon);
       if (!dungeon) return;
       if (dungeon.outcome(play.run).finished) {
@@ -277,7 +316,11 @@ export function playView(store: Store, player: Player): HTMLElement {
   const stage = h(
     "div",
     { class: "stage card glass" },
-    dungeon ? dungeonView(dungeon.id, play.run, status) : null,
+    dungeon && play.run !== null
+      ? dungeonView(dungeon.id, play.run, status)
+      : status === "loading"
+        ? h("p", { class: "loading-text" }, "Loading the cases…")
+        : null,
     h(
       "div",
       { class: "outcome" },

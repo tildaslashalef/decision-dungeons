@@ -37,16 +37,23 @@ const shot = async (name: string, fullPage = true) => {
 };
 const pick = (value: string) =>
   page.locator(`label.pill:has(input[value="${value}"])`).first().click();
-/** Opens Crossing's lobby from the gate, as a player would. */
-async function lobby() {
+/** Opens a dungeon's lobby from the gate, as a player would. */
+async function lobby(title = "Crossing", id = "crossing") {
   await page.goto(BASE);
-  await page.locator(".portal", { hasText: "Crossing" }).click();
-  await page.waitForURL("**/d/crossing");
+  await page.locator(".portal", { hasText: title }).click();
+  await page.waitForURL(`**/d/${id}`);
   await page.locator(".picker").waitFor();
 }
 
-async function play(level: string, autopilot: string, name: string) {
-  await lobby();
+async function play(
+  level: string,
+  autopilot: string,
+  name: string,
+  dungeon: [string, string] = ["Crossing", "crossing"],
+) {
+  await lobby(...dungeon);
+  if (dungeon[1] !== "crossing")
+    await page.locator('select[name="case-set"]').waitFor();
   await page.locator(`label.choice:has(input[value="${level}"])`).click();
   await pick(autopilot);
   await page.getByRole("button", { name: "Start run" }).click();
@@ -77,6 +84,7 @@ for (const [width, height] of [
     ["/", ".lights", "gate"],
     ["/d/crossing", ".picker", "lobby"],
     ["/d/driving", ".picker", "lobby-driving"],
+    ["/d/inbox", ".picker", "lobby-inbox"],
     ["/config", ".card-nuclis", "config"],
   ] as const) {
     await page.goto(`${BASE}${path}`);
@@ -126,7 +134,19 @@ if (!rule.includes("Passed")) problems.push("the rule did not pass Crossing");
 await page.getByRole("button", { name: "Exit" }).click();
 await page.waitForURL("**/d/crossing");
 
-// A real nuclis model, one subprocess per decision.
+// The text dungeons play from their base case sets.
+for (const [title, id, level] of [
+  ["Inbox", "inbox", "phishing"],
+  ["Ticket triage", "tickets", "urgency"],
+  ["Logs", "logs", "thresholds"],
+] as const) {
+  const verdict = await play(level, "rule/baseline", `${id}-rule`, [title, id]);
+  if (!/Passed|Failed/.test(verdict)) problems.push(`${id} did not finish`);
+  await page.getByRole("button", { name: "Exit" }).click();
+  await page.waitForURL(`**/d/${id}`);
+}
+
+// A real nuclis model, one decision per case.
 if (nuclisModel !== "none")
   await play("distance", `nuclis/${nuclisModel}`, `crossing-${nuclisModel}`);
 

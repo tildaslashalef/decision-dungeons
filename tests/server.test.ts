@@ -15,6 +15,7 @@ import {
 } from "../src/deciders/registry.ts";
 import { crossing } from "../src/dungeons/crossing/crossing.ts";
 import { createApp, MAX_IN_FLIGHT } from "../src/server/app.ts";
+import { CaseStore } from "../src/server/cases.ts";
 import { ConfigStore, configHome } from "../src/server/config.ts";
 import {
   decideOutput,
@@ -49,6 +50,7 @@ function start(env: Record<string, string> = {}) {
   });
   const app = createApp({
     store,
+    cases: new CaseStore(store.home),
     deciders: (settings) => {
       seen.push(settings);
       const deciders = createDeciders({ ...settings, fetch: fake.fetch });
@@ -229,6 +231,27 @@ describe("deciders", () => {
     ]);
     expect(byId.typesafe?.status.configured).toBe(false);
     expect(byId.rule?.models.map((m) => m.id)).toEqual(["baseline"]);
+    server.stop(true);
+  });
+});
+
+describe("case sets", () => {
+  test("lists and sends a text dungeon's sets, written on first use", async () => {
+    const { call, server } = start();
+    const listed = (await (await call("/api/cases/logs")).json()) as {
+      sets: { name: string; count: number }[];
+      base: string;
+    };
+    expect(listed.base).toBe("base");
+    expect(listed.sets.map((s) => s.name)).toEqual(["base"]);
+    const set = (await (
+      await call("/api/cases/logs/base?level=thresholds")
+    ).json()) as { cases: { level: string }[]; hash: string };
+    expect(set.cases.length).toBe(100);
+    expect(set.cases.every((c) => c.level === "thresholds")).toBe(true);
+    expect((await call("/api/cases/logs/nothing")).status).toBe(404);
+    expect((await call("/api/cases/crossing")).status).toBe(404);
+    expect((await call("/api/cases/logs/..%2Fetc")).status).toBe(400);
     server.stop(true);
   });
 });

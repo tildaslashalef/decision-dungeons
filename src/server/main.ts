@@ -4,6 +4,7 @@
 import index from "../ui/index.html";
 import { createApp } from "./app.ts";
 import { serveAsset, serveWorker } from "./assets.ts";
+import { CaseStore } from "./cases.ts";
 import { ConfigStore, configHome } from "./config.ts";
 import { iconRoutes } from "./icons.ts";
 import { log } from "./log.ts";
@@ -13,8 +14,9 @@ const DEFAULT_PORT = 7000;
 const MAX_BODY = 1024 * 1024;
 
 const env = process.env;
-const store = new ConfigStore(configHome(env), env);
-const app = createApp({ store });
+const home = configHome(env);
+const store = new ConfigStore(home, env);
+const app = createApp({ store, cases: new CaseStore(home) });
 const port = Number(env.DECISION_DUNGEONS_PORT ?? DEFAULT_PORT);
 const http = log.child("http");
 

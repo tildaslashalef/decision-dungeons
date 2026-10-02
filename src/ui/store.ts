@@ -5,6 +5,7 @@ import type { Decision } from "../contract/answer.ts";
 import type { DeciderView, PublicConfig } from "../contract/api.ts";
 import type { Request } from "../contract/request.ts";
 import type { Outcome } from "../dungeons/dungeon.ts";
+import type { CaseSetInfo } from "../dungeons/text/cases.ts";
 
 export interface Selection {
   dungeon: string;
@@ -14,6 +15,8 @@ export interface Selection {
   seed: number;
   /** Evaluation mode: the dungeon's safety nets off (`Dungeon.evaluation`). */
   evaluation: boolean;
+  /** The case set a text dungeon plays (`Dungeon.caseSets`). */
+  caseSet: string;
 }
 
 /** One decision as the debug sidebar shows it. */
@@ -28,6 +31,7 @@ export interface DebugEntry {
 }
 
 export type PlayStatus =
+  | "loading"
   | "deciding"
   | "waiting"
   | "paused"
@@ -36,7 +40,7 @@ export type PlayStatus =
 
 export interface PlayState {
   selection: Selection;
-  /** The dungeon's run; owned by the play loop, read by the dungeon's view. */
+  /** The dungeon's run; owned by the play loop, read by the dungeon's view. Null while loading. */
   run: unknown;
   outcome: Outcome;
   status: PlayStatus;
@@ -48,6 +52,9 @@ export interface PlayState {
 export interface State {
   route: "gate" | "lobby" | "config" | "play";
   deciders?: DeciderView[];
+  /** Each text dungeon's case sets, once listed. */
+  caseSets?: Record<string, CaseSetInfo[]>;
+  caseSetsError?: string | undefined;
   decidersError?: string | undefined;
   config?: PublicConfig;
   configError?: string | undefined;

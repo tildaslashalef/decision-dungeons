@@ -10,6 +10,7 @@ import type {
   DeciderView,
   PublicConfig,
 } from "../contract/api.ts";
+import type { CaseSet, CaseSetInfo } from "../dungeons/text/cases.ts";
 
 export class ApiError extends Error {
   override readonly name = "ApiError";
@@ -61,6 +62,15 @@ export const api = {
       method: "PUT",
       body: JSON.stringify(patch),
     }),
+  caseSets: (dungeon: string) =>
+    call<{ sets: CaseSetInfo[]; base: string }>(
+      `/api/cases/${encodeURIComponent(dungeon)}`,
+    ),
+  /** One level's cases of a set; the set's hash still names all of it. */
+  caseSet: (dungeon: string, name: string, level: string) =>
+    call<CaseSet>(
+      `/api/cases/${encodeURIComponent(dungeon)}/${encodeURIComponent(name)}?level=${encodeURIComponent(level)}`,
+    ),
   decide: (body: DecideBody, signal?: AbortSignal) =>
     call<Decision>("/api/decide", {
       method: "POST",

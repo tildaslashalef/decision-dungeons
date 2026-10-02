@@ -20,6 +20,7 @@ import {
   isDeciderId,
 } from "../deciders/registry.ts";
 import { dungeonById } from "../dungeons/registry.ts";
+import { BASE_SET, CaseError, type CaseStore } from "./cases.ts";
 import { ConfigError, type ConfigStore, parsePatch } from "./config.ts";
 import { log } from "./log.ts";
 
@@ -41,6 +42,8 @@ const NAME = /^[A-Za-z0-9._-]{1,100}$/;
 
 export interface AppOptions {
   store: ConfigStore;
+  /** The text dungeons' case sets; the base sets are written on first use. */
+  cases: CaseStore;
   /** Builds the deciders; tests replace it to inject fakes. */
   deciders?: (settings: DeciderSettings) => Record<DeciderId, Decider>;
 }
@@ -221,6 +224,25 @@ export function createApp(options: AppOptions) {
     return json(200, store.publicView(await store.update(patch)));
   }
 
+  /** `GET /api/cases/:dungeon` lists sets; `/:dungeon/:set[?level=]` sends one. */
+  function caseSets(
+    dungeon: string,
+    name: string | undefined,
+    level: string | undefined,
+  ): Response {
+    const d = dungeonById(dungeon);
+    if (!d?.caseSets)
+      return fail(404, "not_found", `${dungeon} plays no case sets`);
+    options.cases.ensureBase();
+    if (name === undefined)
+      return json(200, { sets: options.cases.list(dungeon), base: BASE_SET });
+    if (!NAME.test(name) || (level !== undefined && !NAME.test(level)))
+      return fail(400, "bad_request", "bad set or level name");
+    const set = options.cases.load(dungeon, name, level);
+    if (!set) return fail(404, "not_found", `${dungeon} has no set ${name}`);
+    return json(200, set);
+  }
+
   async function route(req: Request, path: string): Promise<Response> {
     const method = req.method;
     if (path === "/api/deciders" && method === "GET")
@@ -229,6 +251,13 @@ export function createApp(options: AppOptions) {
       return json(200, store.publicView(await store.load()));
     if (path === "/api/config" && method === "PUT") return putConfig(req);
     if (path === "/api/decide" && method === "POST") return decide(req);
+    const cases = path.match(/^\/api\/cases\/([^/]+)(?:\/([^/]+))?$/);
+    if (cases && method === "GET")
+      return caseSets(
+        decodeURIComponent(cases[1] ?? ""),
+        cases[2] === undefined ? undefined : decodeURIComponent(cases[2]),
+        new URL(req.url).searchParams.get("level") ?? undefined,
+      );
     return fail(404, "not_found", `no route ${method} ${path}`);
   }
 
@@ -248,6 +277,8 @@ export function createApp(options: AppOptions) {
         // A stored config that no longer parses: the player must fix the file.
         if (error instanceof ConfigError)
           return fail(500, "config_error", error.message);
+        if (error instanceof CaseError)
+          return fail(400, "bad_request", error.message);
         log.error(`${req.method} ${path} failed`, { error });
         return fail(500, "unavailable", "the server failed; see its log");
       }
