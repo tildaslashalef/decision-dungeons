@@ -6,8 +6,8 @@ dungeon, its level, and the **autopilot** (which decider, which model), then
 watches it play, with a debug sidebar showing what the decider read and
 answered. The same dungeons run headless and produce comparison tables.
 
-Status: agreed 2026-10-02; nothing is built. A new session starts at
-*Start here* below.
+Status: agreed 2026-10-02; milestone 1 (the skeleton) is built, milestone
+2 is next (*Progress*). A new session starts at *Start here* below.
 
 ## Start here
 
@@ -150,11 +150,14 @@ interface Decider {
   id: string;                      // "nuclis", "typesafe", "rule", "random"
   label: string;
   models(): Promise<ModelInfo[]>;  // nuclis: from `nuclis model ls --json`
-  status(): Promise<DeciderStatus>;// configured, reachable, priced
-  prepare?(req: Request, model: ModelInfo): Request; // budget-aware rewrite
-  decide(req: Request, opts: { model: string; signal: AbortSignal }): Promise<Decision>;
+  status(): Promise<DeciderStatus>;// configured, reachable, version, pricing
+  prepare?(req: Request, model: string): Request; // budget-aware rewrite
+  decide(req: Request, opts: { model: string; signal: AbortSignal; seed?: number }): Promise<Decision>;
 }
 ```
+
+Every caller goes through `decideWith` (`src/contract/decider.ts`), which
+prepares, times, and validates: no path trusts a decider's answers.
 
 - **nuclis**: one decider over a transport. `spawn` runs `nuclis decide
   --request - --json --explain --model <m>` and lists models with
@@ -164,12 +167,16 @@ interface Decider {
   small interface (`decide`, `models`) so `serve` slots in beside `spawn`
   without touching the decider. Models are the decision entries nuclis
   lists (`kind: "decision"`; today `laya`, `laya-multilingual`), so a new
-  nuclis decision model shows up in the picker by itself. `prepare` is the rewrite proven in JevPilot
-  (each option carries its own facts, situational instructions first, bulky
-  context last); it helps any short-budget model and costs Jev nothing.
+  nuclis decision model shows up in the picker by itself. The rewrite
+  proven in JevPilot (each option carries its own facts, situational
+  instructions first, bulky context last) is split by who knows what: the
+  dungeon writes option facts and orders instructions in the request every
+  decider gets, since it costs Jev nothing; nuclis's `prepare` does the
+  dungeon-agnostic part, moving bulky state fields last (*Decisions*).
 - **typesafe**: Jev over HTTPS, the key from the server's config, priced.
 - **rule**: each dungeon's fixed baseline, deterministic.
-- **random**: seeded uniform choice; the floor.
+- **random**: seeded uniform choice; the floor. Each answer is drawn from
+  a hash of the run's seed and the request, so it keeps no state.
 
 A dungeon never names a decider; a decider never knows a dungeon.
 
@@ -178,10 +185,13 @@ A dungeon never names a decider; a decider never knows a dungeon.
 ```
 decision-dungeons/
   src/
-    contract/      request, answer, decider types; validation of answers
-    deciders/      nuclis.ts, typesafe.ts, random.ts, registry.ts
+    contract/      request, answer, decider, API types; validation; decideWith
+    deciders/      nuclis.ts, nuclis-spawn.ts, typesafe.ts, random.ts, registry.ts
+    lib/           seeded randomness
     server/        Bun.serve: routes, config store, decide endpoint
     dungeons/
+      dungeon.ts   the Dungeon interface; turn.ts, one decision turn
+      crossing/    the stop-line quiz (milestone 1's test bed)
       driving/
         world/     road graph, worlds (town, city, highway), routing
         sim/       vehicles, traffic, signals, collisions, safety brake
@@ -192,6 +202,7 @@ decision-dungeons/
     ui/            shell: start screen, config page, debug sidebar, tooltips
     cli/           eval and check runners
   tests/
+  scripts/         browser-check.ts (headless UI check, screenshots)
   public/          assets with their licenses and attributions
   NOTICE.md
 ```
@@ -205,7 +216,7 @@ interface Dungeon<Run> {
   observe(run: Run): { request: Request; resolved?: Answers }; // local answers when one option
   apply(run: Run, answers: Answers): void;
   step(run: Run, dt: number): void;
-  outcome(run: Run): Outcome;     // arrived, violations, score, per-decision records
+  outcome(run: Run): Outcome;     // finished, passed, violations, metrics, per-decision records
   rule: Decider;                  // the dungeon's baseline
 }
 ```
@@ -221,9 +232,11 @@ interface Dungeon<Run> {
   (`TYPESAFE_API_KEY`, `NUCLIS_BIN`) override the file.
 - `POST /api/decide`: `{ dungeon, decider, model, request }` →
   `Decision`. Bounded body size, a timeout per decider, at most three in
-  flight, errors typed (`unconfigured`, `rejected`, `timeout`,
-  `invalid_answer`).
-- Bound to localhost by default.
+  flight, errors typed (`unconfigured`, `rejected`, `unavailable`,
+  `timeout`, `invalid_answer`) as `{ error: { code, message } }`.
+- Bound to `127.0.0.1` (port 4317, `DECISION_DUNGEONS_PORT`). Every API
+  route requires a loopback `Host` header; writes must be same-origin
+  `application/json`, because the config names a binary the server runs.
 
 ## The start screen and the debug sidebar
 
@@ -339,7 +352,98 @@ three.js Ferrari (MIT). Asset license files travel with the assets.
 - clef-flash arrives through nuclis (MODL-34, after APPS-19), text first,
   images later; Decision Dungeons adds the turn-based mode for it and plans the
   vision dungeons as milestone 5 (2026-10-02).
+- Dependencies: lucide 0.577.0 (icons, as JevPilot); dev only TypeScript
+  7.0.2, Biome 2.5.15, @types/bun 1.4.2. Playwright is not a dependency:
+  `scripts/browser-check.ts` finds `playwright-core` 1.63.0 through
+  `NODE_PATH` (its header has the commands) (2026-10-02).
+- **Crossing**, a small text dungeon, ships with milestone 1 so the
+  skeleton plays end to end before driving: drive or stop at a signalled
+  line, a known answer per seeded case, levels for the signal, the
+  distance, and both (2026-10-02).
+- The short-budget rewrite is split. Dungeons put each option's facts in
+  its text and situational instructions first in the one request every
+  decider receives (JevPilot showed this costs Jev nothing, and comparisons
+  stay on the same input); nuclis's `prepare` does only the
+  dungeon-agnostic part, moving top-level state fields over 400 characters
+  to the end, smallest first (2026-10-02).
+- A fifth decide error, `unavailable` (cannot reach the decider, HTTP 5xx,
+  cancelled), beside `unconfigured`, `rejected`, `timeout`, and
+  `invalid_answer` (2026-10-02).
+- The server listens on `127.0.0.1:4317` (`DECISION_DUNGEONS_PORT`); API
+  routes require a loopback `Host` (DNS rebinding) and same-origin JSON
+  writes (cross-site requests), since the config page can set the binary
+  the server runs (2026-10-02).
+- The UI fetches nothing from the network: DM Sans and Manrope are used
+  when installed, else the system font (2026-10-02).
 
 ## Progress
 
-Nothing built yet.
+### Milestone 1, the skeleton: done (2026-10-02, commit `ae499e6`)
+
+Delivered:
+
+- `src/contract/`: Jev-shaped request and answer types, `parseRequest`
+  and `validateAnswers` (an option not offered, a non-finite or
+  out-of-range probability, a missing or extra answer: `invalid_answer`),
+  `decideWith`, the single prepare-time-validate path, and the API types.
+- `src/deciders/`: nuclis over the `spawn` transport (models from `nuclis
+  model ls --json`, `kind: "decision"`; `--explain` fields mapped to
+  `debug`), TypeSafe Jev over an injectable `fetch` (priced at $0.042 per
+  million input tokens), random (seeded, stateless), and the registry;
+  `rule` is the dungeon's own baseline.
+- `src/dungeons/`: the `Dungeon` interface, `playTurn` (shared by UI and
+  the future CLI), and Crossing with its rule and its browser view.
+- `src/server/`: `GET /api/deciders`, `GET`/`PUT /api/config`, `POST
+  /api/decide`; the config store (mode 600, `DECISION_DUNGEONS_HOME`,
+  `NUCLIS_BIN` and `TYPESAFE_API_KEY` override, key write-only).
+- `src/ui/`: start screen (dungeon, level, autopilot with disabled
+  deciders and their reasons, seed), config page, play view (turn-based,
+  paced 0.7 s, pause, restart, typed failure banner with retry), debug
+  sidebar (N): time split, tokens, truncation, one card per question with
+  option texts, probabilities, logits and the pick, recent decisions;
+  unreported fields omitted. `NOTICE.md` records the JevPilot origin and
+  lucide's license.
+
+Validated at `ae499e6` on an Apple M4 Pro (12 cores, macOS 27.0.1), Bun
+1.4.2, nuclis 0.4.0-dev:
+
+- `bun test`: 40 pass, 0 fail (contract, deciders against a fake `nuclis`
+  binary and a stubbed `fetch`, config, server guards and limits, Crossing).
+  `bunx tsc --noEmit` and `bunx biome check` clean. Each of the five
+  commits typechecks and passes its own tests alone.
+- `scripts/browser-check.ts` against the dev server with a throwaway
+  `DECISION_DUNGEONS_HOME`, screenshots looked at in
+  `artifacts/screenshots/` (not committed): `start`,
+  `crossing-rule-{running,finished}`, `crossing-laya{,-multilingual}-{running,finished}`,
+  `decision-failed` (an injected 502 shows `rejected` and its message;
+  Retry finishes the run), `config`, `start-nuclis-missing` (a bad binary
+  path disables nuclis with "nuclis was not found at …"). No console
+  errors.
+- One run each, Crossing level `distance`, seed 1, 12 cases, real local
+  decisions (single runs, not a benchmark):
+
+  | Decider | Correct | Ran the red light | Decider time per case |
+  | --- | ---: | ---: | --- |
+  | rule | 12 | 0 | under 1 ms |
+  | nuclis `laya-multilingual` | 4 | 3 | 424–472 ms (load 376–392, encode 32–35) |
+  | nuclis `laya` | 3 | 0 | 136–168 ms (load about 85, encode about 55) |
+
+  `laya` answered stop on every case (P 0.54–0.61); `laya-multilingual`
+  split drive and stop at P 0.51–0.65. Both sit near a coin flip on the
+  1.0 m threshold, where JevPilot's stop-line check separated them; the
+  difference in question wording and state is worth a look once `eval`
+  can run many seeds.
+
+Not done, by design or for later:
+
+- No real TypeSafe call was made: the key in the environment was detected
+  (shown as set by `TYPESAFE_API_KEY`), but a paid call is an explicit
+  command, and there is no CLI yet to make one.
+- No `bun run eval` or `check` yet (milestone 2).
+
+**Pick up at milestone 2**: the driving world, simulation, decision state,
+rule baseline, and checks, headless; `bun run eval` and `bun run check`
+over `playTurn`'s results; then the port matched against JevPilot with
+the rule decider as *Proving the port* describes. Read JevPilot's
+`src/simulation.js`, `src/driving-plan.js`, `src/planning.js`,
+`src/world.js`, `src/highway.js`, and `scripts/verify-*.mjs` first.
