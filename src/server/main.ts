@@ -5,7 +5,7 @@ import index from "../ui/index.html";
 import { createApp } from "./app.ts";
 import { ConfigStore, configHome } from "./config.ts";
 
-const DEFAULT_PORT = 4317;
+const DEFAULT_PORT = 7000;
 /** Bun's own cap; each route enforces a smaller one. */
 const MAX_BODY = 1024 * 1024;
 

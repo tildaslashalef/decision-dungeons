@@ -15,7 +15,7 @@ import { mkdirSync } from "node:fs";
 // @ts-expect-error resolved through NODE_PATH, see above.
 import { chromium } from "playwright-core";
 
-const BASE = process.env.BASE_URL ?? "http://127.0.0.1:4317";
+const BASE = process.env.BASE_URL ?? "http://127.0.0.1:7000";
 const OUT = "artifacts/screenshots";
 const nuclisModel = process.argv[2] ?? "laya-multilingual";
 mkdirSync(OUT, { recursive: true });

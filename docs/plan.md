@@ -234,7 +234,7 @@ interface Dungeon<Run> {
   `Decision`. Bounded body size, a timeout per decider, at most three in
   flight, errors typed (`unconfigured`, `rejected`, `unavailable`,
   `timeout`, `invalid_answer`) as `{ error: { code, message } }`.
-- Bound to `127.0.0.1` (port 4317, `DECISION_DUNGEONS_PORT`). Every API
+- Bound to `127.0.0.1` (port 7000, `DECISION_DUNGEONS_PORT`). Every API
   route requires a loopback `Host` header; writes must be same-origin
   `application/json`, because the config names a binary the server runs.
 
@@ -369,7 +369,7 @@ three.js Ferrari (MIT). Asset license files travel with the assets.
 - A fifth decide error, `unavailable` (cannot reach the decider, HTTP 5xx,
   cancelled), beside `unconfigured`, `rejected`, `timeout`, and
   `invalid_answer` (2026-10-02).
-- The server listens on `127.0.0.1:4317` (`DECISION_DUNGEONS_PORT`); API
+- The server listens on `127.0.0.1:7000` (`DECISION_DUNGEONS_PORT`); API
   routes require a loopback `Host` (DNS rebinding) and same-origin JSON
   writes (cross-site requests), since the config page can set the binary
   the server runs (2026-10-02).
