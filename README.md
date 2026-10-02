@@ -109,6 +109,13 @@ real `nuclis serve` when one answers. Browser checks (`scripts/*-check.ts`)
 drive the UI in headless Chromium through `playwright-core`, which is not
 a dependency; see each script's header for setup.
 
+The driving simulation is checked decision by decision against JevPilot,
+which it rewrites, given a JevPilot checkout (branch `nuclis-decider`):
+
+```sh
+DRIVING_REFERENCE=/path/to/jevpilot bun scripts/driving-reference.ts all
+```
+
 ```
 src/
   contract/    request and answer types, validation, the decide path

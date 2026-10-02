@@ -1,4 +1,4 @@
-/* The driving stage: JevPilot's HUD over a full-screen 3D scene. Light
+/* The driving stage: its HUD over a full-screen 3D scene. Light
    glass panels, a red autopilot accent, blue for the chosen path. Every
    rule is scoped to .dd-stage so the rest of the app is untouched. */
 .dd-stage {

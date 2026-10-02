@@ -10,7 +10,7 @@ import { validateAnswers } from "../contract/validate.ts";
 export const TYPESAFE_URL = "https://api.typesafe.ai/v1/systemone";
 export const JEV_MODEL = "jev-latest";
 
-/** Jev's published price, as JevPilot charges it. */
+/** Jev's published price. */
 export const JEV_PRICING: Pricing = {
   inputPerMillionUsd: 0.042,
   outputPerMillionUsd: 0,

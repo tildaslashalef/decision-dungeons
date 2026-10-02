@@ -53,7 +53,7 @@ export interface ScenarioRun {
   verdict(sim: Simulation, decisions: number): Verdict;
   /** Signal offsets the scenario holds, for the renderer. */
   offsets(): Record<string, number>;
-  /** The scenario's own state, for the inspector and the JevPilot comparison. */
+  /** The scenario's own state, for the inspector and the reference comparison. */
   facts(): Record<string, string | number | boolean | null>;
 }
 

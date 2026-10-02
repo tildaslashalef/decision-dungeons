@@ -1,6 +1,6 @@
 // Plane geometry on the world's x (east) and z (south) axes. Heading 0 is
 // north (−z) and grows clockwise. Every simulation number passes through
-// here, so operation order matters: the port reproduces JevPilot's runs
+// here, so operation order matters: the port reproduces the reference simulator's runs
 // bit for bit, and a reordered sum would not.
 
 export interface Point {

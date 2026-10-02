@@ -1,4 +1,4 @@
-// The driving dungeon's full-screen play: the 3D scene with JevPilot's HUD
+// The driving dungeon's full-screen play: the 3D scene with its HUD
 // (navigation card, minimap, driver dock), candidate paths, the JSON
 // inspector, and the decision loop. The run lives in a worker
 // (sim.worker.ts), so planning never blocks a frame; this module renders
@@ -8,7 +8,7 @@
 // as headless runs do. The next decision is asked for while the current
 // turn's 0.3 s still plays, so a fast decider never visibly stops the car;
 // a slow one lets it ease to a halt. Real-time mode streams snapshots from
-// the worker's own clock and asks for decisions on JevPilot's cadence
+// the worker's own clock and asks for decisions on the reference simulator's cadence
 // while the car drives on its last answer.
 
 import "./driving.css";
@@ -74,7 +74,7 @@ type Mode = "turn" | "realtime";
 /** Turn-based: ask for the next decision once less than this much motion is left to play (s). */
 const LOOKAHEAD_S = 0.4;
 
-/** JevPilot's cadence: four decisions a second near turns, traffic, and lines; 1.5 on clear roads. */
+/** The reference simulator's cadence: four decisions a second near turns, traffic, and lines; 1.5 on clear roads. */
 function decisionInterval(state: DecisionState): number {
   const near = Math.max(18, Math.abs(state.speed_mps) * 3);
   const scene = state.scene;
@@ -530,7 +530,7 @@ export function mountDrivingStage(
   document.body.classList.add("dd-driving");
 
   function candidatesIcon(): SVGElement {
-    // JevPilot's fork-of-paths glyph.
+    // A fork-of-paths glyph.
     const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
     svg.setAttribute("viewBox", "0 0 24 24");
     svg.setAttribute("fill", "none");

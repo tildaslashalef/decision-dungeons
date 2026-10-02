@@ -8,7 +8,8 @@ Decision Dungeons is a local playground for decision models: each dungeon is a
 seeded world that asks a decider typed questions, and the player picks the
 dungeon, its level, and the autopilot (decider and model), then watches it
 play or runs it headless for comparison tables. The first dungeon is
-autopilot driving, a rewrite of Standard Agents' JevPilot.
+autopilot driving, a rewrite of an existing driving simulator (the
+reference simulator; `NOTICE.md` names it and its origin).
 
 [docs/plan.md](docs/plan.md) is the plan: its context, references,
 architecture, milestones, decisions, and *Progress*. Read it first, every
@@ -35,9 +36,11 @@ remove stale guidance instead of keeping competing versions.
 
 ## References
 
-- **JevPilot** (`~/Code/jevpilot`, branch `nuclis-decider`) is the
-  reference for the driving dungeon's look and behaviour, used with
-  permission. **Rewrite, do not copy**: read it to learn what it does,
+- **The reference simulator** (named in `NOTICE.md`; its checkout is
+  passed as `DRIVING_REFERENCE`, see `README.md`) is the reference for the
+  driving dungeon's look and behaviour, used with permission. Outside
+  `README.md` and `NOTICE.md`, refer to it only as "the reference
+  simulator", never by name. **Rewrite, do not copy**: read it to learn what it does,
   then implement our structure (typed modules, a store, headless
   simulation). Never paste its files wholesale. Its assets (models,
   textures, sky) are copied with their license and attribution files, and
@@ -140,7 +143,7 @@ For code changes:
 1. `bun test` (contract, deciders against a stubbed nuclis API, dungeon
    logic, error paths), `bunx tsc --noEmit`, `bunx biome check`.
 2. A change to a simulation or a decider: run `bun run eval` on the
-   affected dungeon and seeds; for the driving port, match JevPilot with
+   affected dungeon and seeds; for the driving port, match the reference simulator with
    the deterministic rule decider as `docs/plan.md` § *Proving the port*
    describes.
 3. A change a player can see: start the dev server, drive it in a

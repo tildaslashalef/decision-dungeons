@@ -1,7 +1,7 @@
 // Autopilot driving: a car crosses a seeded town, city, or interstate trip
 // while a decider chooses its maneuvers, or faces one of the scenario
 // checks (scenarios.ts). Turn-based by default: each decision is followed
-// by 0.3 s of simulated time (six 50 ms steps), the cadence of JevPilot's
+// by 0.3 s of simulated time (six 50 ms steps), the cadence of the reference simulator's
 // headless checks.
 
 import type { Answers } from "../../contract/answer.ts";

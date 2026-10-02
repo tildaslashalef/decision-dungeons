@@ -93,7 +93,7 @@ export class Simulation {
   evaluation = false;
   /**
    * Offer a stop at the line while the junction's rules make the player
-   * yield (an earlier arrival, crossing traffic). JevPilot never offered
+   * yield (an earlier arrival, crossing traffic). The reference simulator never offered
    * it, so default trips leave it off; scenario levels and evaluation mode
    * turn it on.
    */

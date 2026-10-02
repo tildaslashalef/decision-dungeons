@@ -1,18 +1,19 @@
-// Frame-time comparison: our driving stage against JevPilot, same machine,
+// Frame-time comparison: our driving stage against the reference simulator
+// (NOTICE.md), same machine,
 // same headless Chromium on the GPU (Metal), same viewport, 20 s of town
 // driving each. Development check only; see driving-check.ts for setup.
 //
-//   NODE_PATH=/tmp/dd-pw/node_modules bun scripts/frame-probe.ts [ours-url] [jevpilot-url] [mode]
+//   NODE_PATH=/tmp/dd-pw/node_modules bun scripts/frame-probe.ts [ours-url] [reference-url] [mode]
 //
 // mode: turn (default) or realtime, for our stage; autopilot: decider/model
-// (default rule/baseline). JevPilot must run its
+// (default rule/baseline). The reference must run its
 // dev server with a local decider (DECIDER=nuclis) so nothing paid is called.
 
 // @ts-expect-error resolved through NODE_PATH.
 import { chromium } from "playwright-core";
 
 const ours = process.argv[2] ?? "http://127.0.0.1:7200";
-const jevpilot = process.argv[3] ?? "http://localhost:5199";
+const reference = process.argv[3] ?? "http://localhost:5199";
 const mode = process.argv[4] ?? "turn";
 /** The autopilot pill value, decider/model. */
 const autopilot = process.argv[5] ?? "rule/baseline";
@@ -165,12 +166,12 @@ const renderer = async (page: {
   await page.close();
 }
 
-// JevPilot, autopilot engaged with its local decider.
+// The reference, autopilot engaged with its local decider.
 {
   const page = await browser.newPage({
     viewport: { width: 1440, height: 900 },
   });
-  await page.goto(`${jevpilot}/?world=town&seed=1`);
+  await page.goto(`${reference}/?world=town&seed=1`);
   await page
     .locator("#scene-loader")
     .waitFor({ state: "hidden", timeout: 120_000 });
@@ -180,7 +181,7 @@ const renderer = async (page: {
   const speed = await page.locator("#speed").innerText();
   console.log(
     JSON.stringify({
-      app: "jevpilot",
+      app: "reference",
       mode: "realtime",
       renderer: await renderer(page),
       speed_kmh_at_end: speed,

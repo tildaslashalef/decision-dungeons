@@ -7,7 +7,7 @@ watches it play, with a debug sidebar showing what the decider read and
 answered. The same dungeons run headless and produce comparison tables.
 
 Status (2026-10-02): milestones 1 to 5 are done: the skeleton, driving
-(headless and proven bit-identical against JevPilot, then its UI with the
+(headless and proven bit-identical against the reference simulator, then its UI with the
 world inspector, evaluation mode, and five scenario checks), the text
 dungeons (Inbox, Ticket triage, Logs, cases in SQLite), and Night Tower,
 the second 3D dungeon; nuclis is reached through `nuclis serve`'s HTTP
@@ -60,13 +60,13 @@ in `AGENTS.md`.
   it is up; no network or model otherwise), `bun run lint`
   (`tsc --noEmit` and `biome check`), `bun run eval …` and
   `bun run check driving/stop-line --decider rule` (*Headless runs*).
-- **The driving simulation is proven bit-identical to JevPilot.** After
+- **The driving simulation is proven bit-identical to the reference simulator.** After
   any change under `src/dungeons/driving/{world,sim,decide}` or
-  `driving.ts`, run `bun scripts/driving-reference.ts all` (about 15 min;
+  `driving.ts`, run `DRIVING_REFERENCE=<checkout> bun scripts/driving-reference.ts all` (about 15 min;
   `town 1` and `stop-line 42` take 20 s) and keep every run
   `"identical": true`. Floating-point operation order matters: reorder
-  no sum, and draw from the seeded generators in the same order. It reads
-  JevPilot from `~/Code/jevpilot` (`JEVPILOT` overrides).
+  no sum, and draw from the seeded generators in the same order. The
+  reference checkout's location is in `README.md`.
 - **Browser checks.** Playwright is not a dependency. Install it once in
   a scratch directory and point `NODE_PATH` at it:
   `mkdir -p /tmp/dd-pw && (cd /tmp/dd-pw && bun add --exact playwright-core@1.63.0)`,
@@ -86,10 +86,10 @@ in `AGENTS.md`.
   only where they carry meaning, never in front of a heading or a plain
   label.
 
-## How this started: the JevPilot experiment
+## How this started: the reference experiment
 
 On 2026-10-02 nuclis's Laya decision model was tested as a drop-in for
-TypeSafe's hosted Jev in JevPilot, Standard Agents' driving simulator, by
+TypeSafe's hosted Jev in the reference driving simulator (`NOTICE.md`), by
 running `nuclis decide` as a subprocess. What it showed, which this
 project builds on:
 
@@ -97,12 +97,12 @@ project builds on:
   --json` reads Jev's request (`state`, `questions`) and writes Jev's
   answers, so swapping deciders is one function.
 - **Short-budget models need the request rewritten.** Laya reads 512
-  tokens (`laya-multilingual` 1,024); JevPilot's state was 700–850 tokens
+  tokens (`laya-multilingual` 1,024); the reference simulator's state was 700–850 tokens
   with the candidate table last, so Laya never saw the options. Moving each
   candidate's facts into its option text, situational instructions first
   and road geometry last, fixed it and cost Jev nothing (Jev stopped within
   0.13 m of its own result on the rewritten request).
-- **Outcomes hide decisions.** JevPilot's candidate filter, speed taper,
+- **Outcomes hide decisions.** The reference simulator's candidate filter, speed taper,
   and safety brake let a uniform-random decider arrive on 12 of 12 trips.
   Only a targeted check separated deciders: the red-light stop line
   (stop with the car's center within 3.5 m of the line, then go on green).
@@ -128,8 +128,8 @@ project builds on:
 
 ## References
 
-- **JevPilot**, `~/Code/jevpilot`, branch `nuclis-decider` (commit
-  `4cca4fc`, on top of upstream `e1beeb1`). The source of the driving
+- **The reference simulator** (`NOTICE.md` names it and its commits; the
+  checkout's location is in `README.md`). The source of the driving
   dungeon's look and behaviour. Rewrite, never copy files wholesale
   (`AGENTS.md`). Read first:
   - `README.md` § *Decide locally with nuclis* and *What it shows*: the
@@ -165,7 +165,7 @@ Goals:
 - Keep the TypeSafe Jev integration alongside nuclis and built-in
   baselines, switchable from a config page.
 - Take any decision model nuclis adds, with no code change here.
-- First dungeon: autopilot driving, keeping JevPilot's look and feel,
+- First dungeon: autopilot driving, keeping the reference simulator's look and feel,
   rewritten rather than copied.
 
 Non-goals (for now): hosting, accounts, payments, play credit, mobile-first
@@ -177,10 +177,10 @@ work beyond what the driving UI already does, training models.
   with HTML imports for the dev server and its hot reload, `bun build` for
   production, `bun:sqlite` for the text dungeons' cases. No npm, no Vite.
 - **TypeScript, strict**, run directly by Bun. The decision contract, the
-  dungeon interface, and the driving state get real types; JevPilot's
+  dungeon interface, and the driving state get real types; the reference simulator's
   implicit shapes (state, candidates, answers) were its main source of
   validation code.
-- **three.js** (0.183.2, as JevPilot) for the driving dungeon; Phosphor
+- **three.js** (0.183.2, as the reference simulator) for the driving dungeon; Phosphor
   and game-icons.net icons on the gate, lobbies, and settings, lucide in
   the play views; Fraunces and DM Sans, bundled (*Decisions*).
 - **Biome** for formatting and linting (one binary, TypeScript-native, no
@@ -225,7 +225,7 @@ prepares, times, and validates: no path trusts a decider's answers.
   message; `529` is retried with exponential backoff (4 retries from
   0.1 s), then `unavailable`; a refused connection is `unavailable`,
   "nuclis serve is not running at …". The rewrite
-  proven in JevPilot (each option carries its own facts, situational
+  proven in the reference simulator (each option carries its own facts, situational
   instructions first, bulky context last) is split by who knows what: the
   dungeon writes option facts and orders instructions in the request every
   decider gets, since it costs Jev nothing; nuclis's `prepare` does the
@@ -244,7 +244,7 @@ decision-dungeons/
   src/
     contract/      request, answer, decider, API types; validation; decideWith
     deciders/      nuclis.ts, nuclis-http.ts, typesafe.ts, random.ts, registry.ts
-    lib/           seeded randomness (JevPilot's mulberry32, exactly)
+    lib/           seeded randomness (the reference simulator's mulberry32, exactly)
     server/        Bun.serve: app.ts (API), config.ts, cases.ts (case sets in
                    SQLite, the generators' registry), assets.ts (models,
                    textures, draco, the driving worker), icons.ts, log.ts,
@@ -281,7 +281,7 @@ decision-dungeons/
   tests/           contract, deciders (stubbed nuclis API), nuclis-live,
                    server, log, crossing, driving, driving-ui, text, tower
   scripts/         browser-check, driving-check, tower-check, frame-probe,
-                   driving-reference (vs JevPilot), render-icons
+                   driving-reference (vs the reference simulator), render-icons
   public/          models, textures, draco, icons, with licenses
   NOTICE.md
 ```
@@ -328,7 +328,7 @@ interface Dungeon<Run> {
   dungeon either plays in the shared card view (Crossing) or supplies a
   full-screen stage (driving; `src/ui/views.ts`).
 - The HUD names the active autopilot ("nuclis · laya-multilingual engaged").
-- Debug sidebar (N): the generalized version of the one built in JevPilot:
+- Debug sidebar (N): the generalized version of the one built in the reference simulator:
   time split (model load, tokenize, encode, process, HTTP), tokens and
   truncation, one card per question with each option's text,
   probabilities, logits, the pick, and the recent decisions. Fields a
@@ -336,7 +336,7 @@ interface Dungeon<Run> {
 
 ## Dungeon 1: autopilot driving
 
-Kept from JevPilot: the look of the HUD, minimap, cameras, candidate paths
+Kept from the reference simulator: the look of the HUD, minimap, cameras, candidate paths
 and the JSON inspector; the three worlds and Interstate 08; sampled
 candidate paths and their measurements; the safety brake; Jev's request
 shape; the headless trip and stop-line checks.
@@ -355,7 +355,7 @@ Restructured:
   game as a fast one and latency never enters the score. It is the
   default in the browser (*Decisions*); T switches to real time.
 - **An evaluation mode** (`RunOptions.evaluation`, the lobby's switch,
-  `--evaluation`) that turns the safety nets off, because JevPilot showed
+  `--evaluation`) that turns the safety nets off, because the reference simulator showed
   they make any decider arrive (random arrived on 12 of 12 trips): the
   safety brake, the collision exclusion in the planner's and the
   selection's filters, and the traffic taper (candidates are sampled up to
@@ -384,7 +384,7 @@ Restructured:
 
 **Proving the port.** The rule decider is deterministic, so it is the
 oracle: for seeds 1–4 in each world and for the stop-line check, the port
-and JevPilot (`e1beeb1` plus the `nuclis-decider` branch) must arrive
+and the reference simulator (the commits `NOTICE.md` records) must arrive
 alike, with the same violations and stop distances within 0.1 m.
 Differences are explained or fixed before the UI work. Done: every run
 is bit-identical (*Progress*, milestone 2); `scripts/driving-reference.ts`
@@ -437,8 +437,8 @@ shows.
 
 ## Provenance
 
-`NOTICE.md` records that the driving dungeon is a rewrite of Standard
-Agents' JevPilot (commit `e1beeb1`), used with permission, and lists the
+`NOTICE.md` records that the driving dungeon is a rewrite of the
+reference simulator, used with permission, and lists the
 assets and their licenses: the Tesla Model Y by 763468712 (CC BY 4.0,
 attribution required), Poly Haven models, textures and sky (CC0), the
 three.js Ferrari (MIT). Asset license files travel with the assets.
@@ -447,10 +447,10 @@ three.js Ferrari (MIT). Asset license files travel with the assets.
 
 1. **Skeleton.** Bun server, contract, the four deciders, config store and
    page, start screen, debug sidebar, `bun test` for the contract and
-   deciders (a fake `nuclis` binary as in JevPilot's tests).
+   deciders (a fake `nuclis` binary as in the reference simulator's tests).
 2. **Driving, headless.** World, sim, decision state, rule baseline,
-   checks, `eval`; matched against JevPilot as above.
-3. **Driving, UI.** The scene and HUD at JevPilot's look, the inspector,
+   checks, `eval`; matched against the reference simulator as above.
+3. **Driving, UI.** The scene and HUD at the reference simulator's look, the inspector,
    evaluation mode, scenario levels.
 4. **Text dungeons.** Inbox, ticket triage, logs: synthetic cases with
    known answers, scored per decision, levels for long inputs, numbers
@@ -506,7 +506,7 @@ three.js Ferrari (MIT). Asset license files travel with the assets.
   cases in SQLite under `~/.decision-dungeons` with a seed script that can
   generate more (2026-10-02).
 - Dependencies: lucide 0.577.0 (icons in the play and driving views, as
-  JevPilot; the other pages use the icons below); dev only TypeScript
+  the reference simulator; the other pages use the icons below); dev only TypeScript
   7.0.2, Biome 2.5.15, @types/bun 1.4.2. Playwright is not a dependency:
   `scripts/browser-check.ts` finds `playwright-core` 1.63.0 through
   `NODE_PATH` (its header has the commands) (2026-10-02).
@@ -548,20 +548,20 @@ three.js Ferrari (MIT). Asset license files travel with the assets.
   the decider's own report (2026-10-02).
 - The short-budget rewrite is split. Dungeons put each option's facts in
   its text and situational instructions first in the one request every
-  decider receives (JevPilot showed this costs Jev nothing, and comparisons
+  decider receives (the reference simulator showed this costs Jev nothing, and comparisons
   stay on the same input); nuclis's `prepare` does only the
   dungeon-agnostic part, moving top-level state fields over 400 characters
   to the end, smallest first (2026-10-02).
 - The driving stage defaults to turn-based play rather than real time:
   a browser run is then exactly the headless run of the same seed, and a
   slow decider plays the same game (2026-10-02).
-- Manual driving (WASD, J, Space) and JevPilot's touch controls are not
+- Manual driving (WASD, J, Space) and the reference simulator's touch controls are not
   in the plan's milestones; whether to port them is the user's call, not
   yet made (2026-10-02).
 - Scenario levels may script traffic (`Simulation.frozen`) and offer a
   stop at the line while the junction's rules make the player yield
   (`Simulation.yieldStops`, the `yield_right_of_way_within_2_5m` stop
-  reason). JevPilot never offered that stop, and it arises in default
+  reason). The reference simulator never offered that stop, and it arises in default
   trips (town 4 and city 4 under the rule, three decisions each), so
   default trips leave it off to stay bit-identical; scenario levels and
   evaluation mode turn it on. The rule, unchanged on the road, takes the
@@ -604,8 +604,8 @@ three.js Ferrari (MIT). Asset license files travel with the assets.
   manifest) is rendered from its SVG by `scripts/render-icons.ts`
   (2026-10-02).
 
-- The driving scene uses three, pinned at 0.183.2 as in JevPilot, with
-  `@types/three` 0.183.1 (dev). JevPilot's Model Y (CC BY 4.0), Poly Haven
+- The driving scene uses three, pinned at 0.183.2 as in the reference simulator, with
+  `@types/three` 0.183.1 (dev). The reference simulator's Model Y (CC BY 4.0), Poly Haven
   models and textures (CC0), and Draco decoder (Apache 2.0) are copied
   into `public/` with their license files and served read-only from
   `/models`, `/textures`, and `/draco`; the unused Ferrari is left out
@@ -643,7 +643,7 @@ Delivered:
   paced 0.7 s, pause, restart, typed failure banner with retry), debug
   sidebar (N): time split, tokens, truncation, one card per question with
   option texts, probabilities, logits and the pick, recent decisions;
-  unreported fields omitted. `NOTICE.md` records the JevPilot origin and
+  unreported fields omitted. `NOTICE.md` records the reference simulator's origin and
   lucide's license.
 
 Validated at `ae499e6` on an Apple M4 Pro (12 cores, macOS 27.0.1), Bun
@@ -672,7 +672,7 @@ Validated at `ae499e6` on an Apple M4 Pro (12 cores, macOS 27.0.1), Bun
 
   `laya` answered stop on every case (P 0.54–0.61); `laya-multilingual`
   split drive and stop at P 0.51–0.65. Both sit near a coin flip on the
-  1.0 m threshold, where JevPilot's stop-line check separated them; the
+  1.0 m threshold, where the reference simulator's stop-line check separated them; the
   difference in question wording and state is worth a look once `eval`
   can run many seeds.
 
@@ -694,18 +694,18 @@ Delivered:
   `decide/` (the decision state, the request, selection, the rule), and
   `driving.ts`, the dungeon: levels `town`, `city`, `highway`,
   `stop-line`, turn-based through the new optional `Dungeon.advance`
-  (six 50 ms steps per decision, JevPilot's headless cadence).
+  (six 50 ms steps per decision, the reference simulator's headless cadence).
 - The request is Jev's (candidate, road, and traffic tables) with each
   path's facts also in its option text and situational instructions
-  first (*Decisions*); the rule is the JevPilot experiment's fixed rule
+  first (*Decisions*); the rule is the reference experiment's fixed rule
   (`/tmp/deciders.mjs` then), read off the request.
 - `bun run eval` and `bun run check` (`src/cli/eval.ts`) over
   `runEpisode` (`src/dungeons/run.ts`): a JSON line per run and a
   markdown table of the same `RunResult` objects.
-- `scripts/driving-reference.ts`: JevPilot's simulation and the port side
+- `scripts/driving-reference.ts`: the reference simulator's simulation and the port side
   by side with the same rule, compared at every decision.
 
-Validated on the Apple M4 Pro, Bun 1.4.2, against JevPilot `4cca4fc`:
+Validated on the Apple M4 Pro, Bun 1.4.2, against the reference simulator:
 
 - `bun scripts/driving-reference.ts all`: seeds 1–4 in town, city, and
   highway and the stop-line check (seed 42) are **bit-identical**: every
@@ -713,7 +713,7 @@ Validated on the Apple M4 Pro, Bun 1.4.2, against JevPilot `4cca4fc`:
   `Object.is`, the same decision counts (town 155, 209, 136, 185; city
   235, 139, 131, 153; highway 338, 340, 340, 341; stop line 28), all
   arriving with no collision and no violation, the stop line at 3.07 m
-  (bumper 0.70 m, as JevPilot's README measured for this rule) and
+  (bumper 0.70 m, as the reference's own measurement for this rule) and
   resuming on green. Wall time 4–168 s per pair of runs.
 - `bun run check driving/stop-line --decider rule`: pass, center 3.1 m,
   bumper 0.7 m, 29 decisions (28 to the stop and the green one).
@@ -730,7 +730,7 @@ Delivered:
   autopilot, seed); a settings page; the app icon set. Approved by the
   user on screen; all desktop pages fit one viewport (1024×640 to
   2000×1020), asserted by `scripts/browser-check.ts`.
-- The driving stage (`src/dungeons/driving/ui/`): JevPilot's scene (Model
+- The driving stage (`src/dungeons/driving/ui/`): the reference simulator's scene (Model
   Y, town, city, interstate, traffic, pedestrians, signals, sky, shadows),
   chase, driver, and bird's-eye cameras, HUD, minimap, candidate paths
   with probabilities, inspector (decider input, decision state, response,
@@ -744,7 +744,7 @@ Validated on the Apple M4 Pro, headless Chromium on Metal at 1440×900,
 
 - Frame time, ours with the run on the main thread: 53.6 fps, p95 33.4 ms,
   21 frames over 50 ms. In the worker: 60 fps, p95 16.7 ms, none over
-  50 ms, turn-based and real-time. JevPilot under the same conditions
+  50 ms, turn-based and real-time. The reference simulator under the same conditions
   (its own nuclis `laya` decider): 58 fps, p95 16.8 ms, one over 50 ms.
 - In the browser, turn-based town seed 1 gives 155 decisions, 435 m,
   46 s, no violation, as `bun run eval` does; the stop-line check passes
@@ -785,7 +785,7 @@ nuclis 0.4.0-dev on Metal (`laya`, `laya-multilingual`):
   nuclis in the lobby with "nuclis serve is not running at …". Looked at
   `artifacts/screenshots/config.png` and `lobby-nuclis-down.png`.
 
-The inspector's "Full world" tab (2026-10-02): JevPilot's
+The inspector's "Full world" tab (2026-10-02): the reference simulator's
 `observation(true)` as `sim/observation.ts`, a read-only view (frame,
 ego, navigation, sensor, telemetry, and the world: junctions with their
 signals, roads, static objects, traffic controls, vehicles with their
@@ -805,7 +805,7 @@ levels in `src/dungeons/driving/scenarios.ts` with the stop line moved
 there (*Dungeon 1*, *Decisions*). Validated on the Apple M4 Pro:
 
 - `bun scripts/driving-reference.ts all`: all 13 runs (town, city,
-  highway 1–4, stop-line 42) still bit-identical to JevPilot.
+  highway 1–4, stop-line 42) still bit-identical to the reference simulator.
 - The rule passes every scenario: `bun run check driving/<level>
   --decider rule` on seeds 1–3 (merge 1–6, off-road 1–4), all pass;
   random fails `stop-sign` on 2 of 4 seeds (entered before the first
@@ -943,11 +943,11 @@ out at their first decision under that load.
 | rule | highway | on | 4/4 | 4 | 0 | 0 | 0 | 1359 | 0 |
 
 What it shows: with the safety nets on, every decider arrives nearly
-always, random included (10 of 12), as JevPilot found. Evaluation mode
+always, random included (10 of 12), as the reference simulator found. Evaluation mode
 separates them where traffic is dense: in the city, rule 1/4, random 0/4,
 `laya` 0/4, `laya-multilingual` 0/4, all by collisions; the interstate
 stays easy for everyone (its traffic is spaced). The rule itself leans on
-the planner: it is the experiment's rule, kept for the JevPilot oracle.
+the planner: it is the experiment's rule, kept as the oracle of the reference comparison.
 The text dungeons and Night Tower are measured in their milestones above.
 
 ### Pick up here

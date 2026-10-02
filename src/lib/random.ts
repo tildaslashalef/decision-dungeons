@@ -5,7 +5,7 @@ export type Rng = () => number;
 
 /**
  * mulberry32: a 32-bit seeded generator, uniform in [0, 1). The counter
- * grows as a float instead of wrapping, exactly as JevPilot's does, so the
+ * grows as a float instead of wrapping, exactly as the reference simulator's does, so the
  * driving port draws the same numbers; the two agree for the first ~4.9
  * million draws regardless.
  */

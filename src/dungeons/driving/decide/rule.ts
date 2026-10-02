@@ -1,4 +1,4 @@
-// The driving baseline, deterministic: the fixed rule of the JevPilot
+// The driving baseline, deterministic: the fixed rule of the reference
 // experiment, read off the request alone. Stop only for a reason other
 // than a distant line; at a required stop take the stop-at-line path;
 // otherwise the most progress for the least route and lane error, never a

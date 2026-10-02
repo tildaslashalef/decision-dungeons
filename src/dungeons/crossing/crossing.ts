@@ -1,6 +1,6 @@
 // Crossing: a car at a signalled stop line, asked to drive or stop. Each
 // case has a known answer, so every decision is scored. It is the decisive
-// moment of JevPilot's stop-line check reduced to one question: read the
+// moment of the driving stop-line check reduced to one question: read the
 // signal, compare the distance to the line with a threshold.
 
 import type { Answers } from "../../contract/answer.ts";

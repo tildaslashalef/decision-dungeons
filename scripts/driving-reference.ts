@@ -1,14 +1,13 @@
-// Proves the driving port against JevPilot (docs/plan.md § Proving the
-// port): runs JevPilot's simulation and ours side by side with the same
-// deterministic rule, compares every decision, and prints one JSON line per
-// run. JevPilot is read from JEVPILOT (default ~/Code/jevpilot); this is a
-// development check, not part of `bun test`.
+// Proves the driving port against the reference simulator (NOTICE.md;
+// docs/plan.md § Proving the port): runs its simulation and ours side by
+// side with the same deterministic rule, compares every decision, and
+// prints one JSON line per run. The reference checkout is read from
+// DRIVING_REFERENCE; this is a development check, not part of `bun test`.
 //
-//   bun scripts/driving-reference.ts town 1        # one trip
-//   bun scripts/driving-reference.ts stop-line 42  # the stop-line check
-//   bun scripts/driving-reference.ts all           # seeds 1–4 per world, and the check
+//   DRIVING_REFERENCE=<checkout> bun scripts/driving-reference.ts town 1        # one trip
+//   DRIVING_REFERENCE=<checkout> bun scripts/driving-reference.ts stop-line 42  # the stop-line check
+//   DRIVING_REFERENCE=<checkout> bun scripts/driving-reference.ts all           # seeds 1–4 per world, and the check
 
-import { homedir } from "node:os";
 import { join } from "node:path";
 import { decideWith } from "../src/contract/decider.ts";
 import type { Request } from "../src/contract/request.ts";
@@ -19,13 +18,17 @@ import {
 import { type DrivingRun, driving } from "../src/dungeons/driving/driving.ts";
 import { playTurn } from "../src/dungeons/turn.ts";
 
-const root = process.env.JEVPILOT ?? join(homedir(), "Code/jevpilot");
-// JevPilot is untyped JavaScript, read as a reference only.
+const root = process.env.DRIVING_REFERENCE;
+if (!root) {
+  console.error("set DRIVING_REFERENCE to the reference simulator's checkout");
+  process.exit(2);
+}
+// The reference is untyped JavaScript, read as a reference only.
 const { Simulation } = await import(join(root, "src/simulation.js"));
 const { pointAt } = await import(join(root, "src/math.js"));
 const { evaluate } = await import(join(root, "server/jev.js"));
 
-/** Our rule over JevPilot's own request: the same function on both sides. */
+/** Our rule over the reference's own request: the same function on both sides. */
 const referenceRule = {
   source: "rule",
   priced: false,
@@ -47,10 +50,10 @@ interface Sample {
   target: number;
 }
 
-// biome-ignore lint/suspicious/noExplicitAny: JevPilot's simulation is untyped.
-type JevSim = any;
+// biome-ignore lint/suspicious/noExplicitAny: the reference simulation is untyped.
+type ReferenceSim = any;
 
-const sample = (sim: JevSim | DrivingRun["sim"]): Sample => ({
+const sample = (sim: ReferenceSim | DrivingRun["sim"]): Sample => ({
   t: sim.time,
   x: sim.player.x,
   z: sim.player.z,
@@ -60,7 +63,7 @@ const sample = (sim: JevSim | DrivingRun["sim"]): Sample => ({
   target: sim.player.target ?? 0,
 });
 
-/** JevPilot's headless loop (scripts/verify-jev.mjs, verify-stop-line.mjs). */
+/** The reference's own headless loop (its scripts/verify-jev.mjs, verify-stop-line.mjs). */
 async function reference(level: string, seed: number) {
   const trace: Sample[] = [];
   if (level === "stop-line") {
@@ -70,7 +73,7 @@ async function reference(level: string, seed: number) {
     sim.pedestrians = [];
     sim.autopilot = true;
     const crossing = v.route.crossings.find(
-      (c: JevSim) => sim.world.byId[c.nodeId].control === "signal",
+      (c: ReferenceSim) => sim.world.byId[c.nodeId].control === "signal",
     );
     const node = sim.world.byId[crossing.nodeId];
     const northSouth = Math.abs(Math.cos(crossing.approach)) > 0.5;
