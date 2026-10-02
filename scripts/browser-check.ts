@@ -1,10 +1,9 @@
 // Drives the UI in headless Chromium and writes screenshots to artifacts/.
-// Playwright is not a dependency; point NODE_PATH at an install of it:
+// Playwright's browser is installed once per machine:
 //
-//   mkdir -p /tmp/dd-pw && (cd /tmp/dd-pw && bun add --exact playwright-core@1.63.0)
-//   bunx playwright@1.63.0 install chromium   # once per machine
+//   bunx playwright@1.63.0 install chromium
 //   DECISION_DUNGEONS_HOME=/tmp/dd-home bun src/server/main.ts &
-//   NODE_PATH=/tmp/dd-pw/node_modules bun scripts/browser-check.ts [nuclis-model]
+//   bun scripts/browser-check.ts [nuclis-model]
 //
 // It walks the gate into Crossing's lobby, plays Crossing with the rule,
 // then with nuclis (a real local decision per case) unless the model
@@ -13,7 +12,6 @@
 // throwaway DECISION_DUNGEONS_HOME: the check writes the config.
 
 import { mkdirSync } from "node:fs";
-// @ts-expect-error resolved through NODE_PATH, see above.
 import { chromium } from "playwright-core";
 
 const BASE = process.env.BASE_URL ?? "http://127.0.0.1:7000";

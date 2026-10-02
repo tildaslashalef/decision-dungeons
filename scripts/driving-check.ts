@@ -1,17 +1,15 @@
 // Drives the 3D driving stage in headless Chromium on the GPU (Metal on a
 // Mac, through Playwright's full Chromium) and writes screenshots to
 // artifacts/driving/. On the town drive it also reports frame times over
-// 20 s in turn-based and in real-time play. Playwright is not a
-// dependency; point NODE_PATH at an install of it (see browser-check.ts):
+// 20 s in turn-based and in real-time play:
 //
 //   DECISION_DUNGEONS_HOME=/tmp/dd-home-3d DECISION_DUNGEONS_PORT=7200 bun src/server/main.ts &
-//   NODE_PATH=/tmp/dd-pw/node_modules BASE_URL=http://127.0.0.1:7200 bun scripts/driving-check.ts [levels]
+//   BASE_URL=http://127.0.0.1:7200 bun scripts/driving-check.ts [levels]
 //
 // Each level is played by the rule autopilot. Install the full browser once
 // with `bunx playwright@1.63.0 install chromium`.
 
 import { mkdirSync } from "node:fs";
-// @ts-expect-error resolved through NODE_PATH, see above.
 import { chromium } from "playwright-core";
 
 const BASE = process.env.BASE_URL ?? "http://127.0.0.1:7000";

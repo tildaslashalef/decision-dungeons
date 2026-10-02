@@ -72,10 +72,9 @@ in `AGENTS.md`.
   `"identical": true`. Floating-point operation order matters: reorder
   no sum, and draw from the seeded generators in the same order. The
   reference checkout's location is in `README.md`.
-- **Browser checks.** Playwright is not a dependency. Install it once in
-  a scratch directory and point `NODE_PATH` at it:
-  `mkdir -p /tmp/dd-pw && (cd /tmp/dd-pw && bun add --exact playwright-core@1.63.0)`,
-  then `NODE_PATH=/tmp/dd-pw/node_modules BASE_URL=http://127.0.0.1:7100 bun scripts/browser-check.ts none`
+- **Browser checks.** `playwright-core` is a dev dependency; its browser
+  is installed once per machine (`bunx playwright@1.63.0 install
+  chromium`). Then `BASE_URL=http://127.0.0.1:7100 bun scripts/browser-check.ts none`
   (gate, lobbies, settings, Crossing; asserts no page scroll at five
   desktop sizes) and `… bun scripts/driving-check.ts` (the 3D stage,
   screenshots to `artifacts/driving/`, frame times). Look at every
@@ -529,9 +528,10 @@ three.js Ferrari (MIT). Asset license files travel with the assets.
   generate more (2026-10-02).
 - Dependencies: lucide 0.577.0 (icons in the play and driving views, as
   the reference simulator; the other pages use the icons below); dev only TypeScript
-  7.0.2, Biome 2.5.15, @types/bun 1.4.2. Playwright is not a dependency:
-  `scripts/browser-check.ts` finds `playwright-core` 1.63.0 through
-  `NODE_PATH` (its header has the commands) (2026-10-02).
+  7.0.2, Biome 2.5.15, @types/bun 1.4.2 (2026-10-02), and
+  `playwright-core` 1.63.0, which `bun run seed` needs to render the
+  vision dungeons' images and the browser checks use (2026-10-03; until
+  then it was found through `NODE_PATH`).
 - **Crossing**, a small text dungeon, ships with milestone 1 so the
   skeleton plays end to end before driving: drive or stop at a signalled
   line, a known answer per seeded case, levels for the signal, the

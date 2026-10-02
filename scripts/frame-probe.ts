@@ -3,13 +3,12 @@
 // same headless Chromium on the GPU (Metal), same viewport, 20 s of town
 // driving each. Development check only; see driving-check.ts for setup.
 //
-//   NODE_PATH=/tmp/dd-pw/node_modules bun scripts/frame-probe.ts [ours-url] [reference-url] [mode]
+//   bun scripts/frame-probe.ts [ours-url] [reference-url] [mode]
 //
 // mode: turn (default) or realtime, for our stage; autopilot: decider/model
 // (default rule/baseline). The reference must run its
 // dev server with a local decider (DECIDER=nuclis) so nothing paid is called.
 
-// @ts-expect-error resolved through NODE_PATH.
 import { chromium } from "playwright-core";
 
 const ours = process.argv[2] ?? "http://127.0.0.1:7200";

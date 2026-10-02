@@ -1,14 +1,12 @@
 // Plays Night Tower in headless Chromium on the GPU with the rule and
 // writes screenshots to artifacts/tower/: each camera, a question on
 // screen, the strips and radio mid-shift, and the end card; it reports
-// frame times and the shift's result. Playwright is not a dependency; see
-// browser-check.ts for NODE_PATH.
+// frame times and the shift's result.
 //
 //   DECISION_DUNGEONS_HOME=/tmp/dd-home-tw DECISION_DUNGEONS_PORT=7300 bun src/server/main.ts &
-//   NODE_PATH=/tmp/dd-pw/node_modules BASE_URL=http://127.0.0.1:7300 bun scripts/tower-check.ts [levels]
+//   BASE_URL=http://127.0.0.1:7300 bun scripts/tower-check.ts [levels]
 
 import { mkdirSync } from "node:fs";
-// @ts-expect-error resolved through NODE_PATH, see above.
 import { chromium } from "playwright-core";
 
 const BASE = process.env.BASE_URL ?? "http://127.0.0.1:7000";

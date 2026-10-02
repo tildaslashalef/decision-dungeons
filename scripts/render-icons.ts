@@ -1,11 +1,9 @@
 // Renders the app icons from public/icons/favicon.svg: PNGs at 16, 32,
 // 48, 180 (apple-touch-icon), 192, and 512, and favicon.ico holding the
-// 16, 32, and 48 PNGs. Playwright is not a dependency; point NODE_PATH at
-// an install of it, as for scripts/browser-check.ts:
+// 16, 32, and 48 PNGs:
 //
-//   NODE_PATH=/tmp/dd-pw/node_modules bun scripts/render-icons.ts
+//   bun scripts/render-icons.ts
 
-// @ts-expect-error resolved through NODE_PATH, see above.
 import { chromium } from "playwright-core";
 
 const DIR = "public/icons";
