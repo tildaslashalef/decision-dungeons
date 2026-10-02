@@ -1,0 +1,18 @@
+{
+  "name": "decision-dungeons",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "bun --hot src/server/main.ts",
+    "start": "bun src/server/main.ts",
+    "check": "bunx tsc --noEmit && bunx biome check"
+  },
+  "dependencies": {
+    "lucide": "0.577.0"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.5.15",
+    "@types/bun": "1.4.2",
+    "typescript": "7.0.2"
+  }
+}
