@@ -1,8 +1,8 @@
-import { afterEach, describe, expect, test } from "bun:test";
+import { describe, expect, test } from "bun:test";
 import { decideWith } from "../src/contract/decider.ts";
 import type { Request } from "../src/contract/request.ts";
 import { bulkLast, nuclisDecider } from "../src/deciders/nuclis.ts";
-import { spawnTransport } from "../src/deciders/nuclis-spawn.ts";
+import { nuclisHttp } from "../src/deciders/nuclis-http.ts";
 import { randomDecider } from "../src/deciders/random.ts";
 import {
   JEV_MODEL,
@@ -11,10 +11,11 @@ import {
 } from "../src/deciders/typesafe.ts";
 import {
   decideOutput,
-  type FakeNuclis,
+  FAKE_NUCLIS_URL,
+  type FakeRoutes,
   fakeNuclis,
   modelListing,
-  print,
+  ok,
 } from "./fake-nuclis.ts";
 
 const request: Request = {
@@ -32,22 +33,27 @@ const options = (model = "laya") => ({
   signal: AbortSignal.timeout(5000),
 });
 
-describe("nuclis over spawn", () => {
-  let fake: FakeNuclis | undefined;
-  afterEach(() => fake?.remove());
-
-  const decider = (f: FakeNuclis, backend?: "cpu" | "metal") =>
-    nuclisDecider(
-      spawnTransport({ bin: f.bin, ...(backend ? { backend } : {}) }),
+describe("nuclis over its API", () => {
+  const setup = (routes: FakeRoutes) => {
+    const fake = fakeNuclis(routes);
+    const decider = nuclisDecider(
+      nuclisHttp({ url: FAKE_NUCLIS_URL, fetch: fake.fetch }),
     );
+    return { fake, decider };
+  };
 
-  test("pipes the request and reads the answers, timings, and debug fields", async () => {
-    fake = fakeNuclis({ decide: print(decideOutput("stop")) });
-    const decision = await decideWith(decider(fake, "cpu"), request, options());
-    expect(fake.args()).toBe(
-      "decide --request - --json --explain --model laya --backend cpu",
-    );
-    expect(JSON.parse(fake.stdin())).toEqual(request);
+  test("posts the request and reads the answers, timings, and debug fields", async () => {
+    const { fake, decider } = setup({
+      decisions: () => ok(decideOutput("stop")),
+    });
+    const decision = await decideWith(decider, request, options());
+    expect(fake.calls).toEqual([
+      {
+        method: "POST",
+        path: "/decisions?explain=1",
+        body: { model: "laya", ...request },
+      },
+    ]);
     expect(decision.decider).toBe("nuclis");
     expect(decision.model).toBe("laya");
     expect(decision.answers.motion).toEqual({
@@ -74,9 +80,9 @@ describe("nuclis over spawn", () => {
     expect(decision.costUsd).toBe(0);
   });
 
-  test("lists the decision models nuclis prints, and only those", async () => {
-    fake = fakeNuclis({ models: print(modelListing) });
-    expect(await decider(fake).models()).toEqual([
+  test("lists the decision models nuclis serves, and only those", async () => {
+    const { decider } = setup({ models: () => ok(modelListing) });
+    expect(await decider.models()).toEqual([
       { id: "laya", label: "laya", available: true },
       { id: "laya-multilingual", label: "laya-multilingual", available: true },
       {
@@ -86,70 +92,106 @@ describe("nuclis over spawn", () => {
         reason: "not pulled: nuclis model pull clef-flash",
       },
     ]);
-    expect(fake.args()).toBe("model ls --json");
   });
 
-  test("reports its version, or why it cannot run", async () => {
-    fake = fakeNuclis({});
-    expect(await decider(fake).status()).toEqual({
+  test("reports its version from /health, or why it cannot be reached", async () => {
+    expect(await setup({}).decider.status()).toEqual({
       configured: true,
       reachable: true,
       version: "nuclis 0.4.0-test",
     });
-    const missing = nuclisDecider(
-      spawnTransport({ bin: `${fake.dir}/missing` }),
-    );
-    expect(await missing.status()).toMatchObject({ configured: false });
-  });
-
-  test("a failing decide is rejected with its last error line", async () => {
-    fake = fakeNuclis({
-      decide:
-        "echo loading >&2; echo 'error: OptionsExceedBudget: question motion' >&2; exit 1",
+    const refused = Object.assign(new Error("Unable to connect"), {
+      code: "ConnectionRefused",
     });
-    await expect(
-      decideWith(decider(fake), request, options()),
-    ).rejects.toMatchObject({
-      code: "rejected",
-      message:
-        "nuclis decide failed: error: OptionsExceedBudget: question motion",
+    const down = setup({ health: () => ({ throws: refused }) }).decider;
+    expect(await down.status()).toEqual({
+      configured: true,
+      reachable: false,
+      reason: `nuclis serve is not running at ${FAKE_NUCLIS_URL}; start it with nuclis serve`,
     });
   });
 
-  test("a missing binary is unconfigured", async () => {
-    fake = fakeNuclis({});
-    const missing = nuclisDecider(
-      spawnTransport({ bin: `${fake.dir}/missing` }),
-    );
-    await expect(decideWith(missing, request, options())).rejects.toMatchObject(
+  test("a 422 is rejected with nuclis's code and message", async () => {
+    const { decider } = setup({
+      decisions: () => ({
+        status: 422,
+        body: {
+          error: {
+            code: "options_exceed_budget",
+            message: "question motion: options do not fit",
+          },
+        },
+      }),
+    });
+    await expect(decideWith(decider, request, options())).rejects.toMatchObject(
       {
-        code: "unconfigured",
+        code: "rejected",
+        message:
+          "nuclis /decisions?explain=1: options_exceed_budget: question motion: options do not fit",
       },
     );
   });
 
-  test("malformed output and invalid answers are typed errors", async () => {
-    fake = fakeNuclis({ decide: "echo 'not json'" });
-    await expect(
-      decideWith(decider(fake), request, options()),
-    ).rejects.toMatchObject({
-      code: "invalid_answer",
-      message: "nuclis decide printed malformed JSON",
+  test("529 is retried with backoff, then answered", async () => {
+    let busy = 2;
+    const { fake, decider } = setup({
+      decisions: () =>
+        busy-- > 0
+          ? {
+              status: 529,
+              body: { error: { code: "busy", message: "64 waiting" } },
+            }
+          : ok(decideOutput("drive")),
     });
-    fake.remove();
-    fake = fakeNuclis({ decide: print(decideOutput("swerve")) });
-    await expect(
-      decideWith(decider(fake), request, options()),
-    ).rejects.toMatchObject({
-      code: "invalid_answer",
-    });
+    const decision = await decideWith(decider, request, options());
+    expect(decision.answers.motion).toMatchObject({ choice: "drive" });
+    expect(fake.calls).toHaveLength(3);
   });
 
-  test("a slow decide times out and is killed", async () => {
-    fake = fakeNuclis({ decide: "sleep 5" });
+  test("a server that stays busy is unavailable", async () => {
+    const { fake, decider } = setup({
+      decisions: () => ({
+        status: 529,
+        body: { error: { code: "busy", message: "64 waiting" } },
+      }),
+    });
+    await expect(decideWith(decider, request, options())).rejects.toMatchObject(
+      {
+        code: "unavailable",
+        message: "nuclis /decisions?explain=1: busy: 64 waiting",
+      },
+    );
+    expect(fake.calls).toHaveLength(5);
+  });
+
+  test("malformed output and invalid answers are typed errors", async () => {
+    const malformed = setup({
+      decisions: () => ({ status: 200, body: "not an object" }),
+    });
+    await expect(
+      decideWith(malformed.decider, request, options()),
+    ).rejects.toMatchObject({ code: "invalid_answer" });
+    const swerve = setup({ decisions: () => ok(decideOutput("swerve")) });
+    await expect(
+      decideWith(swerve.decider, request, options()),
+    ).rejects.toMatchObject({ code: "invalid_answer" });
+  });
+
+  test("a slow answer times out", async () => {
+    const decider = nuclisDecider(
+      nuclisHttp({
+        url: FAKE_NUCLIS_URL,
+        fetch: ((_: unknown, init?: RequestInit) =>
+          new Promise((_resolve, reject) =>
+            init?.signal?.addEventListener("abort", () =>
+              reject(init.signal?.reason),
+            ),
+          )) as typeof fetch,
+      }),
+    );
     const started = performance.now();
     await expect(
-      decideWith(decider(fake), request, {
+      decideWith(decider, request, {
         model: "laya",
         signal: AbortSignal.timeout(200),
       }),

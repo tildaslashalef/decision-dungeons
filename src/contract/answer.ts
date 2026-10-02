@@ -4,7 +4,7 @@
 
 import type { Request } from "./request.ts";
 
-/** Per-answer internals some deciders expose (nuclis with --explain). */
+/** Per-answer internals some deciders expose (nuclis with `explain`). */
 export interface AnswerDebug {
   /** One raw logit per option, in the order the question lists them. */
   logits?: number[];

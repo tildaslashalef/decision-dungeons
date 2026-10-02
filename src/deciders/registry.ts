@@ -5,7 +5,7 @@
 import type { Decider } from "../contract/decider.ts";
 import { DecideError } from "../contract/errors.ts";
 import { nuclisDecider } from "./nuclis.ts";
-import { spawnTransport } from "./nuclis-spawn.ts";
+import { nuclisHttp } from "./nuclis-http.ts";
 import { randomDecider } from "./random.ts";
 import { typesafeDecider } from "./typesafe.ts";
 
@@ -18,7 +18,7 @@ export function isDeciderId(value: unknown): value is DeciderId {
 
 /** Per-decider bound on one decision, in milliseconds. */
 export const DECIDE_TIMEOUT_MS: Record<DeciderId, number> = {
-  // A cold Metal start compiles pipelines; a 1,024-token state encodes in about 0.3 s.
+  // Covers opening a model (under 0.2 s) and the backoff over a busy server.
   nuclis: 20_000,
   typesafe: 15_000,
   rule: 2_000,
@@ -26,9 +26,10 @@ export const DECIDE_TIMEOUT_MS: Record<DeciderId, number> = {
 };
 
 export interface DeciderSettings {
-  nuclisBin: string;
-  backend?: "cpu" | "metal";
+  /** The nuclis API's base URL, ending in `/v1`. */
+  nuclisUrl: string;
   typesafeKey?: string;
+  /** Injected so tests reach neither nuclis nor TypeSafe. */
   fetch?: typeof fetch;
 }
 
@@ -48,9 +49,9 @@ export function createDeciders(
 ): Record<DeciderId, Decider> {
   return {
     nuclis: nuclisDecider(
-      spawnTransport({
-        bin: settings.nuclisBin,
-        ...(settings.backend ? { backend: settings.backend } : {}),
+      nuclisHttp({
+        url: settings.nuclisUrl,
+        ...(settings.fetch ? { fetch: settings.fetch } : {}),
       }),
     ),
     typesafe: typesafeDecider({

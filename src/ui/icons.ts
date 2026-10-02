@@ -36,13 +36,13 @@ import key from "@phosphor-icons/core/assets/duotone/key-duotone.svg" with {
 import play from "@phosphor-icons/core/assets/duotone/play-duotone.svg" with {
   type: "text",
 };
+import plugs from "@phosphor-icons/core/assets/duotone/plugs-connected-duotone.svg" with {
+  type: "text",
+};
 import shuffle from "@phosphor-icons/core/assets/duotone/shuffle-duotone.svg" with {
   type: "text",
 };
 import stack from "@phosphor-icons/core/assets/duotone/stack-duotone.svg" with {
-  type: "text",
-};
-import terminal from "@phosphor-icons/core/assets/duotone/terminal-window-duotone.svg" with {
   type: "text",
 };
 import trash from "@phosphor-icons/core/assets/duotone/trash-duotone.svg" with {
@@ -88,7 +88,7 @@ const SOURCES = {
   play,
   shuffle,
   stack,
-  terminal,
+  plugs,
   trash,
   warning,
   // game-icons.net: dungeon accents.

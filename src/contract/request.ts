@@ -1,5 +1,5 @@
-// The decision request every decider reads: Jev's shape, which `nuclis
-// decide --request` also reads. Specified in docs/plan.md § The decision
+// The decision request every decider reads: Jev's shape, which the nuclis
+// API also reads. Specified in docs/plan.md § The decision
 // contract.
 
 export type JsonValue =

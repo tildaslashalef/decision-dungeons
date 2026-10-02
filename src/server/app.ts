@@ -1,7 +1,7 @@
 // The HTTP API. Every route is local-only: the Host header must name the
 // loopback address (no DNS rebinding), and a write must be same-origin JSON
-// (no cross-site form posts), because the config can name the binary the
-// server runs.
+// (no cross-site form posts), because the config names where the server
+// sends decisions.
 
 import type {
   ApiErrorBody,

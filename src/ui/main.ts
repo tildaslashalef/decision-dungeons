@@ -110,7 +110,7 @@ async function load(): Promise<void> {
 async function save(patch: ConfigPatch): Promise<void> {
   const config = await api.updateConfig(patch);
   store.set({ config });
-  // The deciders' status depends on the config (binary, key).
+  // The deciders' status depends on the config (nuclis URL, key).
   store.set({ deciders: await api.deciders() });
 }
 

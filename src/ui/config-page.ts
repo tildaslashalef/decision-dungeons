@@ -1,8 +1,8 @@
-// Settings: the deciders (nuclis's binary and backend, the TypeSafe key)
+// Settings: the deciders (the nuclis API's URL, the TypeSafe key)
 // and each dungeon's default autopilot. The key is write-only: the page can
 // set or remove it but only ever learns whether one is set.
 
-import type { Backend, ConfigPatch, DeciderView } from "../contract/api.ts";
+import type { ConfigPatch, DeciderView } from "../contract/api.ts";
 import type { AnyDungeon } from "../dungeons/dungeon.ts";
 import { ApiError } from "./api.ts";
 import { autopilotOptions, deciderIcon } from "./autopilot.ts";
@@ -173,59 +173,51 @@ export function configPage(store: Store, actions: ConfigActions): HTMLElement {
   const nuclisView = deciders.find((d) => d.id === "nuclis");
   const found =
     !!nuclisView?.status.configured && nuclisView.status.reachable !== false;
-  const fromEnv = config.nuclis.binSource === "env";
-  const bin = h("input", {
+  const fromEnv = config.nuclis.urlSource === "env";
+  const url = h("input", {
     class: "input",
-    type: "text",
-    name: "nuclis-bin",
-    value: config.nuclis.bin,
+    type: "url",
+    name: "nuclis-url",
+    value: config.nuclis.url,
     spellcheck: "false",
     autocomplete: "off",
     disabled: fromEnv,
   });
-  const backend = h(
-    "select",
-    { class: "select", name: "nuclis-backend" },
-    h("option", { value: "" }, "nuclis default (Metal)"),
-    h("option", { value: "metal" }, "Metal"),
-    h("option", { value: "cpu" }, "CPU"),
-  );
-  backend.value = config.nuclis.backend ?? "";
   const nuclis = card(
     "card-nuclis",
     deciderIcon("nuclis", "card-icon"),
     "nuclis",
     found
-      ? badge("ok", "checkCircle", nuclisView?.status.version ?? "found")
-      : badge("warn", "warning", "not found"),
+      ? badge("ok", "checkCircle", nuclisView?.status.version ?? "running")
+      : badge("warn", "warning", "not running"),
     h(
       "p",
       { class: "card-lede" },
       found
-        ? "Local decision models, one subprocess per decision."
-        : (nuclisView?.status.reason ?? "The nuclis binary was not found."),
+        ? "Local decision models, kept open by nuclis serve."
+        : (nuclisView?.status.reason ??
+            "The nuclis API did not answer. Start it with nuclis serve."),
     ),
     field(
-      "Binary",
+      "API URL",
       h(
         "span",
         { class: "field-row" },
-        inputGroup("terminal", bin),
+        inputGroup("plugs", url),
         badge(
           "off",
           null,
           fromEnv
-            ? "NUCLIS_BIN"
-            : config.nuclis.binSource === "file"
+            ? "NUCLIS_URL"
+            : config.nuclis.urlSource === "file"
               ? "saved"
               : "default",
         ),
       ),
       fromEnv
-        ? "Set by NUCLIS_BIN; unset it to change this here."
-        : "An absolute path, or a command on the server's PATH.",
+        ? "Set by NUCLIS_URL; unset it to change this here."
+        : "Where nuclis serve listens, ending in /v1.",
     ),
-    field("Backend", backend),
     h(
       "footer",
       { class: "card-foot" },
@@ -235,15 +227,14 @@ export function configPage(store: Store, actions: ConfigActions): HTMLElement {
         {
           type: "button",
           class: "btn",
+          disabled: fromEnv,
           onclick: () => {
-            const value = bin.value.trim();
-            const patch: ConfigPatch = {
-              nuclis: {
-                backend: (backend.value || null) as Backend | null,
-                ...(fromEnv ? {} : { bin: value === "nuclis" ? null : value }),
-              },
-            };
-            void run("nuclis", patch, "Saved");
+            const value = url.value.trim();
+            void run(
+              "nuclis",
+              { nuclis: { url: value === "" ? null : value } },
+              "Saved",
+            );
           },
         },
         svgIcon("floppy"),

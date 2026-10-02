@@ -5,7 +5,6 @@ import type { DeciderStatus, ModelInfo } from "./decider.ts";
 import type { DecideErrorCode } from "./errors.ts";
 import type { Request } from "./request.ts";
 
-export type Backend = "cpu" | "metal";
 export type Source = "env" | "file" | "default";
 
 export interface Autopilot {
@@ -17,14 +16,14 @@ export interface Autopilot {
 export interface PublicConfig {
   home: string;
   autopilot: Record<string, Autopilot>;
-  nuclis: { bin: string; binSource: Source; backend?: Backend };
+  nuclis: { url: string; urlSource: Source };
   typesafe: { keySet: boolean; keySource?: Exclude<Source, "default"> };
 }
 
 /** PUT /api/config. A field set to null is cleared. */
 export interface ConfigPatch {
   autopilot?: Record<string, Autopilot | null>;
-  nuclis?: { bin?: string | null; backend?: Backend | null };
+  nuclis?: { url?: string | null };
   typesafe?: { apiKey?: string | null };
 }
 

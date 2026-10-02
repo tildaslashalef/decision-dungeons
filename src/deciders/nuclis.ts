@@ -1,28 +1,14 @@
-// nuclis's decision models, reached through a transport. The models are
-// whatever decision entries nuclis lists, so a new one appears with no code
-// change here. The output shapes read below are those `nuclis decide
-// --json --explain` and `nuclis model ls --json` print
-// (nuclis docs/reference/laya.md § `nuclis decide`).
+// nuclis's decision models over the nuclis API (`nuclis-http.ts`). The
+// models are whatever decision entries `GET /v1/models` lists, so a new one
+// appears with no code change here. The shapes read below are those of
+// nuclis's docs/reference/api.md.
 
 import type { Answers, Decision, Usage } from "../contract/answer.ts";
 import type { Decider, ModelInfo } from "../contract/decider.ts";
 import { DecideError, isDecideError } from "../contract/errors.ts";
 import type { Request } from "../contract/request.ts";
 import { validateAnswers } from "../contract/validate.ts";
-
-/** How the decider reaches nuclis. Each method returns the command's parsed JSON. */
-export interface NuclisTransport {
-  kind: "spawn";
-  version(signal: AbortSignal): Promise<string>;
-  /** The body `nuclis model ls --json` prints. */
-  models(signal: AbortSignal): Promise<unknown>;
-  /** The body `nuclis decide --request - --json --explain` prints. */
-  decide(
-    request: Request,
-    model: string,
-    signal: AbortSignal,
-  ): Promise<unknown>;
-}
+import type { NuclisApi } from "./nuclis-http.ts";
 
 const PROBE_TIMEOUT_MS = 5_000;
 
@@ -61,25 +47,23 @@ export function bulkLast(request: Request): Request {
   };
 }
 
-/** The decision entries of `nuclis model ls --json`. */
+/** The decision entries of `GET /v1/models`. */
 export function decisionModels(listing: unknown): ModelInfo[] {
-  if (!isObject(listing) || !Array.isArray(listing.catalog))
-    throw new DecideError(
-      "invalid_answer",
-      "nuclis model ls printed no catalog",
-    );
+  if (!isObject(listing) || !Array.isArray(listing.data))
+    throw new DecideError("invalid_answer", "nuclis /models sent no list");
   const models: ModelInfo[] = [];
-  for (const entry of listing.catalog) {
-    if (!isObject(entry) || entry.kind !== "decision") continue;
-    if (typeof entry.name !== "string") continue;
-    const present = entry.status === "present";
+  for (const entry of listing.data) {
+    if (!isObject(entry) || typeof entry.id !== "string") continue;
+    const x = entry.nuclis;
+    if (!isObject(x) || x.kind !== "decision") continue;
+    const present = x.present === true;
     models.push({
-      id: entry.name,
-      label: entry.name,
+      id: entry.id,
+      label: entry.id,
       available: present,
       ...(present
         ? {}
-        : { reason: `not pulled: nuclis model pull ${entry.name}` }),
+        : { reason: `not pulled: nuclis model pull ${entry.id}` }),
     });
   }
   return models;
@@ -110,7 +94,7 @@ function answersFrom(raw: unknown): unknown {
   return out;
 }
 
-/** Reads the one result of `nuclis decide --json` into a Decision. */
+/** Reads the one result of `POST /v1/decisions` into a Decision. */
 export function decisionFrom(
   request: Request,
   model: string,
@@ -123,11 +107,11 @@ export function decisionFrom(
   )
     throw new DecideError(
       "invalid_answer",
-      "nuclis decide did not print exactly one result",
+      "nuclis /decisions did not send exactly one result",
     );
   const result: unknown = output.results[0];
   if (!isObject(result))
-    throw new DecideError("invalid_answer", "nuclis decide printed no result");
+    throw new DecideError("invalid_answer", "nuclis /decisions sent no result");
   const answers: Answers = validateAnswers(
     request,
     answersFrom(result.answers),
@@ -168,28 +152,37 @@ export function decisionFrom(
   return decision;
 }
 
-export function nuclisDecider(transport: NuclisTransport): Decider {
+export function nuclisDecider(api: NuclisApi): Decider {
   const probe = () => AbortSignal.timeout(PROBE_TIMEOUT_MS);
   return {
     id: "nuclis",
     label: "nuclis",
     async models() {
-      return decisionModels(await transport.models(probe()));
+      return decisionModels(await api.models(probe()));
     },
     async status() {
       try {
-        const version = await transport.version(probe());
-        return { configured: true, reachable: true, version };
+        const health = await api.health(probe());
+        const version =
+          isObject(health) && typeof health.version === "string"
+            ? `nuclis ${health.version}`
+            : undefined;
+        return {
+          configured: true,
+          reachable: true,
+          ...(version ? { version } : {}),
+        };
       } catch (error) {
         const reason = isDecideError(error) ? error.message : String(error);
-        return isDecideError(error) && error.code === "unconfigured"
-          ? { configured: false, reason }
-          : { configured: true, reachable: false, reason };
+        return { configured: true, reachable: false, reason };
       }
     },
     prepare: (request) => bulkLast(request),
     async decide(request, { model, signal }) {
-      const output = await transport.decide(request, model, signal);
+      const output = await api.decisions(
+        { model, state: request.state, questions: request.questions },
+        signal,
+      );
       return decisionFrom(request, model, output);
     },
   };

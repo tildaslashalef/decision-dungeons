@@ -1,5 +1,5 @@
-// The player's config: autopilot defaults per dungeon, nuclis settings,
-// the TypeSafe key. One JSON file, mode 600, in the config home.
+// The player's config: autopilot defaults per dungeon, the nuclis API's
+// URL, the TypeSafe key. One JSON file, mode 600, in the config home.
 // Environment variables override the file. The key leaves this module only
 // as `effective(...).typesafeKey`, for the TypeSafe decider; every view the
 // browser sees says only whether a key is set.
@@ -9,21 +9,20 @@ import { homedir } from "node:os";
 import { isAbsolute, join } from "node:path";
 import type {
   Autopilot,
-  Backend,
   ConfigPatch,
   PublicConfig,
   Source,
 } from "../contract/api.ts";
+import { DEFAULT_NUCLIS_URL } from "../deciders/nuclis-http.ts";
 
 export interface StoredConfig {
   autopilot: Record<string, Autopilot>;
-  nuclis: { bin?: string; backend?: Backend };
+  nuclis: { url?: string };
   typesafe: { apiKey?: string };
 }
 
 export interface Effective {
-  nuclisBin: string;
-  backend?: Backend;
+  nuclisUrl: string;
   typesafeKey?: string;
 }
 
@@ -34,7 +33,6 @@ export class ConfigError extends Error {
 const FILE = "config.json";
 const NAME = /^[A-Za-z0-9._-]{1,100}$/;
 const KEY = /^[\x21-\x7e]{8,512}$/;
-const BIN_NAME = /^[A-Za-z0-9._-]{1,100}$/;
 
 type Json = Record<string, unknown>;
 const isObject = (value: unknown): value is Json =>
@@ -51,24 +49,26 @@ export function configHome(env: Record<string, string | undefined>): string {
   return join(homedir(), ".decision-dungeons");
 }
 
-function binFrom(value: unknown, where: string): string {
-  if (
-    typeof value !== "string" ||
-    !(
-      (isAbsolute(value) && value.length <= 1024 && !value.includes("\0")) ||
-      BIN_NAME.test(value)
+/** An http(s) base URL with no credentials, query, or fragment; trailing slashes dropped. */
+function urlFrom(value: unknown, where: string): string {
+  if (typeof value === "string" && value.length <= 1024) {
+    let url: URL | undefined;
+    try {
+      url = new URL(value);
+    } catch {}
+    if (
+      url &&
+      (url.protocol === "http:" || url.protocol === "https:") &&
+      !url.username &&
+      !url.password &&
+      !url.search &&
+      !url.hash
     )
-  )
-    throw new ConfigError(
-      `${where} must be an absolute path or a command name`,
-    );
-  return value;
-}
-
-function backendFrom(value: unknown, where: string): Backend {
-  if (value !== "cpu" && value !== "metal")
-    throw new ConfigError(`${where} must be cpu or metal`);
-  return value;
+      return value.replace(/\/+$/, "");
+  }
+  throw new ConfigError(
+    `${where} must be an http(s) URL such as ${DEFAULT_NUCLIS_URL}`,
+  );
 }
 
 function keyFrom(value: unknown, where: string): string {
@@ -107,11 +107,11 @@ export function parseStored(raw: unknown): StoredConfig {
       throw new ConfigError(`autopilot ${dungeon}: not a dungeon id`);
     config.autopilot[dungeon] = autopilotFrom(value, `autopilot.${dungeon}`);
   }
+  // Settings this version no longer reads (the old binary and backend) are
+  // ignored here and dropped by the next write.
   const nuclis = section(raw, "nuclis");
-  if (nuclis.bin !== undefined)
-    config.nuclis.bin = binFrom(nuclis.bin, "nuclis.bin");
-  if (nuclis.backend !== undefined)
-    config.nuclis.backend = backendFrom(nuclis.backend, "nuclis.backend");
+  if (nuclis.url !== undefined)
+    config.nuclis.url = urlFrom(nuclis.url, "nuclis.url");
   const typesafe = section(raw, "typesafe");
   if (typesafe.apiKey !== undefined)
     config.typesafe.apiKey = keyFrom(typesafe.apiKey, "typesafe.apiKey");
@@ -136,15 +136,12 @@ export function parsePatch(raw: unknown): ConfigPatch {
   }
   if (raw.nuclis !== undefined) {
     const nuclis = section(raw, "nuclis");
+    for (const key of Object.keys(nuclis))
+      if (key !== "url") throw new ConfigError(`unknown setting nuclis.${key}`);
     patch.nuclis = {};
-    if (nuclis.bin !== undefined)
-      patch.nuclis.bin =
-        nuclis.bin === null ? null : binFrom(nuclis.bin, "nuclis.bin");
-    if (nuclis.backend !== undefined)
-      patch.nuclis.backend =
-        nuclis.backend === null
-          ? null
-          : backendFrom(nuclis.backend, "nuclis.backend");
+    if (nuclis.url !== undefined)
+      patch.nuclis.url =
+        nuclis.url === null ? null : urlFrom(nuclis.url, "nuclis.url");
   }
   if (raw.typesafe !== undefined) {
     const typesafe = section(raw, "typesafe");
@@ -165,10 +162,8 @@ function applyPatch(config: StoredConfig, patch: ConfigPatch): StoredConfig {
     else next.autopilot[dungeon] = value;
   }
   const n = patch.nuclis;
-  if (n?.bin === null) delete next.nuclis.bin;
-  else if (n?.bin !== undefined) next.nuclis.bin = n.bin;
-  if (n?.backend === null) delete next.nuclis.backend;
-  else if (n?.backend !== undefined) next.nuclis.backend = n.backend;
+  if (n?.url === null) delete next.nuclis.url;
+  else if (n?.url !== undefined) next.nuclis.url = n.url;
   const t = patch.typesafe;
   if (t?.apiKey === null) delete next.typesafe.apiKey;
   else if (t?.apiKey !== undefined) next.typesafe.apiKey = t.apiKey;
@@ -227,19 +222,17 @@ export class ConfigStore {
   }
 
   effective(config: StoredConfig): Effective {
-    const bin = this.env.NUCLIS_BIN || config.nuclis.bin || "nuclis";
+    const url = this.env.NUCLIS_URL
+      ? urlFrom(this.env.NUCLIS_URL, "NUCLIS_URL")
+      : (config.nuclis.url ?? DEFAULT_NUCLIS_URL);
     const key = this.env.TYPESAFE_API_KEY || config.typesafe.apiKey;
-    return {
-      nuclisBin: bin,
-      ...(config.nuclis.backend ? { backend: config.nuclis.backend } : {}),
-      ...(key ? { typesafeKey: key } : {}),
-    };
+    return { nuclisUrl: url, ...(key ? { typesafeKey: key } : {}) };
   }
 
   publicView(config: StoredConfig): PublicConfig {
-    const binSource: Source = this.env.NUCLIS_BIN
+    const urlSource: Source = this.env.NUCLIS_URL
       ? "env"
-      : config.nuclis.bin
+      : config.nuclis.url
         ? "file"
         : "default";
     const keySource = this.env.TYPESAFE_API_KEY
@@ -250,11 +243,7 @@ export class ConfigStore {
     return {
       home: this.home,
       autopilot: config.autopilot,
-      nuclis: {
-        bin: this.effective(config).nuclisBin,
-        binSource,
-        ...(config.nuclis.backend ? { backend: config.nuclis.backend } : {}),
-      },
+      nuclis: { url: this.effective(config).nuclisUrl, urlSource },
       typesafe: { keySet: !!keySource, ...(keySource ? { keySource } : {}) },
     };
   }

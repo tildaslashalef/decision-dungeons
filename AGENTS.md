@@ -42,11 +42,45 @@ remove stale guidance instead of keeping competing versions.
   simulation). Never paste its files wholesale. Its assets (models,
   textures, sky) are copied with their license and attribution files, and
   `NOTICE.md` records both the code's origin and every asset's license.
-- **nuclis** (`~/Code/nuclis`) is a black box reached through its CLI
-  (`nuclis decide`, `nuclis model ls --json`) or, once it lands, `nuclis
-  serve`'s HTTP API. Never import its code or depend on its file layout
-  beyond what those commands print.
+- **nuclis** (`~/Code/nuclis`) is a black box reached only through its
+  local HTTP API (below). Never import its code, run its binary, or depend
+  on its file layout.
 - **TypeSafe Jev** is reached only through its public HTTPS API.
+
+## Typed decisions come from the local nuclis API
+
+Typed decisions about text or JSON (yes/no probabilities, one option of
+several, scores along a rubric) come from **nuclis**, a local inference
+server on this machine; never call a hosted LLM for them (TypeSafe Jev
+stays as one decider among others, chosen by the player).
+
+- **The contract is `~/Code/nuclis/docs/reference/api.md`.** Read it
+  before writing or changing code that talks to the server: routes,
+  fields, error codes, limits, batching. Where it disagrees with anything
+  here, it wins.
+- **The server.** Base URL `http://127.0.0.1:8000/v1`, from the config
+  (`NUCLIS_URL` or the settings page), defaulting to that. The user starts
+  it (`nuclis serve`); never start, install, or configure it. "Connection
+  refused" means it is not running: tell the user, do not work around it.
+  `GET /v1/health` (up, loaded models), `GET /v1/models` (decision
+  models); no authentication.
+- **Routes.** `POST /v1/decisions` (nuclis-native: logits,
+  `answer_confidence`, tokens, `truncated`, timings; up to 64 `states` per
+  request for the same questions) is what the nuclis decider uses.
+  `POST /v1/systemone` is Jev's protocol, one `state`. Questions: `noul`,
+  `choice` (up to 255 options), `score`.
+- **Client rules.** States are text or JSON values, never `{"file":
+  path}`: read files and send their contents. `422`: fix the request
+  (`error.code`, `error.message`). `529` (`busy`, `timeout`): retry with
+  exponential backoff. Concurrent requests are fine (batched into one GPU
+  pass, same answers). A state past the model's budget (1,024 tokens for
+  `laya-multilingual`, 512 for `laya`) is cut, not refused: check
+  `results[].nuclis.truncated` when it matters. Probabilities are rounded
+  to 4 places and are calibrated likelihoods; set thresholds per question.
+- **Tests.** The client sits behind a small HTTP interface
+  (`src/deciders/nuclis-http.ts`, `fetch` injected) stubbed in tests
+  (`tests/fake-nuclis.ts`); `tests/nuclis-live.test.ts` is the one
+  integration test and runs only when `GET /v1/health` answers.
 
 ## Bun and TypeScript
 
@@ -100,7 +134,7 @@ remove stale guidance instead of keeping competing versions.
 
 For code changes:
 
-1. `bun test` (contract, deciders with a fake `nuclis` binary, dungeon
+1. `bun test` (contract, deciders against a stubbed nuclis API, dungeon
    logic, error paths), `bunx tsc --noEmit`, `bunx biome check`.
 2. A change to a simulation or a decider: run `bun run eval` on the
    affected dungeon and seeds; for the driving port, match JevPilot with

@@ -2,7 +2,7 @@
 // repairs a bad answer; it throws one of these.
 
 export type DecideErrorCode =
-  /** Missing key or binary: the player must change the config. */
+  /** A missing key or setting: the player must change the config. */
   | "unconfigured"
   /** The decider refused the request (bad request, bad key, rate limit, unknown model). */
   | "rejected"

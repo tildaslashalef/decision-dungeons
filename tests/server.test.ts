@@ -18,18 +18,18 @@ import { createApp, MAX_IN_FLIGHT } from "../src/server/app.ts";
 import { ConfigStore, configHome } from "../src/server/config.ts";
 import {
   decideOutput,
+  FAKE_NUCLIS_URL,
   fakeNuclis,
   modelListing,
-  print,
+  ok,
 } from "./fake-nuclis.ts";
 
 const fake = fakeNuclis({
-  models: print(modelListing),
-  decide: print(decideOutput("stop")),
+  models: () => ok(modelListing),
+  decisions: () => ok(decideOutput("stop")),
 });
 const homes: string[] = [];
 afterAll(() => {
-  fake.remove();
   for (const home of homes) rmSync(home, { recursive: true, force: true });
 });
 
@@ -43,12 +43,15 @@ let seen: DeciderSettings[] = [];
 let slow: Promise<void> | undefined;
 
 function start(env: Record<string, string> = {}) {
-  const store = new ConfigStore(newHome(), { NUCLIS_BIN: fake.bin, ...env });
+  const store = new ConfigStore(newHome(), {
+    NUCLIS_URL: FAKE_NUCLIS_URL,
+    ...env,
+  });
   const app = createApp({
     store,
     deciders: (settings) => {
       seen.push(settings);
-      const deciders = createDeciders(settings);
+      const deciders = createDeciders({ ...settings, fetch: fake.fetch });
       if (!slow) return deciders;
       const gate = slow;
       const random: Decider = {
@@ -90,7 +93,6 @@ describe("config", () => {
     const { store, send, call, server } = start();
     const put = await send("PUT", "/api/config", {
       typesafe: { apiKey: "sk-test-123456" },
-      nuclis: { backend: "cpu" },
       autopilot: {
         crossing: { decider: "nuclis", model: "laya-multilingual" },
       },
@@ -100,7 +102,7 @@ describe("config", () => {
     expect(text).not.toContain("sk-test-123456");
     expect(JSON.parse(text)).toMatchObject({
       typesafe: { keySet: true, keySource: "file" },
-      nuclis: { bin: fake.bin, binSource: "env", backend: "cpu" },
+      nuclis: { url: FAKE_NUCLIS_URL, urlSource: "env" },
       autopilot: {
         crossing: { decider: "nuclis", model: "laya-multilingual" },
       },
@@ -131,11 +133,35 @@ describe("config", () => {
     server.stop(true);
   });
 
+  test("the nuclis URL defaults, saves, and ignores the old binary settings", async () => {
+    const store = new ConfigStore(newHome(), {});
+    writeFileSync(
+      store.file,
+      JSON.stringify({ nuclis: { bin: "/opt/nuclis", backend: "cpu" } }),
+    );
+    expect(store.publicView(await store.load()).nuclis).toEqual({
+      url: "http://127.0.0.1:8000/v1",
+      urlSource: "default",
+    });
+    const saved = await store.update({
+      nuclis: { url: "http://127.0.0.1:9000/v1" },
+    });
+    expect(store.effective(saved).nuclisUrl).toBe("http://127.0.0.1:9000/v1");
+    expect(JSON.parse(readFileSync(store.file, "utf8")).nuclis).toEqual({
+      url: "http://127.0.0.1:9000/v1",
+    });
+    expect(() =>
+      new ConfigStore(store.home, { NUCLIS_URL: "nuclis" }).effective(saved),
+    ).toThrow("NUCLIS_URL must be an http(s) URL");
+  });
+
   test("bad patches are refused with a reason", async () => {
     const { send, server } = start();
     for (const body of [
-      { nuclis: { bin: "../relative/nuclis" } },
-      { nuclis: { backend: "cuda" } },
+      { nuclis: { url: "ftp://127.0.0.1:8000/v1" } },
+      { nuclis: { url: "http://user:pw@127.0.0.1:8000/v1" } },
+      { nuclis: { url: "not a url" } },
+      { nuclis: { bin: "/usr/local/bin/nuclis" } },
       { typesafe: { apiKey: "has space in it" } },
       { autopilot: { nowhere: { decider: "rule", model: "baseline" } } },
       { autopilot: { crossing: { decider: "oracle", model: "x" } } },
@@ -297,20 +323,20 @@ describe("local only", () => {
     const crossOrigin = await send(
       "PUT",
       "/api/config",
-      { nuclis: { bin: "/tmp/evil" } },
+      { nuclis: { url: "http://evil.example/v1" } },
       { Origin: "http://evil.example" },
     );
     expect(crossOrigin.status).toBe(403);
     const form = await call("/api/config", {
       method: "PUT",
       headers: { "Content-Type": "text/plain" },
-      body: JSON.stringify({ nuclis: { bin: "/tmp/evil" } }),
+      body: JSON.stringify({ nuclis: { url: "http://evil.example/v1" } }),
     });
     expect(form.status).toBe(415);
     const sameOrigin = await send(
       "PUT",
       "/api/config",
-      { nuclis: { backend: "metal" } },
+      { nuclis: { url: "http://127.0.0.1:8001/v1" } },
       { Origin: base },
     );
     expect(sameOrigin.status).toBe(200);

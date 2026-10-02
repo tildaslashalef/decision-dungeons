@@ -7,11 +7,14 @@ watches it play, with a debug sidebar showing what the decider read and
 answered. The same dungeons run headless and produce comparison tables.
 
 Status (2026-10-02): milestones 1 (the skeleton) and 2 (driving,
-headless, proven bit-identical against JevPilot) are done. Milestone 3
-(driving UI) is **in progress**: the scene, HUD, gate, and lobbies are
-done; the inspector's world tab, evaluation mode, and four scenario
-levels remain (*Progress* → *Pick up here*). A new session starts at
-*Start here* below.
+headless, proven bit-identical against JevPilot) are done; nuclis is
+reached through `nuclis serve`'s HTTP API. Milestone 3 (driving UI) is
+**in progress**: the scene, HUD, gate, and lobbies are done; the
+inspector's world tab, evaluation mode, and four scenario levels remain.
+The user asked for the whole plan end to end: then milestone 4 (text
+dungeons, cases in SQLite) and milestone 5 (a second 3D dungeon);
+milestone 6 (vision) waits for an image model (*Progress* → *Pick up
+here*). A new session starts at *Start here* below.
 
 ## Start here
 
@@ -21,17 +24,19 @@ levels remain (*Progress* → *Pick up here*). A new session starts at
    and continue from **Pick up here**. Record what each session delivered
    in *Progress*.
 
-**What exists and what does not, today.** `nuclis` is installed on the
-`PATH` (`nuclis --version`) with `laya` and `laya-multilingual` pulled, so
-the nuclis decider's `spawn` transport makes real decisions now; the rule
-and random deciders need nothing. `nuclis serve` does not exist yet:
-build no `serve` transport and no mock of it, since its API is not
-settled; it arrives with its reference document (*References*). Tests use
-a fake `nuclis` executable (a short script that prints canned `--json`
-output, as JevPilot's `tests/nuclis.test.js` does) and never need a model,
-a GPU, a key, or the network. The TypeSafe decider is tested against a
-stubbed `fetch`; a real Jev call needs `TYPESAFE_API_KEY` and is an
-explicit command, never a default test.
+**What exists and what does not, today.** The user runs `nuclis serve`
+(nuclis 0.4.0-dev) at `http://127.0.0.1:8000/v1` with `laya` and
+`laya-multilingual`; the nuclis decider reaches it over HTTP only
+(`AGENTS.md` § *Typed decisions come from the local nuclis API*). Never
+start or configure it; if it refuses connections, tell the user. The rule
+and random deciders need nothing. Tests stub the nuclis API
+(`tests/fake-nuclis.ts`, an injected `fetch`) and never need a server, a
+model, a GPU, a key, or the network; `tests/nuclis-live.test.ts` runs
+against the real server only when `GET /v1/health` answers. The TypeSafe
+decider is tested against a stubbed `fetch`; a real Jev call needs
+`TYPESAFE_API_KEY` and is an explicit command, never a default test. No
+nuclis model takes images yet (`GET /v1/models`), so milestone 6 cannot
+start.
 
 ## Working notes
 
@@ -48,7 +53,13 @@ in `AGENTS.md`.
   `src/server/log.ts` (one line per API request; colored on a terminal,
   `NO_COLOR`/`FORCE_COLOR` honored; `DECISION_DUNGEONS_LOG=debug|info|warn|error`,
   default `info`). `bun run eval` keeps stdout for its JSON lines.
-- **Check it.** `bun test` (58 tests, no network or model), `bun run lint`
+- **nuclis.** `curl -s 127.0.0.1:8000/v1/health` says whether the user's
+  server is up and which models are open; the settings page shows the
+  same as the nuclis card's badge. `NUCLIS_URL` overrides the configured
+  URL. A warm decision takes 15–35 ms, so evals over many seeds are
+  cheap; concurrent requests are batched by the server.
+- **Check it.** `bun test` (62 tests, 2 of them live against nuclis when
+  it is up; no network or model otherwise), `bun run lint`
   (`tsc --noEmit` and `biome check`), `bun run eval …` and
   `bun run check driving/stop-line --decider rule` (*Headless runs*).
 - **The driving simulation is proven bit-identical to JevPilot.** After
@@ -115,7 +126,7 @@ project builds on:
   takes images and video. It runs as a quantized GGUF backbone (Q6_K) with
   the original head; expect roughly 1–3 s per decision on the M4 Pro (an
   estimate), so slow deciders need a turn-based mode. Its vision opens the
-  image dungeons of milestone 5.
+  image dungeons of milestone 6.
 
 ## References
 
@@ -134,18 +145,13 @@ project builds on:
     `src/main.js` (the UI).
   - `scripts/verify-jev.mjs`, `scripts/verify-stop-line.mjs`: the headless
     trip and the stop-line check, both taking `DECIDER=nuclis`.
-- **nuclis**, `~/Code/nuclis`, used only as a black box (CLI or HTTP):
-  - `nuclis decide --help`, `nuclis model ls --json` (decision entries
-    have `kind: "decision"`).
-  - `docs/reference/laya.md`: the input contract, budgets, calibration,
-    `--json` and `--explain` fields, timings.
-  - `TODO.md` § APPS-19: the design of the coming `nuclis serve`, the
-    local nuclis HTTP API (decisions first, OpenAI-compatible chat
-    later). **For orientation only**: its routes and fields
-    may change while nuclis builds it. When it lands, nuclis writes its
-    API reference (`docs/reference/api.md` in nuclis), and that
-    document, handed over then, is what the `serve` transport is built
-    against. Until then, nothing here calls or mocks it.
+- **nuclis**, `~/Code/nuclis`, used only as a black box over HTTP:
+  - `docs/reference/api.md`: **the contract** of `nuclis serve`
+    (`/v1/health`, `/v1/models`, `/v1/decisions`, `/v1/systemone`),
+    errors, limits, batching, measured rates. Read it before touching
+    `src/deciders/nuclis*.ts`; it wins over anything written here.
+  - `docs/reference/laya.md`: the models' input contract, budgets,
+    calibration.
 - **TypeSafe Jev**: `POST https://api.typesafe.ai/v1/systemone` with a
   bearer key; the request and answer shape above; model `jev-latest`
   (answered as `jev-1.13.0` on 2026-10-02).
@@ -171,7 +177,7 @@ work beyond what the driving UI already does, training models.
 
 - **Bun 1.4** (1.4.2 installed): `bun install`, `bun test`, `Bun.serve`
   with HTML imports for the dev server and its hot reload, `bun build` for
-  production, `Bun.spawn` for `nuclis decide`. No npm, no Vite.
+  production, `bun:sqlite` for the text dungeons' cases. No npm, no Vite.
 - **TypeScript, strict**, run directly by Bun. The decision contract, the
   dungeon interface, and the driving state get real types; JevPilot's
   implicit shapes (state, candidates, answers) were its main source of
@@ -184,7 +190,7 @@ work beyond what the driving UI already does, training models.
 
 ## The decision contract
 
-The request and response are Jev's shape, which `nuclis decide` already
+The request and response are Jev's shape, which the nuclis API also
 reads and writes. That is the interface every decider speaks:
 
 - `Request`: `{ state, questions: { [id]: { type, instructions, criteria } } }`,
@@ -200,7 +206,7 @@ reads and writes. That is the interface every decider speaks:
 interface Decider {
   id: string;                      // "nuclis", "typesafe", "rule", "random"
   label: string;
-  models(): Promise<ModelInfo[]>;  // nuclis: from `nuclis model ls --json`
+  models(): Promise<ModelInfo[]>;  // nuclis: from GET /v1/models
   status(): Promise<DeciderStatus>;// configured, reachable, version, pricing
   prepare?(req: Request, model: string): Request; // budget-aware rewrite
   decide(req: Request, opts: { model: string; signal: AbortSignal; seed?: number }): Promise<Decision>;
@@ -210,15 +216,17 @@ interface Decider {
 Every caller goes through `decideWith` (`src/contract/decider.ts`), which
 prepares, times, and validates: no path trusts a decider's answers.
 
-- **nuclis**: one decider over a transport. `spawn` runs `nuclis decide
-  --request - --json --explain --model <m>` and lists models with
-  `nuclis model ls --json`; it is the only transport built now. A second,
-  `serve`, will call `nuclis serve` over HTTP once nuclis has built it and
-  provided its API reference (see *References*); keep the transport a
-  small interface (`decide`, `models`) so `serve` slots in beside `spawn`
-  without touching the decider. Models are the decision entries nuclis
-  lists (`kind: "decision"`; today `laya`, `laya-multilingual`), so a new
-  nuclis decision model shows up in the picker by itself. The rewrite
+- **nuclis**: one decider over the nuclis API (`nuclis-http.ts`, a small
+  interface with `health`, `models`, `decisions` and an injected
+  `fetch`). Each decision is `POST /v1/decisions?explain=1` with one
+  state (logits, temperatures, tokens read, state kept, `truncated`, and
+  timings feed the debug sidebar); status is `GET /v1/health`; models are
+  the decision entries of `GET /v1/models` (`nuclis.kind: "decision"`;
+  today `laya`, `laya-multilingual`), so a new nuclis decision model shows
+  up in the picker by itself. `422` is `rejected` with nuclis's code and
+  message; `529` is retried with exponential backoff (4 retries from
+  0.1 s), then `unavailable`; a refused connection is `unavailable`,
+  "nuclis serve is not running at …". The rewrite
   proven in JevPilot (each option carries its own facts, situational
   instructions first, bulky context last) is split by who knows what: the
   dungeon writes option facts and orders instructions in the request every
@@ -237,7 +245,7 @@ A dungeon never names a decider; a decider never knows a dungeon.
 decision-dungeons/
   src/
     contract/      request, answer, decider, API types; validation; decideWith
-    deciders/      nuclis.ts, nuclis-spawn.ts, typesafe.ts, random.ts, registry.ts
+    deciders/      nuclis.ts, nuclis-http.ts, typesafe.ts, random.ts, registry.ts
     lib/           seeded randomness (JevPilot's mulberry32, exactly)
     server/        Bun.serve: app.ts (API), config.ts, assets.ts (models,
                    textures, draco, the driving worker), icons.ts, main.ts
@@ -258,8 +266,8 @@ decision-dungeons/
                    stage hook), debug sidebar, autopilot picker, sky, icons,
                    topbar, dungeon-art, store, api, style.css
     cli/           eval.ts: `bun run eval` and `bun run check`
-  tests/           contract, deciders (fake nuclis), server, crossing,
-                   driving, driving-ui
+  tests/           contract, deciders (stubbed nuclis API), nuclis-live,
+                   server, log, crossing, driving, driving-ui
   scripts/         browser-check, driving-check, frame-probe,
                    driving-reference (vs JevPilot), render-icons
   public/          models, textures, draco, icons, with licenses
@@ -285,18 +293,19 @@ interface Dungeon<Run> {
 
 - `GET /api/deciders`: each decider, its status, its models.
 - `GET /api/config`, `PUT /api/config`: the autopilot defaults per dungeon,
-  the nuclis settings (binary path and backend for `spawn`; a URL for
-  `serve` once that transport exists), the TypeSafe key. Stored in
+  the nuclis API's URL (default `http://127.0.0.1:8000/v1`; http(s), no
+  credentials, query, or fragment), the TypeSafe key. Stored in
   `~/.decision-dungeons/config.json` (mode 600); the key is write-only from the
   browser: reads return only whether it is set. Environment variables
-  (`TYPESAFE_API_KEY`, `NUCLIS_BIN`) override the file.
+  (`TYPESAFE_API_KEY`, `NUCLIS_URL`) override the file.
 - `POST /api/decide`: `{ dungeon, decider, model, request }` →
   `Decision`. Bounded body size, a timeout per decider, at most three in
   flight, errors typed (`unconfigured`, `rejected`, `unavailable`,
   `timeout`, `invalid_answer`) as `{ error: { code, message } }`.
 - Bound to `127.0.0.1` (port 7000, `DECISION_DUNGEONS_PORT`). Every API
   route requires a loopback `Host` header; writes must be same-origin
-  `application/json`, because the config names a binary the server runs.
+  `application/json`, because the config names where the server sends
+  decisions.
 
 ## The gate, the lobbies, and the debug sidebar
 
@@ -376,15 +385,19 @@ three.js Ferrari (MIT). Asset license files travel with the assets.
    checks, `eval`; matched against JevPilot as above.
 3. **Driving, UI.** The scene and HUD at JevPilot's look, the inspector,
    evaluation mode, scenario levels.
-4. **Text dungeons.** Inbox, ticket triage, logs: seeded synthetic cases
-   with known answers, scored per decision, levels for long inputs,
-   numbers against thresholds, and other languages.
-- **When `nuclis serve` lands** (between milestones, whenever nuclis
-  provides the API reference): the `serve` transport built against that
-  document, models from its listing, and the decision rate it allows (no
-  process start or model load per decision, concurrent requests batched)
-  measured against `spawn` on the same seeds.
-5. **Vision**, once nuclis serves clef-flash with images (MODL-34
+4. **Text dungeons.** Inbox, ticket triage, logs: synthetic cases with
+   known answers, scored per decision, levels for long inputs, numbers
+   against thresholds, and other languages. The cases live in SQLite at
+   `~/.decision-dungeons/dungeons.db`, written by a seed script: a seeded
+   generator of realistic emails, tickets, and logs whose answers follow
+   from how each case was built (never from a model), which can add more
+   cases at any time without changing what a run already played
+   (*Decisions*).
+5. **A second 3D dungeon**, designed here (the user asked for a surprise):
+   its own deterministic world in a worker, the same contract, a rule and
+   the random floor, and a check that separates deciders, at the gate's
+   look. Named in *Progress* when it ships.
+6. **Vision**, once nuclis serves clef-flash with images (MODL-34
    session 4). Images are rendered from seeds (the three.js scene, or
    seeded HTML through headless Playwright) and stored as fixtures, so
    runs repeat.
@@ -413,13 +426,20 @@ three.js Ferrari (MIT). Asset license files travel with the assets.
   config directory `~/.decision-dungeons` (2026-10-02).
 - `~/Code/decision-dungeons`, local only: no remote, nothing pushed (2026-10-02).
 - Bun 1.4, TypeScript strict, Biome (2026-10-02).
-- nuclis grows `nuclis serve` (APPS-19, next in nuclis's `TODO.md`); until
-  it lands and nuclis provides its API reference, the nuclis decider uses
-  `spawn` only, and the `serve` transport is not built or mocked
-  (2026-10-02).
-- clef-flash arrives through nuclis (MODL-34, after APPS-19), text first,
-  images later; Decision Dungeons adds the turn-based mode for it and plans the
-  vision dungeons as milestone 5 (2026-10-02).
+- nuclis is reached only through `nuclis serve`'s HTTP API, whose contract
+  is nuclis's `docs/reference/api.md`; the subprocess transport, the
+  binary path, and the backend setting are gone. The config holds one
+  nuclis setting, the API's URL (`NUCLIS_URL` overrides; default
+  `http://127.0.0.1:8000/v1`); the old `nuclis.bin` and `nuclis.backend`
+  keys are ignored and dropped on the next write. The user runs the
+  server; the project never starts it (2026-10-02).
+- clef-flash arrives through nuclis (MODL-34), text first, images later;
+  Decision Dungeons adds the turn-based mode for it and plans the vision
+  dungeons as milestone 6 (2026-10-02).
+- Scope: the user asked for the whole plan end to end, a second 3D
+  dungeon of this project's design (milestone 5), and the text dungeons'
+  cases in SQLite under `~/.decision-dungeons` with a seed script that can
+  generate more (2026-10-02).
 - Dependencies: lucide 0.577.0 (icons in the play and driving views, as
   JevPilot; the other pages use the icons below); dev only TypeScript
   7.0.2, Biome 2.5.15, @types/bun 1.4.2. Playwright is not a dependency:
@@ -446,8 +466,8 @@ three.js Ferrari (MIT). Asset license files travel with the assets.
   `invalid_answer` (2026-10-02).
 - The server listens on `127.0.0.1:7000` (`DECISION_DUNGEONS_PORT`); API
   routes require a loopback `Host` (DNS rebinding) and same-origin JSON
-  writes (cross-site requests), since the config page can set the binary
-  the server runs (2026-10-02).
+  writes (cross-site requests), since the config page sets where the
+  server sends decisions (2026-10-02).
 - The UI fetches nothing from the network at runtime; its fonts are
   bundled locally from OFL packages, pinned exactly:
   `@fontsource-variable/fraunces` 5.3.0 (display) and
@@ -626,6 +646,27 @@ API request with its status and time (4xx/5xx at `warn`). `bun test`
 58 pass; `bun run lint` clean; checked on a throwaway server (port 7101)
 with `GET /api/config`, a 404, and a 400.
 
+nuclis over HTTP (2026-10-02): the nuclis decider calls `nuclis serve`
+(`src/deciders/nuclis-http.ts`; the subprocess transport, binary, and
+backend settings removed); the settings page's nuclis card takes the API
+URL and shows the server's version. Validated on the Apple M4 Pro against
+nuclis 0.4.0-dev on Metal (`laya`, `laya-multilingual`):
+
+- `bun test`: 62 pass, among them the decider against a stubbed API
+  (answers and debug fields, the models listing, health, `422`, `529`
+  retried then answered, `529` to exhaustion, malformed bodies, timeout)
+  and `tests/nuclis-live.test.ts` against the real server (skipped when
+  `NUCLIS_URL` points nowhere). `bun run lint` clean.
+- `bun run eval --dungeon crossing --level distance --decider nuclis
+  --model laya-multilingual --seeds 1`: 4 of 12 correct, 3 violations,
+  as through the subprocess in milestone 1, at **17 ms** a decision
+  (milestone 1: 424–472 ms).
+- `scripts/browser-check.ts laya-multilingual` passed on a throwaway
+  server (port 7100): Crossing with the rule (12/12) and with
+  `laya-multilingual` (4/12) in the browser; an unreachable URL disables
+  nuclis in the lobby with "nuclis serve is not running at …". Looked at
+  `artifacts/screenshots/config.png` and `lobby-nuclis-down.png`.
+
 Not done (see *Pick up here*): JevPilot's full-world inspector tab (a
 perception tab stands in), evaluation mode, and four scenario levels.
 Manual driving and touch controls are a separate, undecided question
@@ -664,4 +705,18 @@ and a *Progress* entry:
    time bound without hitting a building). Add each to the lobby and to
    `scripts/driving-check.ts` with a screenshot.
 
-Then milestone 4 (text dungeons) per *Milestones*.
+Then, per *Milestones*:
+
+4. **Milestone 4, text dungeons.** `src/store/` over `bun:sqlite` at
+   `~/.decision-dungeons/dungeons.db` (`DECISION_DUNGEONS_HOME` moves it);
+   `bun run seed` writes named case sets from a seeded generator
+   (realistic senders, domains, ticket wording, log formats, some cases in
+   other languages), each case with its known answer; runs pick cases by
+   seed within a set and record the set and its content hash; the browser
+   gets cases through the server. Dungeons: inbox (phishing, priority,
+   routing), ticket triage (team, urgency score), logs (incident or not,
+   numbers against thresholds, long inputs past the budget). Batched
+   `states` on `/v1/decisions` for headless runs.
+5. **Milestone 5, the second 3D dungeon.**
+6. A measurement table: every dungeon, rule, random, `laya`,
+   `laya-multilingual`, seeds 1–4, on the real server.

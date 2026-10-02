@@ -1,65 +1,77 @@
-// A fake `nuclis` executable: a shell script that records its arguments
-// and standard input, then prints canned output. No model, GPU, or network.
+// A fake nuclis API: a `fetch` that answers the routes of nuclis's
+// docs/reference/api.md with canned bodies and records what it was sent.
+// No server, model, GPU, or network.
 
-import {
-  chmodSync,
-  mkdtempSync,
-  readFileSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
+export const FAKE_NUCLIS_URL = "http://nuclis.test/v1";
+
+export interface FakeCall {
+  method: string;
+  /** The path and query after the base URL, e.g. `/decisions?explain=1`. */
+  path: string;
+  body: unknown;
+}
+
+/** A route's answer: a JSON body (status 200), or a status and body, or a thrown error. */
+export type FakeReply =
+  | { status: number; body: unknown }
+  | { throws: unknown }
+  | { json: unknown };
+
+export interface FakeRoutes {
+  health?: () => FakeReply;
+  models?: () => FakeReply;
+  decisions?: (body: unknown) => FakeReply;
+}
 
 export interface FakeNuclis {
-  dir: string;
-  bin: string;
-  /** The arguments of the last call, space-separated. */
-  args(): string;
-  /** What the last call read from standard input. */
-  stdin(): string;
-  remove(): void;
+  fetch: typeof fetch;
+  calls: FakeCall[];
 }
 
-export interface FakeScripts {
-  version?: string;
-  models?: string;
-  decide?: string;
-}
+export const ok = (json: unknown): FakeReply => ({ json });
 
-const quote = (text: string) => `'${text.replaceAll("'", `'\\''`)}'`;
+export const healthBody = {
+  status: "ok",
+  version: "0.4.0-test",
+  backend: "metal",
+  loaded: ["laya"],
+  queue: { queued: 0, running: false, completed: 3 },
+  decisions: { waiting: 0, batches: 2, requests: 2 },
+  connections: 1,
+};
 
-/** Each script is shell run for its command; `print(value)` builds one that echoes JSON. */
-export function fakeNuclis(scripts: FakeScripts): FakeNuclis {
-  const dir = mkdtempSync(join(tmpdir(), "fake-nuclis-"));
-  const bin = join(dir, "nuclis");
-  writeFileSync(
-    bin,
-    `#!/bin/sh
-echo "$@" > "${dir}/args"
-case "$1" in
-  --version) ${scripts.version ?? "echo 'nuclis 0.4.0-test'"} ;;
-  model) ${scripts.models ?? "exit 3"} ;;
-  decide) cat > "${dir}/stdin"; ${scripts.decide ?? "exit 3"} ;;
-  *) exit 2 ;;
-esac
-`,
-  );
-  chmodSync(bin, 0o755);
-  return {
-    dir,
-    bin,
-    args: () => readFileSync(join(dir, "args"), "utf8").trim(),
-    stdin: () => readFileSync(join(dir, "stdin"), "utf8"),
-    remove: () => rmSync(dir, { recursive: true, force: true }),
+export function fakeNuclis(routes: FakeRoutes = {}): FakeNuclis {
+  const calls: FakeCall[] = [];
+  const reply = async (r: FakeReply): Promise<Response> => {
+    if ("throws" in r) throw r.throws;
+    if ("json" in r) return Response.json(r.json);
+    return Response.json(r.body, { status: r.status });
   };
+  const notFound = (): FakeReply => ({
+    status: 404,
+    body: { error: { code: "not_found", message: "no route" } },
+  });
+  const fake = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = String(input instanceof Request ? input.url : input);
+    if (!url.startsWith(FAKE_NUCLIS_URL))
+      throw new Error(`the fake nuclis was asked for ${url}`);
+    init?.signal?.throwIfAborted();
+    const path = url.slice(FAKE_NUCLIS_URL.length);
+    const method = init?.method ?? "GET";
+    const body =
+      typeof init?.body === "string" ? JSON.parse(init.body) : undefined;
+    calls.push({ method, path, body });
+    if (path === "/health")
+      return reply((routes.health ?? (() => ok(healthBody)))());
+    if (path === "/models") return reply((routes.models ?? notFound)());
+    if (path.startsWith("/decisions"))
+      return reply(routes.decisions ? routes.decisions(body) : notFound());
+    return reply(notFound());
+  }) as typeof fetch;
+  return { fetch: fake, calls };
 }
 
-export function print(value: unknown): string {
-  return `printf '%s\\n' ${quote(JSON.stringify(value))}`;
-}
-
-/** What `nuclis decide --json --explain` prints for one choice question named motion. */
+/** What `POST /v1/decisions?explain=1` answers for one choice question named motion. */
 export function decideOutput(choice = "stop") {
   return {
     schema_version: 1,
@@ -95,12 +107,30 @@ export function decideOutput(choice = "stop") {
   };
 }
 
+const model = (id: string, kind: string, present: boolean) => ({
+  id,
+  object: "model",
+  created: 0,
+  owned_by: "convaiinnovations",
+  nuclis: {
+    kind,
+    present,
+    loaded: false,
+    default: id === "laya",
+    max_len: present ? 512 : null,
+    head_max_len: present ? 192 : null,
+    repo: `convaiinnovations/${id}`,
+    revision: null,
+  },
+});
+
+/** `GET /v1/models`, with a language model and an unpulled decision model mixed in. */
 export const modelListing = {
-  schema_version: 4,
-  catalog: [
-    { name: "qwen3.8-27b", kind: "generation", status: "present" },
-    { name: "laya", kind: "decision", status: "present" },
-    { name: "laya-multilingual", kind: "decision", status: "present" },
-    { name: "clef-flash", kind: "decision", status: "absent" },
+  object: "list",
+  data: [
+    model("qwen3.8-27b", "generation", true),
+    model("laya", "decision", true),
+    model("laya-multilingual", "decision", true),
+    model("clef-flash", "decision", false),
   ],
 };

@@ -8,7 +8,7 @@
 //
 // It walks the gate into Crossing's lobby, plays Crossing with the rule,
 // then with nuclis (a real local decision per case) unless the model
-// argument is "none", and checks that a missing nuclis binary shows nuclis
+// argument is "none", and checks that an unreachable nuclis API shows nuclis
 // disabled with the reason. It also shoots the gate at phone size. Use a
 // throwaway DECISION_DUNGEONS_HOME: the check writes the config.
 
@@ -147,33 +147,30 @@ await page.goto(`${BASE}/config`);
 await page.locator(".settings-card").first().waitFor();
 await shot("config");
 
-// A missing binary disables nuclis and says why.
-const bin = page.locator('input[name="nuclis-bin"]');
-if (await bin.isEnabled()) {
-  await bin.fill("/nonexistent/nuclis");
-  await page
-    .locator("section", { hasText: "Binary" })
-    .getByRole("button", { name: "Save" })
-    .click();
+// An unreachable nuclis API disables nuclis and says why.
+const url = page.locator('input[name="nuclis-url"]');
+if (await url.isEnabled()) {
+  const saved = await url.inputValue();
+  const save = () =>
+    page.locator(".card-nuclis").getByRole("button", { name: "Save" }).click();
+  await url.fill("http://127.0.0.1:9/v1");
+  await save();
   await page
     .locator(".card-nuclis .save-status", { hasText: "Saved" })
     .waitFor();
   await lobby();
   await page.locator(".picker-row.blocked").first().waitFor();
-  await shot("lobby-nuclis-missing");
+  await shot("lobby-nuclis-down");
   const reason = await page
     .locator(".picker-row.blocked small")
     .first()
     .innerText();
-  if (!reason.includes("not found"))
+  if (!reason.includes("not running"))
     problems.push(`unexpected reason: ${reason}`);
-  // Put the binary back.
+  // Put the URL back.
   await page.goto(`${BASE}/config`);
-  await page.locator('input[name="nuclis-bin"]').fill("nuclis");
-  await page
-    .locator("section", { hasText: "Binary" })
-    .getByRole("button", { name: "Save" })
-    .click();
+  await page.locator('input[name="nuclis-url"]').fill(saved);
+  await save();
   await page
     .locator(".card-nuclis .save-status", { hasText: "Saved" })
     .waitFor();
