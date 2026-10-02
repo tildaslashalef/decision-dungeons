@@ -102,6 +102,7 @@ describe("config", () => {
       typesafe: { apiKey: "sk-test-123456" },
       autopilot: {
         crossing: { decider: "nuclis", model: "laya-multilingual" },
+        inbox: { decider: "cascade", model: "laya:clef-flash@0.85" },
       },
     });
     expect(put.status).toBe(200);
@@ -112,6 +113,7 @@ describe("config", () => {
       nuclis: { url: FAKE_NUCLIS_URL, urlSource: "env" },
       autopilot: {
         crossing: { decider: "nuclis", model: "laya-multilingual" },
+        inbox: { decider: "cascade", model: "laya:clef-flash@0.85" },
       },
     });
     expect(statSync(store.file).mode & 0o777).toBe(0o600);
@@ -213,7 +215,7 @@ describe("config", () => {
 });
 
 describe("deciders", () => {
-  test("lists all four with their status and models", async () => {
+  test("lists every decider with its status and models", async () => {
     const { call, server } = start();
     const { deciders } = (await (await call("/api/deciders")).json()) as {
       deciders: {
@@ -224,6 +226,7 @@ describe("deciders", () => {
     };
     expect(deciders.map((d) => d.id)).toEqual([
       "nuclis",
+      "cascade",
       "typesafe",
       "rule",
       "random",
@@ -234,6 +237,10 @@ describe("deciders", () => {
       "laya-multilingual",
       "clef-flash",
       "laya-next",
+    ]);
+    expect(byId.cascade?.models.map((m) => m.id)).toEqual([
+      "laya:clef-flash@0.85",
+      "laya-multilingual:clef-flash@0.85",
     ]);
     expect(byId.typesafe?.status.configured).toBe(false);
     expect(byId.rule?.models.map((m) => m.id)).toEqual(["baseline"]);

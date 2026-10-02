@@ -26,6 +26,8 @@ export interface RunResult {
   inputTokens?: number;
   /** Decisions whose state the model cut to fit its budget; absent when no decider reported it. */
   truncated?: number;
+  /** Decisions a cascade's judge answered; absent for other deciders. */
+  escalated?: number;
   costUsd?: number;
   /** Why the run stopped early, when a decision failed. */
   error?: { code: string; message: string };
@@ -59,6 +61,7 @@ export async function runEpisode(
   let inputTokens: number | undefined;
   let truncated: number | undefined;
   let costUsd: number | undefined;
+  let escalated: number | undefined;
   let error: RunResult["error"];
   const tally = (d: Decision | undefined) => {
     if (!d) return;
@@ -68,6 +71,8 @@ export async function runEpisode(
     if (d.debug?.truncated !== undefined)
       truncated = (truncated ?? 0) + (d.debug.truncated ? 1 : 0);
     if (d.costUsd !== undefined) costUsd = (costUsd ?? 0) + d.costUsd;
+    if (d.debug?.cascade)
+      escalated = (escalated ?? 0) + (d.debug.cascade.escalated ? 1 : 0);
   };
   const failure = (e: unknown): RunResult["error"] =>
     isDecideError(e)
@@ -121,6 +126,7 @@ export async function runEpisode(
     ...(asked ? { meanDecideMs: Math.round(decideMs / asked) } : {}),
     ...(inputTokens !== undefined ? { inputTokens } : {}),
     ...(truncated !== undefined ? { truncated } : {}),
+    ...(escalated !== undefined ? { escalated } : {}),
     ...(costUsd !== undefined ? { costUsd } : {}),
     ...(error ? { error } : {}),
     wallMs: Math.round(performance.now() - started),

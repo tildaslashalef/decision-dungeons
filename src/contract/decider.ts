@@ -12,6 +12,11 @@ export interface ModelInfo {
   available: boolean;
   /** Reads a request's images; absent: it cannot see them. */
   images?: boolean;
+  /**
+   * Answers many states in one pass, so screening many is cheap (nuclis's
+   * `packs`); false: one state after another. Absent: not reported.
+   */
+  packs?: boolean;
   /** Why the model cannot be used, when it cannot. */
   reason?: string;
 }

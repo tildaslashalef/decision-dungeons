@@ -61,7 +61,7 @@ in `AGENTS.md`.
   sequence token, one state after another, and every other request waits
   behind it (nuclis queues a request up to 300 s). Never leave a clef
   eval running in the background of a check; it holds the GPU.
-- **Check it.** `bun test` (106 tests, 3 of them live against nuclis when
+- **Check it.** `bun test` (111 tests, 3 of them live against nuclis when
   it is up; no network or model otherwise), `bun run lint`
   (`tsc --noEmit` and `biome check`), `bun run eval …` and
   `bun run check driving/stop-line --decider rule` (*Headless runs*).
@@ -537,6 +537,8 @@ three.js Ferrari (MIT). Asset license files travel with the assets.
   cases it played before; the set's hash changes with its new levels, so
   results from before name the earlier hash. Generators that gained a
   level are `@2` (2026-10-03).
+- Model ids may hold `:` and `@` (a cascade's); dungeon, set, and decider
+  names keep the stricter pattern (2026-10-03).
 - Pictures come from the case set, never from a model or the network: a
   generator writes each pictured case's page (`TextCase.source`, seeded
   HTML), and the store renders it once, when the set is written, in
@@ -556,9 +558,17 @@ three.js Ferrari (MIT). Asset license files travel with the assets.
 - The settings page's per-dungeon list scrolls inside its card past the
   viewport's height, so the page still never scrolls as dungeons are
   added (2026-10-03).
-- Next after clef-flash support: a Laya→clef cascade, Laya screening
-  every state and clef-flash deciding the unsure ones, measured against
-  each alone; clef-flash alone stays a choice (2026-10-03).
+- The cascade is a decider of its own ("Cascade", `src/deciders/cascade.ts`)
+  over the nuclis decider, not a nuclis model: its pairs are every
+  available model that packs (screener) with every one that does not
+  (judge), from `GET /v1/models`, and its model id is
+  `screener:judge@threshold`, so every result names the pair and the
+  threshold. The screener's answer stands when its least sure question's
+  top probability reaches the threshold and the state was not cut; a
+  request with images goes to the judge alone. The lobby offers each pair
+  at 0.85; `bun run eval --threshold` sweeps others. The threshold has no
+  settings-page field (the page is approved as it is, and the model id
+  already carries it) (2026-10-03).
 - Scope: the user asked for the whole plan end to end, a second 3D
   dungeon of this project's design (milestone 5), and the text dungeons'
   cases in SQLite under `~/.decision-dungeons` with a seed script that can
@@ -1146,24 +1156,58 @@ Not done: the receipts' line prices are random splits of the subtotal
 (a lemonade can cost more than a curry), harmless to the policy but not
 realistic; the other vision dungeons of *Milestones*.
 
+### The Laya→clef cascade (2026-10-03)
+
+Delivered: the Cascade decider (*Decisions*): screened in one batch call
+where the dungeon batches, the unsure states judged one at a time;
+`RunResult.escalated`, the `escalated` column and `--threshold` sweeps in
+`bun run eval`; the route in the debug sidebar ("laya-multilingual 59%
+(needs 85%) → clef-flash, unsure"); the lobby's Cascade row.
+
+Validated on the Apple M4 Pro:
+
+- `bun test`: 111 pass (`tests/cascade.test.ts`: the id, the pairs from
+  the listing, a sure screen kept, unsure, cut, and pictured states
+  judged, a batch screened in one call and judged one at a time, the run's
+  escalated count; a cascade saved as a lobby default). `bun run lint`
+  clean.
+- In the browser (throwaway server, port 7100): the lobby lists the pairs;
+  an Inbox run with `laya-multilingual → clef-flash` played with the route
+  in the sidebar and no console errors. Looked at
+  `artifacts/screenshots/{lobby-inbox-cascade,inbox-cascade-debug}.png`.
+- Seed 1, `laya-multilingual:clef-flash`, one eval at a time (nuclis
+  0.4.0-dev on Metal, server at nuclis `fd09aa4`), cases right and wall
+  time beside each model alone (*Several questions per case*,
+  *Milestone 6*):
+
+  | level | Laya alone | clef alone | cascade 0.75 | cascade 0.85 | cascade 0.95 |
+  | --- | --- | --- | --- | --- | --- |
+  | Inbox all-questions | 10, 1.7 s | 18, 37.9 s | 17, 25.8 s (13 judged) | 17, 27.9 s (14) | 18, 39.5 s (20) |
+  | Tickets all-questions | 5, 1.8 s | 17, 46.7 s | 16, 45.6 s (19) | 17, 48.0 s (20) | 17, 53.2 s (20) |
+  | Logs all-questions | 4, 8.1 s | 18, 81.8 s | 14, 74.4 s (13) | 18, 96.3 s (20) | 18, 100.9 s (20) |
+  | Receipts policy-text | 6, 1.1 s | 17, 31.1 s | 7, 10.5 s (5) | 9, 17.4 s (9) | 16, 33.8 s (18) |
+
+  What it shows: laya-multilingual's confidence picks out its mistakes
+  only on Inbox, where the cascade keeps 17 of clef's 18 at two thirds of
+  the time. With three questions (Tickets) it is almost never sure of
+  all, so nearly everything goes to clef; on Logs and Receipts it is
+  confidently wrong (Receipts at 0.75 keeps 15 and gets 7 right), so a
+  low threshold costs accuracy. Single runs, one seed, not a benchmark.
+
 ### Pick up here
 
 Milestones 1-5 are done; clef-flash is supported, every text dungeon asks
-all its questions at once on one level, and milestone 6 has its first
-dungeon. What is left, in order:
+all its questions at once on one level, the Laya→clef cascade is a
+decider, and milestone 6 has its first dungeon. What is left, in order:
 
-1. **The Laya→clef cascade** (*Decisions*, 2026-10-03): a nuclis choice
-   where Laya screens every state and clef-flash decides the ones Laya is
-   unsure of, measured against each alone on the text dungeons; then
-   clef-flash in the comparison tables (driving turn-based, text
-   dungeons, Night Tower, Receipts over seeds 1-4), one eval at a time,
-   since clef holds the GPU.
-2. **Milestone 6, the next vision dungeons** (*Milestones*): driving
+1. **Milestone 6, the next vision dungeons** (*Milestones*): driving
    frames with a blind-state level, dashboards beside logs, interface
    screenshots, rendered inbox mail. Receipts' line prices could be made
    realistic first.
-3. **Wider measurements**: the text dungeons and Night Tower over seeds
-   1-4 for every decider, uncontended, and TypeSafe Jev when the user
+2. **Wider measurements**: clef-flash and the cascade in the comparison
+   tables (driving turn-based, text dungeons, Night Tower, Receipts) over
+   seeds 1-4, one eval at a time since clef holds the GPU; the cascade
+   with `laya` (English) as the screener too; TypeSafe Jev when the user
    approves a paid run.
-4. **Night Tower, if the user wants more of it**: a ground radar view,
+3. **Night Tower, if the user wants more of it**: a ground radar view,
    arrivals' speed control, a second runway.

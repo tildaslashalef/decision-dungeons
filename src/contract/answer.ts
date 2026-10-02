@@ -69,6 +69,20 @@ export interface DecisionDebug {
   truncated?: boolean;
   /** Decisions answered in the same batch call, this one included. */
   batch?: number;
+  /** How a cascade answered: its screener alone, or its judge after it. */
+  cascade?: CascadeDebug;
+}
+
+export interface CascadeDebug {
+  screener: string;
+  judge: string;
+  threshold: number;
+  /** The screener's least sure answer, its top probability; absent when it was not asked. */
+  screenConfidence?: number;
+  /** The judge answered instead of the screener. */
+  escalated: boolean;
+  /** Why the judge was asked. */
+  reason?: "unsure" | "truncated" | "images";
 }
 
 export interface Decision {

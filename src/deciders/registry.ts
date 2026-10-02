@@ -5,12 +5,19 @@
 import { BATCH_LIMIT, type Decider } from "../contract/decider.ts";
 import { DecideError } from "../contract/errors.ts";
 import type { Request } from "../contract/request.ts";
+import { cascadeDecider } from "./cascade.ts";
 import { nuclisDecider } from "./nuclis.ts";
 import { nuclisHttp } from "./nuclis-http.ts";
 import { randomDecider } from "./random.ts";
 import { typesafeDecider } from "./typesafe.ts";
 
-export const DECIDER_IDS = ["nuclis", "typesafe", "rule", "random"] as const;
+export const DECIDER_IDS = [
+  "nuclis",
+  "cascade",
+  "typesafe",
+  "rule",
+  "random",
+] as const;
 export type DeciderId = (typeof DECIDER_IDS)[number];
 
 export function isDeciderId(value: unknown): value is DeciderId {
@@ -20,6 +27,7 @@ export function isDeciderId(value: unknown): value is DeciderId {
 /** Per-decider bound on one decision, in milliseconds, unless the decider bounds its own (`Decider.timeoutMs`). */
 export const DECIDE_TIMEOUT_MS: Record<DeciderId, number> = {
   nuclis: 20_000,
+  cascade: 20_000,
   typesafe: 15_000,
   rule: 2_000,
   random: 2_000,
@@ -61,13 +69,15 @@ const ruleListing: Decider = {
 export function createDeciders(
   settings: DeciderSettings,
 ): Record<DeciderId, Decider> {
+  const nuclis = nuclisDecider(
+    nuclisHttp({
+      url: settings.nuclisUrl,
+      ...(settings.fetch ? { fetch: settings.fetch } : {}),
+    }),
+  );
   return {
-    nuclis: nuclisDecider(
-      nuclisHttp({
-        url: settings.nuclisUrl,
-        ...(settings.fetch ? { fetch: settings.fetch } : {}),
-      }),
-    ),
+    nuclis,
+    cascade: cascadeDecider(nuclis),
     typesafe: typesafeDecider({
       apiKey: settings.typesafeKey,
       ...(settings.fetch ? { fetch: settings.fetch } : {}),

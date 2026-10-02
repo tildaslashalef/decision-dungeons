@@ -27,14 +27,16 @@ const DEFAULT_MODEL: Record<string, string> = {
   random: "uniform",
   typesafe: "jev-latest",
   nuclis: "laya-multilingual",
+  cascade: "laya-multilingual:clef-flash",
 };
 
 const USAGE = `usage:
-  bun run eval --dungeon <id> --level <id[,id]> --decider <id> [--model <id>] [--seeds 1-4] [--evaluation] [--set <name>] [--json]
+  bun run eval --dungeon <id> --level <id[,id]> --decider <id> [--model <id>] [--threshold <p[,p]>] [--seeds 1-4] [--evaluation] [--set <name>] [--json]
   bun run check <dungeon>/<level> --decider <id> [--model <id>] [--seeds 42] [--evaluation] [--json]
 --evaluation turns the dungeon's safety nets off (driving: the safety brake and the collision filter)
 --set <name> picks a text dungeon's case set (default base; bun run seed writes more)
 --sequential asks one case at a time where the dungeon and decider could batch them
+--threshold <p[,p]> runs a cascade (--model screener:judge) at each threshold
 dungeons: ${Object.values(dungeons)
   .map((d) => `${d.id} (${d.levels.map((l) => l.id).join(", ")})`)
   .join("; ")}`;
@@ -69,7 +71,10 @@ function table(results: RunResult[]): string {
     ...new Set(results.flatMap((r) => Object.keys(r.outcome.metrics))),
   ];
   const truncated = results.some((r) => r.truncated !== undefined);
+  const escalated = results.some((r) => r.escalated !== undefined);
+  const models = new Set(results.map((r) => r.model)).size > 1;
   const head = [
+    ...(models ? ["model"] : []),
     "level",
     "seed",
     "result",
@@ -77,10 +82,12 @@ function table(results: RunResult[]): string {
     ...metrics,
     "asked",
     ...(truncated ? ["truncated"] : []),
+    ...(escalated ? ["escalated"] : []),
     "ms/decision",
     "wall s",
   ];
   const rows = results.map((r) => [
+    ...(models ? [r.model] : []),
     r.level,
     String(r.seed),
     r.error
@@ -94,6 +101,7 @@ function table(results: RunResult[]): string {
     ...metrics.map((m) => format(r.outcome.metrics[m])),
     String(r.asked),
     ...(truncated ? [format(r.truncated)] : []),
+    ...(escalated ? [format(r.escalated)] : []),
     format(r.meanDecideMs, 0),
     (r.wallMs / 1000).toFixed(1),
   ]);
@@ -117,6 +125,7 @@ async function main(argv: string[]): Promise<void> {
       evaluation: { type: "boolean", default: false },
       set: { type: "string" },
       sequential: { type: "boolean", default: false },
+      threshold: { type: "string" },
       json: { type: "boolean", default: false },
     },
   });
@@ -137,7 +146,13 @@ async function main(argv: string[]): Promise<void> {
       fail(`${dungeon.id} has no level ${level}`);
   const deciderId = values.decider ?? fail("--decider is required");
   if (!isDeciderId(deciderId)) fail(`unknown decider ${deciderId}`);
-  const model = values.model ?? (DEFAULT_MODEL[deciderId] as string);
+  const named = values.model ?? (DEFAULT_MODEL[deciderId] as string);
+  if (values.threshold && deciderId !== "cascade")
+    fail("--threshold is for --decider cascade");
+  // A cascade's threshold is part of its model id, so each result names it.
+  const models = values.threshold
+    ? values.threshold.split(",").map((t) => `${named.split("@")[0]}@${t}`)
+    : [named];
   const seeds = seedsFrom(values.seeds ?? (command === "check" ? "42" : "1-4"));
   if (values.evaluation && !dungeon.evaluation)
     fail(`${dungeon.id} has no evaluation mode`);
@@ -158,47 +173,49 @@ async function main(argv: string[]): Promise<void> {
     deciderId === "rule"
       ? dungeon.rule
       : createDeciders(store.effective(await store.load()))[deciderId];
-  const batches =
-    !!decider.decideBatch &&
-    !values.sequential &&
-    (await (decider.batches?.(model) ?? true));
   const results: RunResult[] = [];
-  for (const level of levels)
-    for (const seed of seeds) {
-      const result = await runEpisode(
-        dungeon,
-        level,
-        seed,
-        { id: deciderId, model },
-        async (request) =>
-          decideWith(decider, request, {
-            model,
-            seed,
-            signal: AbortSignal.timeout(
-              await decideTimeoutMs(deciderId, decider, [request], model),
-            ),
-          }),
-        {
-          evaluation: values.evaluation,
-          ...(cases ? { cases } : {}),
-        },
-        batches
-          ? async (requests) =>
-              decideManyWith(decider, requests, {
-                model,
-                seed,
-                signal: AbortSignal.timeout(
-                  await decideTimeoutMs(deciderId, decider, requests, model),
-                ),
-              })
-          : undefined,
-      );
-      results.push(result);
-      console.log(JSON.stringify(result));
-    }
+  for (const model of models) {
+    const batches =
+      !!decider.decideBatch &&
+      !values.sequential &&
+      (await (decider.batches?.(model) ?? true));
+    for (const level of levels)
+      for (const seed of seeds) {
+        const result = await runEpisode(
+          dungeon,
+          level,
+          seed,
+          { id: deciderId, model },
+          async (request) =>
+            decideWith(decider, request, {
+              model,
+              seed,
+              signal: AbortSignal.timeout(
+                await decideTimeoutMs(deciderId, decider, [request], model),
+              ),
+            }),
+          {
+            evaluation: values.evaluation,
+            ...(cases ? { cases } : {}),
+          },
+          batches
+            ? async (requests) =>
+                decideManyWith(decider, requests, {
+                  model,
+                  seed,
+                  signal: AbortSignal.timeout(
+                    await decideTimeoutMs(deciderId, decider, requests, model),
+                  ),
+                })
+            : undefined,
+        );
+        results.push(result);
+        console.log(JSON.stringify(result));
+      }
+  }
   if (!values.json)
     console.log(
-      `\n${dungeon.title} · ${deciderId} · ${model}${values.evaluation ? " · evaluation mode" : ""}${cases ? ` · cases ${cases.name} ${cases.hash}` : ""}\n\n${table(results)}`,
+      `\n${dungeon.title} · ${deciderId} · ${models.join(", ")}${values.evaluation ? " · evaluation mode" : ""}${cases ? ` · cases ${cases.name} ${cases.hash}` : ""}\n\n${table(results)}`,
     );
   if (results.some((r) => r.error || r.outcome.passed === false))
     process.exitCode = 1;

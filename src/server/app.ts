@@ -40,6 +40,8 @@ const DECIDE_STATUS: Record<DecideErrorCode, number> = {
 };
 
 const NAME = /^[A-Za-z0-9._-]{1,100}$/;
+/** A model id; a cascade's is `screener:judge@threshold`. */
+const MODEL = /^[A-Za-z0-9._:@-]{1,200}$/;
 
 export interface AppOptions {
   store: ConfigStore;
@@ -123,7 +125,7 @@ function decideBody(raw: unknown): DecideBody {
     throw new HttpError(400, "bad_request", "unknown dungeon");
   if (!isDeciderId(decider))
     throw new HttpError(400, "bad_request", "unknown decider");
-  if (typeof model !== "string" || !NAME.test(model))
+  if (typeof model !== "string" || !MODEL.test(model))
     throw new HttpError(400, "bad_request", "model must be a model id");
   if (seed !== undefined && !Number.isSafeInteger(seed))
     throw new HttpError(400, "bad_request", "seed must be an integer");

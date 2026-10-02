@@ -116,19 +116,26 @@ describe("nuclis over its API", () => {
     };
     const { decider } = setup({ models: () => ok(listing) });
     expect(await decider.models()).toEqual([
-      { id: "laya", label: "laya", available: true },
-      { id: "laya-multilingual", label: "laya-multilingual", available: true },
+      { id: "laya", label: "laya", available: true, packs: true },
+      {
+        id: "laya-multilingual",
+        label: "laya-multilingual",
+        available: true,
+        packs: true,
+      },
       {
         id: "clef-flash",
         label: "clef-flash",
         available: true,
         images: true,
+        packs: false,
       },
       {
         id: "laya-next",
         label: "laya-next",
         available: false,
         reason: "not pulled: nuclis model pull laya-next",
+        packs: true,
       },
       {
         id: "mystery",

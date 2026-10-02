@@ -108,6 +108,7 @@ export function decisionModels(listing: unknown): ModelInfo[] {
       available: reason === undefined,
       ...(reason ? { reason } : {}),
       ...(x.images === true ? { images: true } : {}),
+      ...(typeof x.packs === "boolean" ? { packs: x.packs } : {}),
     };
   });
 }

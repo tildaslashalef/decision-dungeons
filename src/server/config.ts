@@ -32,6 +32,8 @@ export class ConfigError extends Error {
 
 const FILE = "config.json";
 const NAME = /^[A-Za-z0-9._-]{1,100}$/;
+/** A model id; a cascade's is `screener:judge@threshold`. */
+const MODEL = /^[A-Za-z0-9._:@-]{1,200}$/;
 const KEY = /^[\x21-\x7e]{8,512}$/;
 
 type Json = Record<string, unknown>;
@@ -85,7 +87,7 @@ function autopilotFrom(value: unknown, where: string): Autopilot {
     typeof value.decider !== "string" ||
     !NAME.test(value.decider) ||
     typeof value.model !== "string" ||
-    !NAME.test(value.model)
+    !MODEL.test(value.model)
   )
     throw new ConfigError(`${where} must be { decider, model }`);
   return { decider: value.decider, model: value.model };

@@ -29,6 +29,10 @@ stated pass bound, so each decision is scored.
   `clef-flash`, and any decision model nuclis adds) through `nuclis
   serve`'s HTTP API. Laya answers in milliseconds; clef-flash, a 9B
   model, takes about a second or more per state.
+- **Cascade**: a fast nuclis model (Laya) screens every case and a slow one
+  (clef-flash) decides the ones it is unsure of, could not read whole, or
+  cannot see; `--model laya-multilingual:clef-flash --threshold 0.75,0.85`
+  sweeps how sure the screener must be.
 - **TypeSafe Jev**: the hosted API, billed per input token; needs a key.
 - **Fixed rule**: each dungeon's deterministic baseline.
 - **Random**: seeded uniform choice; the floor.

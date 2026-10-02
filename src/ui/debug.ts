@@ -75,6 +75,12 @@ function facts(entry: DebugEntry, decision: Decision): Child {
       "state",
       [`${d.stateTokens} tokens`, d.truncated ? h("em", {}, " cut") : null],
     ]);
+  const c = d?.cascade;
+  if (c)
+    rows.push([
+      "cascade",
+      `${c.screener}${c.screenConfidence !== undefined ? ` ${percent(c.screenConfidence)}` : ""} (needs ${percent(c.threshold)}) → ${c.escalated ? `${c.judge}, ${c.reason === "images" ? "it sees the picture" : c.reason === "truncated" ? "the state was cut" : "unsure"}` : "kept"}`,
+    ]);
   if (decision.costUsd !== undefined)
     rows.push([
       "cost",
