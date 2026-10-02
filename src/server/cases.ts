@@ -106,6 +106,73 @@ interface CaseRow {
   why: string;
 }
 
+/**
+ * Tuned for this store's use: read often (the server, every eval), written
+ * rarely and in bulk (`bun run seed`, a base set on first use), sometimes
+ * by two processes at once. WAL lets readers and the writer proceed
+ * together; NORMAL sync is durable under WAL short of power loss, and a
+ * lost seed can be rewritten exactly; a busy timeout covers the moment both
+ * touch the file; reads come through a 16 MB cache and memory mapping.
+ */
+const PRAGMAS = [
+  "journal_mode = WAL",
+  "synchronous = NORMAL",
+  "busy_timeout = 5000",
+  "foreign_keys = ON",
+  "temp_store = MEMORY",
+  "cache_size = -16000",
+  "mmap_size = 268435456",
+  "journal_size_limit = 67108864",
+];
+
+/** The schema by version (`PRAGMA user_version`); each step runs once, in a transaction. */
+const MIGRATIONS: string[][] = [
+  [
+    `CREATE TABLE IF NOT EXISTS case_sets (
+      dungeon TEXT NOT NULL,
+      name TEXT NOT NULL,
+      generator TEXT NOT NULL,
+      seed INTEGER NOT NULL,
+      count INTEGER NOT NULL,
+      hash TEXT NOT NULL,
+      levels TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      PRIMARY KEY (dungeon, name)
+    )`,
+    `CREATE TABLE IF NOT EXISTS cases (
+      dungeon TEXT NOT NULL,
+      set_name TEXT NOT NULL,
+      id TEXT NOT NULL,
+      level TEXT NOT NULL,
+      lang TEXT NOT NULL,
+      input TEXT NOT NULL,
+      truth TEXT NOT NULL,
+      why TEXT NOT NULL,
+      PRIMARY KEY (dungeon, set_name, id),
+      FOREIGN KEY (dungeon, set_name) REFERENCES case_sets (dungeon, name) ON DELETE CASCADE
+    )`,
+    // Serves "one level of a set, by id" without a sort. IF NOT EXISTS and
+    // the DROP adopt a file written before the schema had a version.
+    "DROP INDEX IF EXISTS cases_by_level",
+    "CREATE INDEX IF NOT EXISTS cases_by_level_id ON cases (dungeon, set_name, level, id)",
+  ],
+];
+
+function migrate(db: Database): void {
+  const version =
+    db.query<{ user_version: number }, []>("PRAGMA user_version").get()
+      ?.user_version ?? 0;
+  if (version > MIGRATIONS.length)
+    throw new CaseError(
+      `${DB_FILE} has schema version ${version}, newer than this build knows (${MIGRATIONS.length})`,
+    );
+  db.transaction(() => {
+    for (let v = version; v < MIGRATIONS.length; v++)
+      for (const sql of MIGRATIONS[v] ?? []) db.run(sql);
+    db.run(`PRAGMA user_version = ${MIGRATIONS.length}`);
+  }).immediate();
+}
+
 export class CaseStore {
   readonly file: string;
   private db: Database | null = null;
@@ -118,40 +185,19 @@ export class CaseStore {
     if (this.db) return this.db;
     mkdirSync(this.home, { recursive: true, mode: 0o700 });
     const db = new Database(this.file, { create: true, strict: true });
+    // The -wal and -shm files take the database file's mode.
     chmodSync(this.file, 0o600);
-    db.run("PRAGMA foreign_keys = ON");
-    db.run(`CREATE TABLE IF NOT EXISTS case_sets (
-      dungeon TEXT NOT NULL,
-      name TEXT NOT NULL,
-      generator TEXT NOT NULL,
-      seed INTEGER NOT NULL,
-      count INTEGER NOT NULL,
-      hash TEXT NOT NULL,
-      levels TEXT NOT NULL,
-      created_at TEXT NOT NULL,
-      PRIMARY KEY (dungeon, name)
-    )`);
-    db.run(`CREATE TABLE IF NOT EXISTS cases (
-      dungeon TEXT NOT NULL,
-      set_name TEXT NOT NULL,
-      id TEXT NOT NULL,
-      level TEXT NOT NULL,
-      lang TEXT NOT NULL,
-      input TEXT NOT NULL,
-      truth TEXT NOT NULL,
-      why TEXT NOT NULL,
-      PRIMARY KEY (dungeon, set_name, id),
-      FOREIGN KEY (dungeon, set_name) REFERENCES case_sets (dungeon, name) ON DELETE CASCADE
-    )`);
-    db.run(
-      "CREATE INDEX IF NOT EXISTS cases_by_level ON cases (dungeon, set_name, level)",
-    );
+    for (const pragma of PRAGMAS) db.run(`PRAGMA ${pragma}`);
+    migrate(db);
     this.db = db;
     return db;
   }
 
+  /** Lets SQLite refresh its planner statistics, then closes; the WAL is checkpointed on close. */
   close(): void {
-    this.db?.close();
+    if (!this.db) return;
+    this.db.run("PRAGMA optimize");
+    this.db.close();
     this.db = null;
   }
 

@@ -1,3 +1,4 @@
+import { Database } from "bun:sqlite";
 import { afterAll, describe, expect, test } from "bun:test";
 import { mkdtempSync, rmSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -186,7 +187,8 @@ describe("case store", () => {
     const store = new CaseStore(newHome());
     const set = buildSet("logs", "extra", 7, { thresholds: 30 });
     expect(store.write(set)).toBe("written");
-    expect(statSync(store.file).mode & 0o777).toBe(0o600);
+    for (const file of [store.file, `${store.file}-wal`, `${store.file}-shm`])
+      expect(statSync(file).mode & 0o777).toBe(0o600);
     expect(store.write(set)).toBe("unchanged");
     const other = buildSet("logs", "extra", 8, { thresholds: 30 });
     expect(() => store.write(other)).toThrow(CaseError);
@@ -195,6 +197,65 @@ describe("case store", () => {
     expect(loaded?.hash).toBe(other.hash);
     expect(loaded?.cases).toEqual(other.cases);
     expect(() => store.write({ ...set, name: "Bad Name" })).toThrow(CaseError);
+    store.close();
+  });
+
+  test("runs in WAL mode, versioned, and reads while another process writes", async () => {
+    const home = newHome();
+    const store = new CaseStore(home);
+    store.ensureBase();
+    const db = new Database(store.file, { readonly: true });
+    expect(db.query("PRAGMA journal_mode").get()).toEqual({
+      journal_mode: "wal",
+    });
+    expect(db.query("PRAGMA user_version").get()).toEqual({ user_version: 1 });
+    db.close();
+    // A seed in another process while this one reads: neither waits on the other.
+    const writer = Bun.spawn(
+      [
+        "bun",
+        "src/cli/seed.ts",
+        "--dungeon",
+        "logs",
+        "--set",
+        "busy",
+        "--seed",
+        "9",
+        "--level",
+        "thresholds=2000",
+      ],
+      {
+        env: { ...process.env, DECISION_DUNGEONS_HOME: home },
+        stdout: "pipe",
+        stderr: "pipe",
+      },
+    );
+    let reads = 0;
+    while (writer.exitCode === null) {
+      expect(store.load("inbox", "base", "phishing")?.cases.length).toBe(120);
+      reads++;
+      await Bun.sleep(1);
+    }
+    expect(await writer.exited).toBe(0);
+    expect(reads).toBeGreaterThan(0);
+    expect(store.list("logs").map((s) => s.name)).toEqual(["base", "busy"]);
+    store.close();
+  });
+
+  test("adopts a file written before the schema had a version", () => {
+    const home = newHome();
+    const old = new Database(join(home, "dungeons.db"), { create: true });
+    old.run(
+      "CREATE TABLE case_sets (dungeon TEXT NOT NULL, name TEXT NOT NULL, generator TEXT NOT NULL, seed INTEGER NOT NULL, count INTEGER NOT NULL, hash TEXT NOT NULL, levels TEXT NOT NULL, created_at TEXT NOT NULL, PRIMARY KEY (dungeon, name))",
+    );
+    old.run(
+      "CREATE TABLE cases (dungeon TEXT NOT NULL, set_name TEXT NOT NULL, id TEXT NOT NULL, level TEXT NOT NULL, lang TEXT NOT NULL, input TEXT NOT NULL, truth TEXT NOT NULL, why TEXT NOT NULL, PRIMARY KEY (dungeon, set_name, id))",
+    );
+    old.run("CREATE INDEX cases_by_level ON cases (dungeon, set_name, level)");
+    old.close();
+    const store = new CaseStore(home);
+    store.ensureBase();
+    expect(store.load("logs", "base", "long")?.cases.length).toBe(60);
     store.close();
   });
 

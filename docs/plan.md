@@ -492,6 +492,16 @@ three.js Ferrari (MIT). Asset license files travel with the assets.
   `bun run seed` reproduces a set exactly; the server writes each base set
   on first use. The world is a fictional company (Harborline), with real
   service names only where real mail carries them (2026-10-02).
+- The case store runs SQLite in WAL mode with `synchronous = NORMAL`, a
+  5 s busy timeout, an in-memory temp store, a 16 MB page cache, 256 MB of
+  memory-mapped reads, a 64 MB journal cap, and `PRAGMA optimize` on
+  close; the schema is versioned in `user_version` (migrations in
+  `src/server/cases.ts`). Its use is many readers (the server, evals) and a
+  rare bulk writer (`bun run seed`), sometimes in two processes at once:
+  WAL lets them run together, and a set lost to a power cut is rewritten
+  exactly by its seed. Measured on the M4 Pro with 3,500 cases: a level
+  loads in 7.1 ms (8.6 before), a bulk write takes 47 ms (34 before);
+  `tests/text.test.ts` reads while another process seeds (2026-10-02).
 - The text dungeons' gate marks are Phosphor icons (envelope, ticket,
   terminal), already a dependency, rather than new game-icons.net
   downloads (2026-10-02).
