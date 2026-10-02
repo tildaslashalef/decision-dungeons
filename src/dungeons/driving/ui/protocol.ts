@@ -70,7 +70,8 @@ export type ToWorker =
   | { type: "apply"; answers: Answers }
   | { type: "advance" }
   | { type: "realtime"; on: boolean }
-  | { type: "perception" };
+  | { type: "perception" }
+  | { type: "world" };
 
 export type FromWorker =
   | {
@@ -93,4 +94,5 @@ export type FromWorker =
   | { type: "route"; version: number; route: PathPoint[] }
   | { type: "looks"; looks: CarLook[] }
   | { type: "perception"; data: unknown }
+  | { type: "world"; data: unknown }
   | { type: "error"; message: string };

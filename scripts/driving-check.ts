@@ -115,6 +115,15 @@ for (const level of levels) {
     await page.getByRole("button", { name: "Inspect live JSON" }).click();
     await page.waitForTimeout(800);
     await shot("town-inspector");
+    await page.getByRole("button", { name: "Full world" }).click();
+    await page.waitForTimeout(1500);
+    await shot("town-inspector-world");
+    const world = await text(".json-content");
+    if (!world.includes('"traffic_controls"') || !world.includes('"vehicles"'))
+      problems.push("the Full world tab shows no world");
+    console.log(
+      `frames with the world open: ${JSON.stringify(await frames(5))}`,
+    );
     await page.keyboard.press("Escape");
     await page.keyboard.press("t");
     await page.waitForTimeout(1500);

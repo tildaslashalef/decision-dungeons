@@ -211,6 +211,7 @@ export function mountDrivingStage(
   let perception: unknown = {
     status: "Open this tab while driving to see the sensors.",
   };
+  let worldView: unknown = { status: "Reading the world…" };
   let roadEvents: RoadEvent[] = [];
   let uiTime = 0;
   let lastNow = performance.now();
@@ -599,7 +600,12 @@ export function mountDrivingStage(
         },
         outcome: view?.current.outcome ?? null,
       };
-    // Perception lives in the worker: show the last reply, ask for the next.
+    // Perception and the world live in the worker: show the last reply, ask
+    // for the next.
+    if (tab === "world") {
+      sim?.send({ type: "world" });
+      return worldView;
+    }
     sim?.send({ type: "perception" });
     return perception;
   }
@@ -712,6 +718,7 @@ export function mountDrivingStage(
     else if (message.type === "route") view.setRoute(message.route);
     else if (message.type === "looks") view.setLooks(message.looks);
     else if (message.type === "perception") perception = message.data;
+    else if (message.type === "world") worldView = message.data;
     else if (message.type === "error") failed(new Error(message.message));
   }
 

@@ -1,12 +1,18 @@
 // "Under the hood": the live JSON of each decision (the request as the
 // decider received it, the full decision state, the response, what the car
-// perceives), refreshed four times a second unless frozen. Copy and
-// download take exactly what is on screen.
+// perceives, the whole world), refreshed four times a second (the world,
+// up to half a megabyte, once) unless frozen. Copy and download take
+// exactly what is on screen.
 
 import { Braces, Copy, Download, X } from "lucide";
 import { h, icon } from "../../../ui/dom.ts";
 
-export type InspectorTab = "request" | "state" | "decision" | "perception";
+export type InspectorTab =
+  | "request"
+  | "state"
+  | "decision"
+  | "perception"
+  | "world";
 
 const TABS: [InspectorTab, string, string][] = [
   [
@@ -28,6 +34,11 @@ const TABS: [InspectorTab, string, string][] = [
     "perception",
     "Perception",
     "What the sensors see right now: objects in range, occlusion by buildings, and every object discovered so far.",
+  ],
+  [
+    "world",
+    "Full world",
+    "Everything the simulation knows, seen or not: junctions and their signals, roads, static objects, traffic controls, every vehicle and pedestrian, the planned route. Never sent to the decider.",
   ],
 ];
 
@@ -70,6 +81,7 @@ export class Inspector {
   private copyLabel: HTMLSpanElement;
   private tabs = new Map<InspectorTab, HTMLButtonElement>();
   private lastRender = 0;
+  private hz = (tab: InspectorTab) => (tab === "world" ? 1 : 4);
 
   constructor(
     private readonly data: (tab: InspectorTab) => unknown,
@@ -174,14 +186,16 @@ export class Inspector {
   private setFrozen(frozen: boolean): void {
     this.frozen = frozen;
     this.freeze.textContent = frozen ? "Resume" : "Freeze";
-    this.live.textContent = frozen ? "FROZEN" : "LIVE · 4 Hz";
+    this.live.textContent = frozen
+      ? "FROZEN"
+      : `LIVE · ${this.hz(this.tab)} Hz`;
   }
 
-  /** Re-renders at most four times a second while open, unless forced. */
+  /** Re-renders at the tab's rate while open, unless forced. */
   render(force = false): void {
     if (!this.dialog.open || this.frozen) return;
     const now = performance.now();
-    if (!force && now - this.lastRender < 250) return;
+    if (!force && now - this.lastRender < 1000 / this.hz(this.tab)) return;
     this.lastRender = now;
     const text = JSON.stringify(this.data(this.tab), null, 2) ?? "null";
     this.content.replaceChildren(highlight(text));

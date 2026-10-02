@@ -667,8 +667,20 @@ nuclis 0.4.0-dev on Metal (`laya`, `laya-multilingual`):
   nuclis in the lobby with "nuclis serve is not running at …". Looked at
   `artifacts/screenshots/config.png` and `lobby-nuclis-down.png`.
 
-Not done (see *Pick up here*): JevPilot's full-world inspector tab (a
-perception tab stands in), evaluation mode, and four scenario levels.
+The inspector's "Full world" tab (2026-10-02): JevPilot's
+`observation(true)` as `sim/observation.ts`, a read-only view (frame,
+ego, navigation, sensor, telemetry, and the world: junctions with their
+signals, roads, static objects, traffic controls, vehicles with their
+route ids, pedestrians, the planned route, occluded ids), asked of the
+worker like perception. It is up to 0.5 MB (highway seed 1, 21k lines),
+so it refreshes at 1 Hz, the other tabs at 4. Validated: a test replays
+a highway run with the world built before every turn and gets the same
+run; `scripts/driving-check.ts town` passed (60 fps with the world open,
+p95 16.8 ms, none over 50 ms; looked at
+`artifacts/driving/town-inspector-world.png`);
+`driving-reference.ts` town 1 and stop-line 42 still bit-identical.
+
+Not done (see *Pick up here*): evaluation mode and four scenario levels.
 Manual driving and touch controls are a separate, undecided question
 (*Decisions*).
 
@@ -677,12 +689,6 @@ Manual driving and touch controls are a separate, undecided question
 Finish milestone 3, in this order, each a commit with its tests, checks,
 and a *Progress* entry:
 
-1. **The inspector's world tab.** Port JevPilot's full-world JSON tab
-   (its `observation(true)`: junctions with signals, roads, static
-   objects, traffic controls, vehicles, pedestrians, the planned route,
-   occluded ids) into `src/dungeons/driving/ui/inspector.ts`, built from
-   the worker's snapshot; keep the perception tab. Read JevPilot's
-   `src/simulation.js` `observation()` and `src/main.js` inspector.
 2. **Evaluation mode.** A run option that turns off the safety brake
    (`sim.safety = false`) and the candidate filter's collision exclusion
    (`movingCandidates` in `decide/selection.ts`, and the plan's

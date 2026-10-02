@@ -9,6 +9,7 @@ import {
   drivingRule,
 } from "../src/dungeons/driving/decide/rule.ts";
 import { driving } from "../src/dungeons/driving/driving.ts";
+import { worldObservation } from "../src/dungeons/driving/sim/observation.ts";
 import { generateWorld } from "../src/dungeons/driving/world/world.ts";
 import { playTurn } from "../src/dungeons/turn.ts";
 
@@ -115,13 +116,15 @@ describe("the rule", () => {
   }, 30_000);
 });
 
-test("the same seed and answers replay the same run", async () => {
-  const play = async () => {
+test("the same seed and answers replay the same run, inspected or not", async () => {
+  const play = async (inspect: boolean) => {
     const run = driving.create(5, "highway");
-    for (let i = 0; i < 12; i++)
+    for (let i = 0; i < 12; i++) {
+      if (inspect) JSON.stringify(worldObservation(run.sim));
       await playTurn(driving, run, (r: Request) =>
         decideWith(randomDecider(), r, options("uniform", 5)),
       );
+    }
     return {
       x: run.sim.player.x,
       z: run.sim.player.z,
@@ -129,5 +132,7 @@ test("the same seed and answers replay the same run", async () => {
       t: run.sim.time,
     };
   };
-  expect(await play()).toEqual(await play());
-});
+  const plain = await play(false);
+  expect(await play(false)).toEqual(plain);
+  expect(await play(true)).toEqual(plain);
+}, 30_000);

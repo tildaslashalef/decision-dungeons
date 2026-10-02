@@ -21,6 +21,7 @@ import {
   TURN_STEPS,
 } from "../driving.ts";
 import { navigation } from "../sim/navigation.ts";
+import { worldObservation } from "../sim/observation.ts";
 import { visibleObjects } from "../sim/perception.ts";
 import type { CarLook, FromWorker, Snapshot, ToWorker } from "./protocol.ts";
 
@@ -228,6 +229,10 @@ function handle(message: ToWorker): void {
           discovered_objects: Object.fromEntries(r.sim.discovered),
         },
       });
+      return;
+    }
+    case "world": {
+      post({ type: "world", data: worldObservation(r.sim) });
       return;
     }
   }
