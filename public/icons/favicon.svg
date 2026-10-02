@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="night" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#151b2b"/>
+      <stop offset="1" stop-color="#2a2843"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.5" cy="0.78" r="0.5">
+      <stop offset="0" stop-color="#e82127" stop-opacity="0.45"/>
+      <stop offset="1" stop-color="#e82127" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="stone" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f4efe6"/>
+      <stop offset="1" stop-color="#c7bfb2"/>
+    </linearGradient>
+    <linearGradient id="door" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0b0f17"/>
+      <stop offset="1" stop-color="#232842"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="14" fill="url(#night)"/>
+  <rect width="64" height="64" rx="14" fill="url(#glow)"/>
+  <g transform="translate(6.4 7.2) scale(0.8)">
+    <path d="M10 60V30a22 22 0 0 1 44 0v30Z" fill="url(#stone)"/>
+    <path d="M20 60V31a12 12 0 0 1 24 0v29Z" fill="url(#door)"/>
+    <path d="M32 56.5V49M32 49 25.5 40M32 49l6.5-9" fill="none" stroke="#ff4747" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="32" cy="49" r="2.8" fill="#ffd1c9"/>
+    <path d="M28.5 8.4h7l-1 6.6h-5Z" fill="#e82127"/>
+  </g>
+</svg>

@@ -1,52 +1,81 @@
-// The browser entry: one store, three routes (start, config, play), and the
-// debug sidebar beside them. Browser code: web APIs only.
+// The browser entry: one store, four routes (the gate, a dungeon's lobby,
+// config, play), and the debug sidebar beside them. Browser code: web APIs
+// only.
 
 import type { ConfigPatch } from "../contract/api.ts";
-import { dungeonById, dungeons } from "../dungeons/registry.ts";
+import { dungeonById } from "../dungeons/registry.ts";
 import { ApiError, api } from "./api.ts";
 import { defaultAutopilot } from "./autopilot.ts";
 import { configPage } from "./config-page.ts";
 import { debugSidebar } from "./debug.ts";
 import { replace } from "./dom.ts";
+import { focusGate, gatePage, orderedDungeons } from "./gate.ts";
+import { lobbyPage } from "./lobby.ts";
 import { Player, playView } from "./play.ts";
-import { startScreen } from "./start.ts";
-import { type State, Store } from "./store.ts";
+import { type Selection, type State, Store } from "./store.ts";
 
 type Route = State["route"];
 
-const PATHS: Record<Route, string> = {
-  start: "/",
-  config: "/config",
-  play: "/play",
-};
-
-function routeOf(path: string): Route {
-  if (path === PATHS.config) return "config";
-  if (path === PATHS.play) return "play";
-  return "start";
+interface Place {
+  route: Route;
+  /** The dungeon a lobby URL names, when it names a registered one. */
+  dungeon?: string;
 }
 
-const first = Object.values(dungeons)[0];
+/** `/`, `/d/<dungeon>`, `/config`, `/play`; anything else is the gate. */
+function locate(path: string): Place {
+  if (path === "/config") return { route: "config" };
+  if (path === "/play") return { route: "play" };
+  const lobby = /^\/d\/([^/]+)\/?$/.exec(path);
+  const id = lobby?.[1] ? decodeURIComponent(lobby[1]) : undefined;
+  if (id && dungeonById(id)) return { route: "lobby", dungeon: id };
+  return { route: "gate" };
+}
+
+function pathOf(route: Route, dungeon: string): string {
+  if (route === "lobby") return `/d/${encodeURIComponent(dungeon)}`;
+  if (route === "gate") return "/";
+  return `/${route}`;
+}
+
+/** The selection for entering a dungeon: its first level, the autopilot kept. */
+function enterSelection(current: Selection, dungeon: string): Selection {
+  if (current.dungeon === dungeon) return current;
+  return {
+    ...current,
+    dungeon,
+    level: dungeonById(dungeon)?.levels[0]?.id ?? "",
+  };
+}
+
+const initial = locate(location.pathname);
+const first = orderedDungeons()[0];
 const store = new Store({
-  route: routeOf(location.pathname),
-  selection: {
-    dungeon: first?.id ?? "",
-    level: first?.levels[0]?.id ?? "",
-    decider: "rule",
-    model: "baseline",
-    seed: 1,
-  },
+  route: initial.route,
+  selection: enterSelection(
+    {
+      dungeon: first?.id ?? "",
+      level: first?.levels[0]?.id ?? "",
+      decider: "rule",
+      model: "baseline",
+      seed: 1,
+    },
+    initial.dungeon ?? first?.id ?? "",
+  ),
   debugOpen: false,
   debug: [],
 });
 
-function navigate(route: Route): void {
-  if (location.pathname !== PATHS[route])
-    history.pushState(null, "", PATHS[route]);
-  store.set({ route });
+function navigate(route: Route, dungeon = store.get().selection.dungeon): void {
+  const path = pathOf(route, dungeon);
+  if (location.pathname !== path) history.pushState(null, "", path);
+  const { selection } = store.get();
+  store.set({ route, selection: enterSelection(selection, dungeon) });
 }
 
-const player = new Player(store, () => navigate("start"));
+const home = () => navigate("gate");
+const config = () => navigate("config");
+const player = new Player(store, () => navigate("lobby"));
 
 const message = (error: unknown) =>
   error instanceof ApiError ? error.message : "The server is not answering.";
@@ -92,24 +121,36 @@ function render(): void {
   const state = store.get();
   if (!app) return;
   if (state.route === "play" && !state.play) {
-    navigate("start");
+    navigate("lobby");
     return;
   }
   document.body.dataset.route = state.route;
-  if (state.route === "start")
+  if (state.route === "gate") {
     replace(
       app,
-      startScreen(store, {
+      gatePage(store, {
+        enter: (dungeon) => navigate("lobby", dungeon),
+        home,
+        config,
+      }),
+    );
+    focusGate(app);
+  } else if (state.route === "lobby")
+    replace(
+      app,
+      lobbyPage(store, {
         play: () => {
           player.start(store.get().selection);
           navigate("play");
         },
-        navigate,
+        home,
+        config,
       }),
     );
   else if (state.route === "config")
-    replace(app, configPage(store, { save, navigate }));
+    replace(app, configPage(store, { save, home }));
   else replace(app, playView(store, player));
+  window.scrollTo(0, 0);
 }
 
 store.subscribe((state, previous) => {
@@ -119,7 +160,8 @@ store.subscribe((state, previous) => {
     keys.some((key) => state[key] !== previous[key]);
   if (
     changed(["route"]) ||
-    (state.route === "start" &&
+    (state.route === "gate" && changed(["deciders", "decidersError"])) ||
+    (state.route === "lobby" &&
       changed(["deciders", "decidersError", "config", "selection"])) ||
     (state.route === "config" &&
       changed(["deciders", "config", "configError", "configNotice"])) ||
@@ -129,9 +171,13 @@ store.subscribe((state, previous) => {
 });
 
 window.addEventListener("popstate", () => {
-  const route = routeOf(location.pathname);
+  const { route, dungeon } = locate(location.pathname);
   if (route !== "play") player.stop();
-  store.set({ route });
+  const { selection } = store.get();
+  store.set({
+    route,
+    selection: dungeon ? enterSelection(selection, dungeon) : selection,
+  });
 });
 
 window.addEventListener("keydown", (event) => {
@@ -144,4 +190,3 @@ window.addEventListener("keydown", (event) => {
 render();
 await load();
 applyDefaultAutopilot();
-if (!dungeonById(store.get().selection.dungeon)) navigate("start");

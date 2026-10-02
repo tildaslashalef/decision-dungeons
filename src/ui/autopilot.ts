@@ -3,6 +3,53 @@
 
 import type { Autopilot, DeciderView } from "../contract/api.ts";
 import { h } from "./dom.ts";
+import { type IconName, svgIcon } from "./icons.ts";
+
+const DECIDER_ICONS: Record<string, IconName> = {
+  nuclis: "processor",
+  typesafe: "cloud",
+  rule: "ruleBook",
+  random: "dice",
+};
+
+/** The emblem shown beside a decider's name. */
+export function deciderIcon(id: string, className = ""): SVGElement {
+  return svgIcon(DECIDER_ICONS[id] ?? "torch", className);
+}
+
+/** One selectable autopilot: a decider's model, or why it cannot be chosen. */
+export interface AutopilotOption extends Autopilot {
+  label: string;
+  /** Why it is unavailable, when it is. */
+  blocked?: string;
+}
+
+/** Every decider's models as flat options, unusable ones carrying their reason. */
+export function autopilotOptions(deciders: DeciderView[]): AutopilotOption[] {
+  return deciders.flatMap((view) => {
+    const blocked = deciderBlocked(view);
+    if (!view.models.length)
+      return [
+        {
+          decider: view.id,
+          model: "",
+          label: view.label,
+          blocked: blocked ?? "no models",
+        },
+      ];
+    return view.models.map((model) => {
+      const why =
+        blocked ??
+        (model.available ? undefined : (model.reason ?? "unavailable"));
+      return {
+        decider: view.id,
+        model: model.id,
+        label: `${view.label} · ${model.label}`,
+        ...(why ? { blocked: why } : {}),
+      };
+    });
+  });
+}
 
 /** Why this decider cannot run now, or undefined when it can. */
 export function deciderBlocked(view: DeciderView): string | undefined {
@@ -59,6 +106,7 @@ export function autopilotPicker(
         h(
           "div",
           { class: "picker-name" },
+          deciderIcon(view.id, "picker-icon"),
           h("b", {}, view.label),
           h(
             "small",

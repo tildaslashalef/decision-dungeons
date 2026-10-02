@@ -4,6 +4,7 @@
 import index from "../ui/index.html";
 import { createApp } from "./app.ts";
 import { ConfigStore, configHome } from "./config.ts";
+import { iconRoutes } from "./icons.ts";
 
 const DEFAULT_PORT = 7000;
 /** Bun's own cap; each route enforces a smaller one. */
@@ -22,8 +23,10 @@ const server = Bun.serve({
   routes: {
     "/": index,
     "/play": index,
+    "/d/*": index,
     "/config": index,
     "/api/*": (req, srv) => app.fetch(req, srv.port ?? port),
+    ...iconRoutes,
   },
   fetch: () => new Response("Not found", { status: 404 }),
 });

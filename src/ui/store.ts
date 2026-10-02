@@ -44,7 +44,7 @@ export interface PlayState {
 }
 
 export interface State {
-  route: "start" | "config" | "play";
+  route: "gate" | "lobby" | "config" | "play";
   deciders?: DeciderView[];
   decidersError?: string | undefined;
   config?: PublicConfig;

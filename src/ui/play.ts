@@ -299,7 +299,9 @@ export function playView(store: Store, player: Player): HTMLElement {
 
   return h(
     "main",
-    { class: `play${debugOpen ? " with-debug" : ""}` },
+    { class: `play scene${debugOpen ? " with-debug" : ""}` },
+    h("div", { class: "scene-sky", "aria-hidden": "true" }),
+    h("div", { class: "scene-floor", "aria-hidden": "true" }),
     hud,
     stage,
   );

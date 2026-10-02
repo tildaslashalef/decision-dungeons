@@ -2,10 +2,10 @@
 // decision. It shows only what the decider reported; a missing field is
 // left out, never shown as zero.
 
-import { X } from "lucide";
 import type { Answer, Decision } from "../contract/answer.ts";
 import type { Question } from "../contract/request.ts";
-import { type Child, h, icon, ms, percent, replace } from "./dom.ts";
+import { type Child, h, ms, percent, replace } from "./dom.ts";
+import { svgIcon } from "./icons.ts";
 import type { DebugEntry, Store } from "./store.ts";
 
 export function answerSummary(answer: Answer | undefined): string {
@@ -287,7 +287,7 @@ export function debugSidebar(store: Store): HTMLElement {
           "aria-label": "Close debug",
           onclick: () => store.set({ debugOpen: false }),
         },
-        icon(X),
+        svgIcon("close"),
       ),
     ),
     body,

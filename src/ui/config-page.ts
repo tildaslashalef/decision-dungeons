@@ -1,89 +1,146 @@
-// The config page: autopilot defaults per dungeon, nuclis's binary and
-// backend, the TypeSafe key. The key is write-only: the page can set or
-// remove it but only ever learns whether one is set.
+// Settings: the deciders (nuclis's binary and backend, the TypeSafe key)
+// and each dungeon's default autopilot. The key is write-only: the page can
+// set or remove it but only ever learns whether one is set.
 
-import { ArrowLeft } from "lucide";
-import type { Backend, ConfigPatch } from "../contract/api.ts";
-import { dungeons } from "../dungeons/registry.ts";
+import type { Backend, ConfigPatch, DeciderView } from "../contract/api.ts";
+import type { AnyDungeon } from "../dungeons/dungeon.ts";
 import { ApiError } from "./api.ts";
-import { autopilotPicker } from "./autopilot.ts";
-import { h, icon } from "./dom.ts";
+import { autopilotOptions, deciderIcon } from "./autopilot.ts";
+import { type Child, h } from "./dom.ts";
+import { artFor } from "./dungeon-art.ts";
+import { orderedDungeons } from "./gate.ts";
+import { type IconName, svgIcon } from "./icons.ts";
+import { floor, sky } from "./sky.ts";
 import type { Store } from "./store.ts";
+import { backLink, topbar } from "./topbar.ts";
 
 export interface ConfigActions {
   save(patch: ConfigPatch): Promise<void>;
-  navigate(route: "start"): void;
+  home(): void;
 }
 
-type Section = "defaults" | "nuclis" | "typesafe";
+type Tone = "ok" | "warn" | "off";
 
-function section(
-  store: Store,
-  id: Section,
+function badge(tone: Tone, icon: IconName | null, text: string): HTMLElement {
+  return h(
+    "span",
+    { class: `status status-${tone}` },
+    icon
+      ? svgIcon(icon)
+      : h("i", { class: "status-dot", "aria-hidden": "true" }),
+    text,
+  );
+}
+
+function card(
+  className: string,
+  icon: SVGElement,
   title: string,
-  ...children: (HTMLElement | null)[]
+  status: HTMLElement | null,
+  ...body: Child[]
 ): HTMLElement {
-  const notice = store.get().configNotice;
-  const mine = notice?.section === id ? notice : undefined;
   return h(
     "section",
-    {},
-    h("h2", {}, title),
-    ...children,
+    { class: `settings-card ${className}` },
+    h("header", { class: "card-head" }, icon, h("h2", {}, title), status),
+    ...body,
+  );
+}
+
+function field(label: string, control: HTMLElement, hint?: Child): HTMLElement {
+  return h(
+    "label",
+    { class: "field" },
+    h("span", { class: "field-label" }, label),
+    control,
+    hint ? h("small", { class: "field-hint" }, hint) : null,
+  );
+}
+
+function inputGroup(icon: IconName, input: HTMLElement): HTMLElement {
+  return h(
+    "span",
+    { class: "input-group" },
+    svgIcon(icon, "input-icon"),
+    input,
+  );
+}
+
+/** One dungeon's default: a single select of every decider's models. */
+function defaultSelect(
+  dungeon: AnyDungeon,
+  deciders: DeciderView[],
+  current: { decider: string; model: string } | undefined,
+  onChoose: (value: string) => void,
+): HTMLSelectElement {
+  const options = autopilotOptions(deciders);
+  const groups = deciders.map((view) =>
     h(
-      "p",
-      {
-        class: `save-status${mine?.error ? " error-text" : ""}`,
-        role: "status",
-      },
-      mine?.text ?? "",
+      "optgroup",
+      { label: view.label },
+      options
+        .filter((o) => o.decider === view.id)
+        .map((o) =>
+          h(
+            "option",
+            {
+              value: `${o.decider}/${o.model}`,
+              disabled: !!o.blocked,
+            },
+            o.blocked ? `${o.label} (${o.blocked})` : o.label,
+          ),
+        ),
     ),
   );
+  const select = h(
+    "select",
+    {
+      class: "select",
+      name: `default-${dungeon.id}`,
+      "aria-label": `Default autopilot for ${dungeon.title}`,
+      onchange: (event: Event) =>
+        onChoose((event.target as HTMLSelectElement).value),
+    },
+    h("option", { value: "" }, "First ready autopilot"),
+    groups,
+  );
+  select.value = current ? `${current.decider}/${current.model}` : "";
+  return select;
 }
 
 export function configPage(store: Store, actions: ConfigActions): HTMLElement {
-  const { config, deciders, configError } = store.get();
-  const back = h(
-    "a",
-    {
-      href: "/",
-      class: "icon-link",
-      "aria-label": "Back",
-      title: "Back",
-      onclick: (event: Event) => {
-        event.preventDefault();
-        actions.navigate("start");
-      },
-    },
-    icon(ArrowLeft),
-  );
+  const { config, deciders, configError, configNotice } = store.get();
+  const bar = topbar(actions.home, null, backLink(actions.home));
   const head = h(
     "header",
-    { class: "card-head" },
+    { class: "settings-head" },
+    h("h1", {}, svgIcon("gear", "title-icon"), "Settings"),
     h(
-      "div",
+      "p",
       {},
-      h("h1", {}, "Config"),
-      h(
-        "p",
-        {},
-        config
-          ? `Stored in ${config.home}/config.json (mode 600). Environment variables override it.`
-          : (configError ?? "Loading…"),
-      ),
+      config
+        ? [
+            "Saved in ",
+            h("code", {}, `${config.home}/config.json`),
+            " (mode 600). Environment variables override the file.",
+          ]
+        : (configError ?? "Loading…"),
     ),
-    back,
   );
-  if (!config || !deciders)
-    return h(
+  const page = (...children: Child[]) =>
+    h(
       "main",
-      { class: "page" },
-      h("div", { class: "card glass" }, head),
+      { class: "config scene" },
+      sky(),
+      floor(),
+      bar,
+      h("div", { class: "settings" }, head, ...children),
     );
+  if (!config || !deciders) return page();
 
-  const say = (section: Section, text: string, error = false) =>
+  const say = (section: string, text: string, error = false) =>
     store.set({ configNotice: { section, text, error } });
-  const run = async (section: Section, patch: ConfigPatch, done: string) => {
+  const run = async (section: string, patch: ConfigPatch, done: string) => {
     say(section, "Saving…");
     try {
       await actions.save(patch);
@@ -96,36 +153,29 @@ export function configPage(store: Store, actions: ConfigActions): HTMLElement {
       );
     }
   };
-
-  // Autopilot defaults.
-  const defaults = section(
-    store,
-    "defaults",
-    "Autopilot defaults",
-    ...Object.values(dungeons).map((dungeon) =>
-      h(
-        "div",
-        { class: "default-row" },
-        h("h3", {}, dungeon.title),
-        autopilotPicker(
-          deciders,
-          config.autopilot[dungeon.id],
-          (choice) =>
-            void run(
-              "defaults",
-              { autopilot: { [dungeon.id]: choice } },
-              `${dungeon.title} starts with ${choice.decider} · ${choice.model}.`,
-            ),
-          `default-${dungeon.id}`,
-        ),
-      ),
-    ),
-  );
+  const notice = (section: string) => {
+    const mine = configNotice?.section === section ? configNotice : undefined;
+    return h(
+      "span",
+      {
+        class: `save-status${mine?.error ? " is-error" : mine ? " is-ok" : ""}`,
+        role: "status",
+      },
+      mine && !mine.error && mine.text !== "Saving…"
+        ? svgIcon("checkCircle")
+        : null,
+      mine?.error ? svgIcon("warning") : null,
+      mine?.text ?? "",
+    );
+  };
 
   // nuclis.
   const nuclisView = deciders.find((d) => d.id === "nuclis");
+  const found =
+    !!nuclisView?.status.configured && nuclisView.status.reachable !== false;
   const fromEnv = config.nuclis.binSource === "env";
   const bin = h("input", {
+    class: "input",
     type: "text",
     name: "nuclis-bin",
     value: config.nuclis.bin,
@@ -135,62 +185,68 @@ export function configPage(store: Store, actions: ConfigActions): HTMLElement {
   });
   const backend = h(
     "select",
-    { name: "nuclis-backend" },
-    h("option", { value: "" }, "nuclis default"),
-    h("option", { value: "metal" }, "metal"),
-    h("option", { value: "cpu" }, "cpu"),
+    { class: "select", name: "nuclis-backend" },
+    h("option", { value: "" }, "nuclis default (Metal)"),
+    h("option", { value: "metal" }, "Metal"),
+    h("option", { value: "cpu" }, "CPU"),
   );
   backend.value = config.nuclis.backend ?? "";
-  const nuclis = section(
-    store,
+  const nuclis = card(
+    "card-nuclis",
+    deciderIcon("nuclis", "card-icon"),
     "nuclis",
-    "nuclis",
+    found
+      ? badge("ok", "checkCircle", nuclisView?.status.version ?? "found")
+      : badge("warn", "warning", "not found"),
     h(
       "p",
-      {},
-      nuclisView?.status.configured
-        ? (nuclisView.status.version ?? "found")
-        : (nuclisView?.status.reason ?? "not found"),
-      nuclisView?.status.reachable === false && nuclisView.status.reason
-        ? ` — ${nuclisView.status.reason}`
-        : "",
+      { class: "card-lede" },
+      found
+        ? "Local decision models, one subprocess per decision."
+        : (nuclisView?.status.reason ?? "The nuclis binary was not found."),
     ),
-    h(
-      "label",
-      { class: "field" },
-      h("span", {}, "Binary"),
-      bin,
+    field(
+      "Binary",
       h(
-        "small",
-        {},
-        fromEnv
-          ? "Set by NUCLIS_BIN; unset it to change this here."
-          : "An absolute path, or a command on the server's PATH.",
+        "span",
+        { class: "field-row" },
+        inputGroup("terminal", bin),
+        badge(
+          "off",
+          null,
+          fromEnv
+            ? "NUCLIS_BIN"
+            : config.nuclis.binSource === "file"
+              ? "saved"
+              : "default",
+        ),
       ),
+      fromEnv
+        ? "Set by NUCLIS_BIN; unset it to change this here."
+        : "An absolute path, or a command on the server's PATH.",
     ),
-    h("label", { class: "field" }, h("span", {}, "Backend"), backend),
+    field("Backend", backend),
     h(
-      "div",
-      { class: "actions" },
+      "footer",
+      { class: "card-foot" },
+      notice("nuclis"),
       h(
         "button",
         {
           type: "button",
+          class: "btn",
           onclick: () => {
+            const value = bin.value.trim();
             const patch: ConfigPatch = {
               nuclis: {
                 backend: (backend.value || null) as Backend | null,
-                ...(fromEnv
-                  ? {}
-                  : {
-                      bin:
-                        bin.value.trim() === "nuclis" ? null : bin.value.trim(),
-                    }),
+                ...(fromEnv ? {} : { bin: value === "nuclis" ? null : value }),
               },
             };
-            void run("nuclis", patch, "Saved.");
+            void run("nuclis", patch, "Saved");
           },
         },
+        svgIcon("floppy"),
         "Save",
       ),
     ),
@@ -198,64 +254,173 @@ export function configPage(store: Store, actions: ConfigActions): HTMLElement {
 
   // TypeSafe.
   const key = h("input", {
+    class: "input",
     type: "password",
     name: "typesafe-key",
-    placeholder: config.typesafe.keySet ? "Replace the key" : "Paste a key",
+    placeholder: config.typesafe.keySet
+      ? "Paste a new key to replace it"
+      : "Paste a key",
     autocomplete: "off",
     spellcheck: "false",
   });
-  const typesafe = section(
-    store,
-    "typesafe",
+  const typesafe = card(
+    "card-typesafe",
+    deciderIcon("typesafe", "card-icon"),
     "TypeSafe Jev",
+    config.typesafe.keySet
+      ? badge(
+          "ok",
+          "key",
+          config.typesafe.keySource === "env"
+            ? "key from TYPESAFE_API_KEY"
+            : "key saved",
+        )
+      : badge("warn", "warning", "no key"),
     h(
       "p",
-      {},
-      config.typesafe.keySet
-        ? config.typesafe.keySource === "env"
-          ? "A key is set by TYPESAFE_API_KEY, which overrides the file."
-          : "A key is set. The server keeps it; this page cannot read it back."
-        : "No key. Jev is unavailable until one is set.",
+      { class: "card-lede" },
+      "Hosted Jev, billed per input token. The server keeps the key; this page never reads it back.",
     ),
-    h("label", { class: "field" }, h("span", {}, "API key"), key),
+    field("API key", inputGroup("key", key)),
     h(
-      "div",
-      { class: "actions" },
-      h(
-        "button",
-        {
-          type: "button",
-          onclick: () => {
-            const value = key.value.trim();
-            if (!value) return say("typesafe", "Paste a key first.", true);
-            key.value = "";
-            void run("typesafe", { typesafe: { apiKey: value } }, "Key saved.");
-          },
-        },
-        "Save key",
-      ),
+      "footer",
+      { class: "card-foot" },
+      notice("typesafe"),
       config.typesafe.keySource === "file"
         ? h(
             "button",
             {
               type: "button",
-              class: "danger",
+              class: "btn btn-ghost btn-danger",
               onclick: () =>
                 void run(
                   "typesafe",
                   { typesafe: { apiKey: null } },
-                  "Key removed.",
+                  "Key removed",
                 ),
             },
-            "Remove key",
+            svgIcon("trash"),
+            "Remove",
           )
         : null,
+      h(
+        "button",
+        {
+          type: "button",
+          class: "btn",
+          onclick: () => {
+            const value = key.value.trim();
+            if (!value) return say("typesafe", "Paste a key first.", true);
+            key.value = "";
+            void run("typesafe", { typesafe: { apiKey: value } }, "Key saved");
+          },
+        },
+        svgIcon("floppy"),
+        "Save key",
+      ),
     ),
   );
 
-  return h(
-    "main",
-    { class: "page" },
-    h("div", { class: "card glass config" }, head, defaults, nuclis, typesafe),
+  // Autopilot defaults.
+  const defaults = card(
+    "card-defaults",
+    svgIcon("dungeonGate", "card-icon"),
+    "Autopilot defaults",
+    null,
+    h(
+      "p",
+      { class: "card-lede" },
+      "The autopilot each dungeon's lobby selects when you enter it.",
+    ),
+    h(
+      "ul",
+      { class: "default-list" },
+      orderedDungeons().map((dungeon) => {
+        const art = artFor(dungeon.id);
+        const section = `default:${dungeon.id}`;
+        return h(
+          "li",
+          { class: "default-row", style: `--dungeon:${art.accent}` },
+          h(
+            "span",
+            { class: "default-name" },
+            svgIcon(art.emblem, "default-emblem"),
+            h("b", {}, dungeon.title),
+            h("small", {}, `${dungeon.levels.length} levels`),
+          ),
+          defaultSelect(
+            dungeon,
+            deciders,
+            config.autopilot[dungeon.id],
+            (value) => {
+              const [decider, model] = value.split("/");
+              void run(
+                section,
+                {
+                  autopilot: {
+                    [dungeon.id]: decider && model ? { decider, model } : null,
+                  },
+                },
+                "Saved",
+              );
+            },
+          ),
+          notice(section),
+        );
+      }),
+    ),
+  );
+
+  const credits = h(
+    "p",
+    { class: "credits" },
+    "Icons: ",
+    h(
+      "a",
+      {
+        href: "https://phosphoricons.com",
+        target: "_blank",
+        rel: "noreferrer",
+      },
+      "Phosphor",
+    ),
+    " (MIT); dungeon icons by Delapouite and Lorc from ",
+    h(
+      "a",
+      { href: "https://game-icons.net", target: "_blank", rel: "noreferrer" },
+      "game-icons.net",
+    ),
+    ", ",
+    h(
+      "a",
+      {
+        href: "https://creativecommons.org/licenses/by/3.0/",
+        target: "_blank",
+        rel: "noreferrer",
+      },
+      "CC BY 3.0",
+    ),
+    ". Fonts: Fraunces and DM Sans (OFL).",
+  );
+
+  return page(
+    h(
+      "div",
+      { class: "settings-grid" },
+      h(
+        "div",
+        { class: "settings-group" },
+        h("h3", { class: "group-title" }, "Deciders"),
+        nuclis,
+        typesafe,
+      ),
+      h(
+        "div",
+        { class: "settings-group" },
+        h("h3", { class: "group-title" }, "Dungeons"),
+        defaults,
+      ),
+    ),
+    credits,
   );
 }

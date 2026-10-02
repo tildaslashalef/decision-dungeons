@@ -6,8 +6,9 @@ dungeon, its level, and the **autopilot** (which decider, which model), then
 watches it play, with a debug sidebar showing what the decider read and
 answered. The same dungeons run headless and produce comparison tables.
 
-Status: agreed 2026-10-02; milestone 1 (the skeleton) is built, milestone
-2 is next (*Progress*). A new session starts at *Start here* below.
+Status: agreed 2026-10-02; milestones 1 (the skeleton) and 2 (driving,
+headless, proven against JevPilot) are built; milestone 3 is under way
+(*Progress*). A new session starts at *Start here* below.
 
 ## Start here
 
@@ -352,7 +353,8 @@ three.js Ferrari (MIT). Asset license files travel with the assets.
 - clef-flash arrives through nuclis (MODL-34, after APPS-19), text first,
   images later; Decision Dungeons adds the turn-based mode for it and plans the
   vision dungeons as milestone 5 (2026-10-02).
-- Dependencies: lucide 0.577.0 (icons, as JevPilot); dev only TypeScript
+- Dependencies: lucide 0.577.0 (icons in the play view, as JevPilot;
+  the other pages use the icons below); dev only TypeScript
   7.0.2, Biome 2.5.15, @types/bun 1.4.2. Playwright is not a dependency:
   `scripts/browser-check.ts` finds `playwright-core` 1.63.0 through
   `NODE_PATH` (its header has the commands) (2026-10-02).
@@ -373,8 +375,23 @@ three.js Ferrari (MIT). Asset license files travel with the assets.
   routes require a loopback `Host` (DNS rebinding) and same-origin JSON
   writes (cross-site requests), since the config page can set the binary
   the server runs (2026-10-02).
-- The UI fetches nothing from the network: DM Sans and Manrope are used
-  when installed, else the system font (2026-10-02).
+- The UI fetches nothing from the network at runtime; its fonts are
+  bundled locally from OFL packages, pinned exactly:
+  `@fontsource-variable/fraunces` 5.3.0 (display) and
+  `@fontsource-variable/dm-sans` 5.3.0 (text), imported from
+  `src/ui/style.css` so Bun bundles the woff2 files (2026-10-02).
+- The home page is a world-select gate: every dungeon a lit gateway, the
+  run set up in the dungeon's lobby at `/d/<id>`; the gate and lobbies fit
+  one desktop viewport without page scroll (2026-10-02).
+- UI icons: Phosphor (`@phosphor-icons/core` 2.1.1, MIT, raw SVGs) for
+  chrome, and game-icons.net SVGs (CC BY 3.0, by Delapouite and Lorc) for
+  dungeon and decider marks, kept under `src/ui/icons/game/` with their
+  credits and shown on the settings page; both are bundled as text and
+  inlined by `src/ui/icons.ts`. Icons appear only where they carry meaning,
+  never in front of a heading or a plain label. The app's own icon set
+  (`public/icons/`: mark, favicon SVG and ICO, 180/192/512 PNGs, web
+  manifest) is rendered from its SVG by `scripts/render-icons.ts`
+  (2026-10-02).
 
 ## Progress
 
@@ -441,9 +458,46 @@ Not done, by design or for later:
   command, and there is no CLI yet to make one.
 - No `bun run eval` or `check` yet (milestone 2).
 
-**Pick up at milestone 2**: the driving world, simulation, decision state,
-rule baseline, and checks, headless; `bun run eval` and `bun run check`
-over `playTurn`'s results; then the port matched against JevPilot with
-the rule decider as *Proving the port* describes. Read JevPilot's
-`src/simulation.js`, `src/driving-plan.js`, `src/planning.js`,
-`src/world.js`, `src/highway.js`, and `scripts/verify-*.mjs` first.
+### Milestone 2, driving headless: done (2026-10-02, commits `e605944`, `1b2ce5a`, `bbeb8d8`)
+
+Delivered:
+
+- `src/dungeons/driving/`: `world/` (geometry, the town and city grid,
+  Interstate 08, road polygons and occupancy, rerouting), `sim/` (vehicle
+  dynamics, collisions, traffic safety, courtesy, junction rules,
+  navigation, perception, the candidate planner, the `Simulation`),
+  `decide/` (the decision state, the request, selection, the rule), and
+  `driving.ts`, the dungeon: levels `town`, `city`, `highway`,
+  `stop-line`, turn-based through the new optional `Dungeon.advance`
+  (six 50 ms steps per decision, JevPilot's headless cadence).
+- The request is Jev's (candidate, road, and traffic tables) with each
+  path's facts also in its option text and situational instructions
+  first (*Decisions*); the rule is the JevPilot experiment's fixed rule
+  (`/tmp/deciders.mjs` then), read off the request.
+- `bun run eval` and `bun run check` (`src/cli/eval.ts`) over
+  `runEpisode` (`src/dungeons/run.ts`): a JSON line per run and a
+  markdown table of the same `RunResult` objects.
+- `scripts/driving-reference.ts`: JevPilot's simulation and the port side
+  by side with the same rule, compared at every decision.
+
+Validated on the Apple M4 Pro, Bun 1.4.2, against JevPilot `4cca4fc`:
+
+- `bun scripts/driving-reference.ts all`: seeds 1–4 in town, city, and
+  highway and the stop-line check (seed 42) are **bit-identical**: every
+  decision's position, heading, speed, steering, and target equal with
+  `Object.is`, the same decision counts (town 155, 209, 136, 185; city
+  235, 139, 131, 153; highway 338, 340, 340, 341; stop line 28), all
+  arriving with no collision and no violation, the stop line at 3.07 m
+  (bumper 0.70 m, as JevPilot's README measured for this rule) and
+  resuming on green. Wall time 4–168 s per pair of runs.
+- `bun run check driving/stop-line --decider rule`: pass, center 3.1 m,
+  bumper 0.7 m, 29 decisions (28 to the stop and the green one).
+- `bun test`: 47 pass, among them worlds per seed, the request through
+  the server's parser, the rule on the stop line, and a replay with the
+  random decider.
+
+**Pick up at milestone 3**: the 3D scene, HUD, minimap, candidates, and
+inspector at JevPilot's look (in progress in this session); then
+evaluation mode (safety brake and the candidate filter's collision
+exclusion off) and the remaining scenario checks (stop sign with an
+earlier arrival, merge gap, blocked lane, off-road recovery).
