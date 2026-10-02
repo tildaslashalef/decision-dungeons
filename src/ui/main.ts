@@ -39,13 +39,14 @@ function pathOf(route: Route, dungeon: string): string {
   return `/${route}`;
 }
 
-/** The selection for entering a dungeon: its first level, the autopilot kept. */
+/** The selection for entering a dungeon: its first level, the autopilot kept, safety nets on. */
 function enterSelection(current: Selection, dungeon: string): Selection {
   if (current.dungeon === dungeon) return current;
   return {
     ...current,
     dungeon,
     level: dungeonById(dungeon)?.levels[0]?.id ?? "",
+    evaluation: false,
   };
 }
 
@@ -60,6 +61,7 @@ const store = new Store({
       decider: "rule",
       model: "baseline",
       seed: 1,
+      evaluation: false,
     },
     initial.dungeon ?? first?.id ?? "",
   ),

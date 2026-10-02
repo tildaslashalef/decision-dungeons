@@ -84,6 +84,22 @@ export class Simulation {
   autopilot = false;
   /** The safety brake and the recovery clearance check. */
   safety = true;
+  /**
+   * Evaluation mode: candidates are sampled up to the road's own speed
+   * bound rather than the traffic taper, and those predicted to collide
+   * stay eligible, so the decider's choice, not the planner, decides the
+   * outcome. Set with `safety` off by the dungeon.
+   */
+  evaluation = false;
+  /**
+   * Offer a stop at the line while the junction's rules make the player
+   * yield (an earlier arrival, crossing traffic). JevPilot never offered
+   * it, so default trips leave it off; scenario levels and evaluation mode
+   * turn it on.
+   */
+  yieldStops = false;
+  /** Traffic a scenario holds in place: skipped by the traffic step. */
+  frozen = new Set<string>();
   pedals = { throttle: 0, brake: 0 };
   steeringInput = 0;
   brakeReason: string | null = null;
@@ -353,6 +369,10 @@ export class Simulation {
 
   private stepTraffic(dt: number): void {
     for (const v of this.traffic) {
+      if (this.frozen.has(v.id)) {
+        v.speed = 0;
+        continue;
+      }
       if (v.route.length - v.s < 75) this.continueTraffic(v);
       const r = rule(this, v, true);
       let target = speedEnvelope(this, v).max;

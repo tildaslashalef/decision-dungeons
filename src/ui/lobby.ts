@@ -1,5 +1,6 @@
-// A dungeon's lobby: its art and story on one side; level, autopilot, and
-// seed on the other; then start the run.
+// A dungeon's lobby: its art and story on one side; level, autopilot,
+// evaluation mode (when the dungeon has safety nets), and seed on the
+// other; then start the run.
 
 import { dungeonById } from "../dungeons/registry.ts";
 import { autopilotPicker, usable } from "./autopilot.ts";
@@ -95,6 +96,35 @@ export function lobbyPage(store: Store, actions: LobbyActions): HTMLElement {
         ),
   );
 
+  const evaluation = dungeon.evaluation
+    ? h(
+        "section",
+        { class: "lobby-step" },
+        h("h2", {}, "Safety nets"),
+        h(
+          "label",
+          { class: "switch-row" },
+          h("input", {
+            type: "checkbox",
+            role: "switch",
+            name: "evaluation",
+            checked: selection.evaluation,
+            onchange: (event: Event) =>
+              select({
+                evaluation: (event.target as HTMLInputElement).checked,
+              }),
+          }),
+          h("i", { class: "switch", "aria-hidden": "true" }),
+          h(
+            "span",
+            {},
+            h("b", { class: "switch-title" }, "Evaluation mode"),
+            h("span", { class: "switch-hint" }, dungeon.evaluation),
+          ),
+        ),
+      )
+    : null;
+
   const start = h(
     "footer",
     { class: "lobby-start" },
@@ -144,7 +174,7 @@ export function lobbyPage(store: Store, actions: LobbyActions): HTMLElement {
         "span",
         {},
         autopilot
-          ? `${autopilot.label}, ${selection.model}`
+          ? `${autopilot.label}, ${selection.model}${selection.evaluation && dungeon.evaluation ? ", evaluation mode" : ""}`
           : "No autopilot chosen",
       ),
     ),
@@ -171,7 +201,7 @@ export function lobbyPage(store: Store, actions: LobbyActions): HTMLElement {
     h(
       "div",
       { class: "lobby-panel glass" },
-      h("div", { class: "lobby-scroll" }, levels, pilots),
+      h("div", { class: "lobby-scroll" }, levels, pilots, evaluation),
       start,
     ),
   );

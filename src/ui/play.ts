@@ -49,7 +49,9 @@ export class Player {
       });
       return;
     }
-    const run = dungeon.create(selection.seed, selection.level);
+    const run = dungeon.create(selection.seed, selection.level, {
+      evaluation: selection.evaluation,
+    });
     this.nextId = 1;
     this.store.set({
       debug: [],

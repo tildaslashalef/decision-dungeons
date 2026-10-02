@@ -16,7 +16,10 @@ import { chromium } from "playwright-core";
 
 const BASE = process.env.BASE_URL ?? "http://127.0.0.1:7000";
 const OUT = "artifacts/driving";
-const levels = (process.argv[2] ?? "town,city,highway,stop-line").split(",");
+const levels = (
+  process.argv[2] ??
+  "town,city,highway,stop-line,stop-sign,merge,blocked-lane,off-road"
+).split(",");
 mkdirSync(OUT, { recursive: true });
 
 // Full Chromium's new headless mode renders on the GPU; the headless shell would use SwiftShader.
@@ -172,6 +175,19 @@ for (const level of levels) {
     console.log(
       `stop-line: ${(await text(".dd-arrival")).replaceAll("\n", " · ")}`,
     );
+  }
+  if (["stop-sign", "merge", "blocked-lane", "off-road"].includes(level)) {
+    await page.waitForTimeout(level === "merge" ? 9000 : 4000);
+    await shot(`${level}-running`);
+    await until(
+      '!!document.querySelector(".dd-arrival:not([hidden]), .dd-crash[open]")',
+      300_000,
+    );
+    await page.waitForTimeout(800);
+    await shot(`${level}-finished`);
+    const card = await text(".dd-arrival:not([hidden]), .dd-crash[open]");
+    console.log(`${level}: ${card.replaceAll("\n", " · ")}`);
+    if (!/PASSED/.test(card)) problems.push(`${level}: the rule did not pass`);
   }
   console.log(
     `${level}: ${Math.round((performance.now() - started) / 1000)} s`,

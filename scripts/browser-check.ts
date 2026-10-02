@@ -93,6 +93,19 @@ for (const [width, height] of [
 }
 await page.setViewportSize({ width: 1440, height: 900 });
 
+// Driving's evaluation switch: off on entry, on when clicked, named in the summary.
+await page.goto(`${BASE}/d/driving`);
+await page.locator(".picker").waitFor();
+const evaluation = page.locator('input[name="evaluation"]');
+if (await evaluation.isChecked())
+  problems.push("evaluation mode is on when entering the lobby");
+await page.locator(".switch-row").click();
+await page.locator(".switch-row").scrollIntoViewIfNeeded();
+if (!(await page.locator(".start-summary").innerText()).includes("evaluation"))
+  problems.push("the start summary does not name evaluation mode");
+await shot("lobby-driving-evaluation");
+await page.locator(".switch-row").click();
+
 // Arrow keys move between gates; Enter goes in.
 await page.goto(BASE);
 await page.locator(".lights").waitFor();

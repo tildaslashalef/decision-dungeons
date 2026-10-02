@@ -12,6 +12,8 @@ export interface Selection {
   decider: string;
   model: string;
   seed: number;
+  /** Evaluation mode: the dungeon's safety nets off (`Dungeon.evaluation`). */
+  evaluation: boolean;
 }
 
 /** One decision as the debug sidebar shows it. */

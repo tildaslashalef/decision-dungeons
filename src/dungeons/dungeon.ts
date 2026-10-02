@@ -38,12 +38,23 @@ export interface Outcome {
   records: DecisionRecord[];
 }
 
+/** How a run is played, beside its seed and level. Recorded in every result. */
+export interface RunOptions {
+  /**
+   * Turns off the dungeon's safety nets (see `Dungeon.evaluation`), so the
+   * decider's choices alone decide the outcome.
+   */
+  evaluation?: boolean;
+}
+
 export interface Dungeon<Run> {
   id: string;
   title: string;
   description: string;
   levels: Level[];
-  create(seed: number, level: string): Run;
+  /** What evaluation mode turns off; absent when the dungeon has no safety nets. */
+  evaluation?: string;
+  create(seed: number, level: string, options?: RunOptions): Run;
   observe(run: Run): Observation;
   apply(run: Run, answers: Answers): void;
   /**

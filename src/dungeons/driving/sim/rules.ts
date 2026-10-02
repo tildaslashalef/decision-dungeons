@@ -263,6 +263,8 @@ export interface Envelope {
   max: number;
   /** The same before the current maneuver's own predicted conflict; what candidates are sampled under. */
   planningMax: number;
+  /** The road's own bound (limit, destination) before any traffic; evaluation mode samples under it. */
+  roadMax: number;
   reason: string | null;
   rule: Rule;
   gap: number;
@@ -295,6 +297,7 @@ export function speedEnvelope(sim: Simulation, v: Car): Envelope {
       reason = "Destination ahead";
     }
   }
+  const roadMax = max;
   const cap = followingSpeed(v, lead);
   if (cap < max) {
     max = cap;
@@ -321,5 +324,15 @@ export function speedEnvelope(sim: Simulation, v: Car): Envelope {
     max = Math.min(max, 1.5);
     if (max > 0) reason = "Taking a clear gap";
   }
-  return { max, planningMax, reason, rule: r, gap, conflict, lead, released };
+  return {
+    max,
+    planningMax,
+    roadMax,
+    reason,
+    rule: r,
+    gap,
+    conflict,
+    lead,
+    released,
+  };
 }

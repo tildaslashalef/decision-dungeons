@@ -50,10 +50,10 @@ import {
   type Selection as PathSelection,
 } from "../decide/selection.ts";
 import type { DecisionState } from "../decide/state.ts";
-import { driving } from "../driving.ts";
+import { driving, worldOf } from "../driving.ts";
+import { scenarioById } from "../scenarios.ts";
 import type { DrivingPlan } from "../sim/plan.ts";
 import { last } from "../world/geometry.ts";
-import type { WorldType } from "../world/types.ts";
 import { generateWorld } from "../world/world.ts";
 import { Inspector, type InspectorTab } from "./inspector.ts";
 import { Minimap } from "./minimap.ts";
@@ -93,10 +93,6 @@ function decisionInterval(state: DecisionState): number {
     return 250;
   return 650;
 }
-
-/** The world a level drives in; the stop-line check is a town trip. */
-const worldOf = (level: string): WorldType =>
-  level === "stop-line" ? "town" : (level as WorldType);
 
 const TURN_ICONS: Record<string, IconNode> = {
   uturn: RotateCcw,
@@ -611,7 +607,7 @@ export function mountDrivingStage(
   }
 
   function syncPilot(): void {
-    const name = `${selection.decider} · ${selection.model}`;
+    const name = `${selection.decider} · ${selection.model}${selection.evaluation ? " · evaluation" : ""}`;
     pilotLabel.textContent = finished
       ? name
       : paused
@@ -732,7 +728,12 @@ export function mountDrivingStage(
     loader.hidden = false;
     loaderMessage.textContent = "Building the world…";
     const started = await sim.call(
-      { type: "start", seed: selection.seed, level: selection.level },
+      {
+        type: "start",
+        seed: selection.seed,
+        level: selection.level,
+        evaluation: selection.evaluation,
+      },
       "started",
     );
     if (token !== generation) return;
@@ -1071,41 +1072,36 @@ export function mountDrivingStage(
       crashDialog.show();
       return;
     }
-    const check = selection.level === "stop-line";
+    const check = scenarioById(selection.level);
     const m = outcome.metrics;
     const arrived = m.arrived === 1;
+    const violations = `${outcome.violations} violation${outcome.violations === 1 ? "" : "s"}`;
     const title = check
       ? outcome.passed
-        ? "Stopped at the line."
-        : "Missed the line."
+        ? check.passTitle
+        : check.failTitle
       : arrived
         ? outcome.passed
           ? "You made it."
           : "Arrived, with violations."
         : "Out of time.";
     const eyebrow = check
-      ? `STOP-LINE CHECK ${outcome.passed ? "PASSED" : "FAILED"}`
+      ? `${check.name} ${outcome.passed ? "PASSED" : "FAILED"}`
       : arrived
         ? "DESTINATION REACHED"
         : "RUN ENDED";
     const facts = check
-      ? [
-          m.stopped_center_m !== undefined
-            ? `center ${m.stopped_center_m} m from the line`
-            : "never came to rest",
-          m.bumper_gap_m !== undefined
-            ? `bumper ${m.bumper_gap_m} m short`
-            : null,
-          `${outcome.violations} violation${outcome.violations === 1 ? "" : "s"}`,
-        ]
+      ? [...check.facts(m), `${m.collisions} contacts`, violations]
       : [
           `${Math.round(snap.distance)} m in ${Math.round(snap.t)} s`,
           `${m.decisions} decisions`,
           `${m.collisions} contacts`,
-          `${outcome.violations} violation${outcome.violations === 1 ? "" : "s"}`,
-          m.safety_brake_pct !== undefined
-            ? `safety brake ${m.safety_brake_pct}%`
-            : null,
+          violations,
+          selection.evaluation
+            ? "evaluation mode: no safety brake"
+            : m.safety_brake_pct !== undefined
+              ? `safety brake ${m.safety_brake_pct}%`
+              : null,
         ];
     replace(
       arrival,

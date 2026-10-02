@@ -152,7 +152,7 @@ async function port(level: string, seed: number) {
     });
   let outcome = driving.outcome(run);
   while (!outcome.finished) {
-    const before = run.check?.phase;
+    const before = run.scenario?.facts().phase;
     outcome = (await playTurn(driving, run, decide)).outcome;
     if (before !== "green") trace.push(sample(run.sim));
   }
@@ -218,7 +218,10 @@ async function compare(level: string, seed: number) {
       collisions: sim.collisions,
       violations: sim.violations,
       ...(portStop !== undefined
-        ? { stopped_center_m: portStop, resumed: ours.run.check?.resumed }
+        ? {
+            stopped_center_m: portStop,
+            resumed: ours.run.scenario?.facts().resumed,
+          }
         : {}),
       passed: ours.outcome.passed,
     },

@@ -4,6 +4,7 @@
 //
 //   bun run eval --dungeon driving --level town --decider nuclis --model laya-multilingual --seeds 1-4
 //   bun run check driving/stop-line --decider rule
+//   bun run eval --dungeon driving --level town --decider random --evaluation
 
 import { parseArgs } from "node:util";
 import { type Decider, decideWith } from "../contract/decider.ts";
@@ -24,8 +25,9 @@ const DEFAULT_MODEL: Record<string, string> = {
 };
 
 const USAGE = `usage:
-  bun run eval --dungeon <id> --level <id[,id]> --decider <id> [--model <id>] [--seeds 1-4] [--json]
-  bun run check <dungeon>/<level> --decider <id> [--model <id>] [--seeds 42] [--json]
+  bun run eval --dungeon <id> --level <id[,id]> --decider <id> [--model <id>] [--seeds 1-4] [--evaluation] [--json]
+  bun run check <dungeon>/<level> --decider <id> [--model <id>] [--seeds 42] [--evaluation] [--json]
+--evaluation turns the dungeon's safety nets off (driving: the safety brake and the collision filter)
 dungeons: ${Object.values(dungeons)
   .map((d) => `${d.id} (${d.levels.map((l) => l.id).join(", ")})`)
   .join("; ")}`;
@@ -99,6 +101,7 @@ async function main(argv: string[]): Promise<void> {
       decider: { type: "string" },
       model: { type: "string" },
       seeds: { type: "string" },
+      evaluation: { type: "boolean", default: false },
       json: { type: "boolean", default: false },
     },
   });
@@ -121,6 +124,8 @@ async function main(argv: string[]): Promise<void> {
   if (!isDeciderId(deciderId)) fail(`unknown decider ${deciderId}`);
   const model = values.model ?? (DEFAULT_MODEL[deciderId] as string);
   const seeds = seedsFrom(values.seeds ?? (command === "check" ? "42" : "1-4"));
+  if (values.evaluation && !dungeon.evaluation)
+    fail(`${dungeon.id} has no evaluation mode`);
 
   const env = process.env;
   const store = new ConfigStore(configHome(env), env);
@@ -142,13 +147,14 @@ async function main(argv: string[]): Promise<void> {
             seed,
             signal: AbortSignal.timeout(DECIDE_TIMEOUT_MS[deciderId]),
           }),
+        { evaluation: values.evaluation },
       );
       results.push(result);
       console.log(JSON.stringify(result));
     }
   if (!values.json)
     console.log(
-      `\n${dungeon.title} · ${deciderId} · ${model}\n\n${table(results)}`,
+      `\n${dungeon.title} · ${deciderId} · ${model}${values.evaluation ? " · evaluation mode" : ""}\n\n${table(results)}`,
     );
   if (results.some((r) => r.error || r.outcome.passed === false))
     process.exitCode = 1;

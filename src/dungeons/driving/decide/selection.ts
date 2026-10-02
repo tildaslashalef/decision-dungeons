@@ -66,16 +66,18 @@ const FORWARD_ONLY = new Set([
 ]);
 
 /**
- * The moving candidates a decider may take: no predicted collision, on the
- * road, the route's direction on highway sections, lane-following in a
- * queue, and in-lane (or returning) when any is.
+ * The moving candidates a decider may take: no predicted collision (unless
+ * in evaluation mode), on the road, the route's direction on highway
+ * sections, lane-following in a queue, and in-lane (or returning) when any
+ * is.
  */
 function movingCandidates(state: DecisionState): [string, Candidate][] {
   const entries = Object.entries(state.vectors);
   if (state.recovery?.blocked || state.speed_ceiling_mps === 0) return [];
   const moving = entries.filter(
     ([, v]) =>
-      v.velocity_mps !== 0 && !(v.collision_imminent ?? v.collision_predicted),
+      v.velocity_mps !== 0 &&
+      (state.evaluation || !(v.collision_imminent ?? v.collision_predicted)),
   );
   const forwardOnly =
     !state.recovery?.active && FORWARD_ONLY.has(state.trip?.phase ?? "");
@@ -135,6 +137,15 @@ export function stopAvailability(
         (intersection.signal === "red" || intersection.signal === "amber")))
   )
     reasons.push("required_stop_line_within_2_5m");
+  if (
+    state.yield_required &&
+    intersection &&
+    !intersection.already_entered &&
+    Number.isFinite(intersection.stop_line_ahead_m) &&
+    intersection.stop_line_ahead_m >= -0.5 &&
+    intersection.stop_line_ahead_m <= FULL_STOP_DISTANCE_M
+  )
+    reasons.push("yield_right_of_way_within_2_5m");
   if (
     Number.isFinite(state.destination_m) &&
     state.destination_m <= FULL_STOP_DISTANCE_M

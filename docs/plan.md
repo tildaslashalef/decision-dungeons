@@ -342,13 +342,33 @@ Restructured:
   decides, so a slow decider (clef-flash, about 1–3 s) plays the same
   game as a fast one and latency never enters the score. It is the
   default in the browser (*Decisions*); T switches to real time.
-- **An evaluation mode** that turns the safety brake and the candidate
-  filter's collision exclusion off, because JevPilot showed they make any
-  decider arrive (random arrived on 12 of 12 trips).
+- **An evaluation mode** (`RunOptions.evaluation`, the lobby's switch,
+  `--evaluation`) that turns the safety nets off, because JevPilot showed
+  they make any decider arrive (random arrived on 12 of 12 trips): the
+  safety brake, the collision exclusion in the planner's and the
+  selection's filters, and the traffic taper (candidates are sampled up to
+  the road's own bound, not the following speed), so in-lane paths fast
+  enough to hit the car ahead are offered and the decider must refuse
+  them; a stop is offered at a junction whose rules make the player yield
+  (*Decisions*). Every `RunResult` records `evaluation`.
 - Scenario checks are first-class levels of the driving dungeon
-  (`driving.ts`, like `stop-line`): the red-light stop line first, then a
-  stop sign with an earlier arrival, a merge gap, a blocked lane, and
-  off-road recovery, each with a pass bound and run by every decider.
+  (`scenarios.ts`): each places the car, clears or scripts the other
+  agents, and judges one skill against a stated bound, run by every
+  decider:
+  - `stop-line`: a red light, no traffic; stop with the car's center
+    within 3.5 m of the line (bumper short of it), then go on green.
+  - `stop-sign`: a cross-street car reached the stop sign first and waits
+    (frozen) until a second after the player's full stop; stop, let it
+    go, then cross. Entering before it passed fails; through within 60 s.
+  - `merge`: from the on-ramp at 12 m/s into six interstate cars 30 m
+    apart with one 80 m gap, timed to meet a car averaging 85% of the
+    ramp's limit; on the interstate without contact within 45 s.
+  - `blocked-lane`: a car stands still 50 m ahead on the first 70 m
+    straight; stop with the bumper within 2.5 m without contact (at rest
+    for 3 s), or pass it cleanly.
+  - `off-road`: the car starts 10–14 m beside its route, off the asphalt
+    and 1.5 m clear of buildings; back on the route (on the asphalt,
+    within 2.5 m of it) within 25 s without contact.
 
 **Proving the port.** The rule decider is deterministic, so it is the
 oracle: for seeds 1–4 in each world and for the stop-line check, the port
@@ -461,6 +481,27 @@ three.js Ferrari (MIT). Asset license files travel with the assets.
 - Manual driving (WASD, J, Space) and JevPilot's touch controls are not
   in the plan's milestones; whether to port them is the user's call, not
   yet made (2026-10-02).
+- Scenario levels may script traffic (`Simulation.frozen`) and offer a
+  stop at the line while the junction's rules make the player yield
+  (`Simulation.yieldStops`, the `yield_right_of_way_within_2_5m` stop
+  reason). JevPilot never offered that stop, and it arises in default
+  trips (town 4 and city 4 under the rule, three decisions each), so
+  default trips leave it off to stay bit-identical; scenario levels and
+  evaluation mode turn it on. The rule, unchanged on the road, takes the
+  path ending nearest the way back when the request carries
+  `recovery_distance` (only in recovery, which the experiment's trips
+  never entered), so it passes `off-road` and the port stays identical
+  (2026-10-02).
+- Evaluation mode turns off three nets, not the two first planned: the
+  safety brake, the collision exclusion, and the traffic taper. Measured
+  before deciding: with only the first two off, no colliding in-lane path
+  was ever offered (town and city seeds 1–4 under the rule: every
+  colliding moving candidate was off the road, already excluded), so the
+  mode changed nothing but the brake. The taper is lifted by sampling
+  under `Envelope.roadMax` (limit and destination) instead of
+  `planningMax`; default runs are untouched and stay bit-identical. The
+  rule stays the experiment's rule (the port's oracle) and is measured as
+  it is (2026-10-02).
 - A fifth decide error, `unavailable` (cannot reach the decider, HTTP 5xx,
   cancelled), beside `unconfigured`, `rejected`, `timeout`, and
   `invalid_answer` (2026-10-02).
@@ -680,7 +721,30 @@ p95 16.8 ms, none over 50 ms; looked at
 `artifacts/driving/town-inspector-world.png`);
 `driving-reference.ts` town 1 and stop-line 42 still bit-identical.
 
-Not done (see *Pick up here*): evaluation mode and four scenario levels.
+Evaluation mode and the scenario levels (2026-10-02): `RunOptions` on
+`Dungeon.create`, the lobby's "Safety nets" switch, `--evaluation` on
+`eval`/`check`, `evaluation` in every `RunResult`; the four new scenario
+levels in `src/dungeons/driving/scenarios.ts` with the stop line moved
+there (*Dungeon 1*, *Decisions*). Validated on the Apple M4 Pro:
+
+- `bun scripts/driving-reference.ts all`: all 13 runs (town, city,
+  highway 1–4, stop-line 42) still bit-identical to JevPilot.
+- The rule passes every scenario: `bun run check driving/<level>
+  --decider rule` on seeds 1–3 (merge 1–6, off-road 1–4), all pass;
+  random fails `stop-sign` on 2 of 4 seeds (entered before the first
+  arrival) and `off-road` on 4 of 4, and passes `merge` and
+  `blocked-lane` (the safety nets carry it; evaluation mode is what
+  separates there).
+- Before lifting the taper, evaluation mode offered no colliding in-lane
+  path (town and city 1–4); after, town 1 under the rule meets them and
+  crashes at 27.9 s (`tests/driving.test.ts` asserts both).
+- `bun test`: 75 pass (2 of them against the live nuclis server);
+  `bun run lint` clean. `scripts/driving-check.ts` passed on every
+  scenario level in the browser (each card PASSED); looked at
+  `artifacts/driving/{stop-sign,merge,blocked-lane,off-road}-{running,finished}.png`
+  and `artifacts/screenshots/lobby-driving-evaluation.png`.
+
+Not done: the measurement table across deciders (*Pick up here*).
 Manual driving and touch controls are a separate, undecided question
 (*Decisions*).
 
@@ -689,27 +753,10 @@ Manual driving and touch controls are a separate, undecided question
 Finish milestone 3, in this order, each a commit with its tests, checks,
 and a *Progress* entry:
 
-2. **Evaluation mode.** A run option that turns off the safety brake
-   (`sim.safety = false`) and the candidate filter's collision exclusion
-   (`movingCandidates` in `decide/selection.ts`, and the plan's
-   `safe` filter in `sim/plan.ts`), so a decider's choice decides the
-   outcome. Expose it as a lobby toggle and an `eval`/`check` flag
-   (`--evaluation`), carry it in `RunResult`, and record it in every
-   result. Default runs must stay bit-identical (run
-   `driving-reference.ts`). Then measure: rule and random (and `laya`,
-   `laya-multilingual` if time allows) on town, city, highway seeds 1–4
-   with and without it, a table in *Progress* naming machine, deciders,
-   seeds, commit, and nuclis version.
-3. **Scenario levels**, each a deterministic setup in `driving.ts` like
-   `stop-line` (place the car, freeze or script the other agents, hold a
-   signal) with a stated pass bound, a test that the rule passes it, and
-   a `bun run check` entry: a stop sign with an earlier arrival (yield,
-   then go once the other car clears), a merge gap (match an interstate
-   gap from the on-ramp without contact), a blocked lane (a stopped car
-   ahead: stop within 2.5 m without contact, or pass when allowed),
-   off-road recovery (start off the asphalt: back on the route within a
-   time bound without hitting a building). Add each to the lobby and to
-   `scripts/driving-check.ts` with a screenshot.
+2. **Measure evaluation mode**: rule, random, `laya`,
+   `laya-multilingual` on town, city, highway seeds 1–4 with and without
+   it, a table in *Progress* naming machine, deciders, seeds, commit, and
+   nuclis version.
 
 Then, per *Milestones*:
 

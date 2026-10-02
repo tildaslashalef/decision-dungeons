@@ -3,6 +3,9 @@
 // than a distant line; at a required stop take the stop-at-line path;
 // otherwise the most progress for the least route and lane error, never a
 // path with a predicted conflict. It is the oracle that proves the port.
+// Off the road (the table then carries `recovery_distance`, which the
+// experiment's trips never needed) it takes the path that ends nearest the
+// way back.
 
 import type { Answers, ChoiceAnswer } from "../../../contract/answer.ts";
 import type { Decider } from "../../../contract/decider.ts";
@@ -79,8 +82,17 @@ export function decideByRule(request: Request): Answers {
     const conflicts = isObject(candidates.conflicts)
       ? candidates.conflicts
       : {};
+    const recovering = keys.some(
+      (id) => typeof row(id).recovery_distance === "number",
+    );
     const score = (id: string) => {
       const v = row(id);
+      if (recovering)
+        return (
+          (conflicts[id] ? -1e6 : 0) -
+          num(v.recovery_distance, 1e3) +
+          0.01 * num(v.progress, 0)
+        );
       return (
         (conflicts[id] ? -1e6 : 0) +
         (v.stop_at_line ? 1e5 : 0) +

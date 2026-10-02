@@ -53,7 +53,7 @@ export interface Snapshot {
   outcome: Outcome;
   /** Newest first, as the simulation keeps them. */
   events: SimEvent[];
-  /** Signal offsets the run has changed (the stop-line check holds its light). */
+  /** Signal offsets a scenario holds (the stop-line check holds its light). */
   offsets: Record<string, number>;
 }
 
@@ -65,7 +65,7 @@ export interface CarLook {
 }
 
 export type ToWorker =
-  | { type: "start"; seed: number; level: string }
+  | { type: "start"; seed: number; level: string; evaluation: boolean }
   | { type: "observe" }
   | { type: "apply"; answers: Answers }
   | { type: "advance" }

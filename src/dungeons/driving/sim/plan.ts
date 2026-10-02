@@ -272,6 +272,7 @@ export function createDrivingPlan(
   batch: string,
   ceiling: number,
   control: Rule | null = null,
+  evaluation = false,
 ): DrivingPlan {
   const surfaces = localRoads(
     world,
@@ -635,7 +636,7 @@ export function createDrivingPlan(
     const safe = pool.filter(
       (p) =>
         p.data.stays_on_road &&
-        !p.data.collision_imminent &&
+        (evaluation || !p.data.collision_imminent) &&
         (world.type !== "highway" || p.data.follows_route_direction) &&
         (p.data.stays_in_lane || p.data.returning_to_lane),
     );

@@ -1,7 +1,8 @@
 // Autopilot driving: a car crosses a seeded town, city, or interstate trip
-// while a decider chooses its maneuvers, or faces the stop-line check.
-// Turn-based by default: each decision is followed by 0.3 s of simulated
-// time (six 50 ms steps), the cadence of JevPilot's headless checks.
+// while a decider chooses its maneuvers, or faces one of the scenario
+// checks (scenarios.ts). Turn-based by default: each decision is followed
+// by 0.3 s of simulated time (six 50 ms steps), the cadence of JevPilot's
+// headless checks.
 
 import type { Answers } from "../../contract/answer.ts";
 import type { DecisionRecord, Dungeon, Level, Outcome } from "../dungeon.ts";
@@ -17,20 +18,18 @@ import {
   decisionSelection,
 } from "./decide/selection.ts";
 import { type DecisionState, decisionState } from "./decide/state.ts";
+import { SCENARIOS, type ScenarioRun, scenarioById } from "./scenarios.ts";
 import { chooseRoute } from "./sim/navigation.ts";
 import { scanScene } from "./sim/perception.ts";
 import { Simulation } from "./sim/simulation.ts";
-import { pointAt, round } from "./world/geometry.ts";
-import type { Crossing, Junction, WorldType } from "./world/types.ts";
+import { round } from "./world/geometry.ts";
+import type { WorldType } from "./world/types.ts";
 
 /** Simulated seconds between decisions in turn-based play, as six steps. */
 export const TURN_STEPS = 6;
 export const STEP_S = 0.05;
 /** A trip that has not arrived after this many decisions has failed. */
 export const MAX_DECISIONS = 600;
-const STOP_LINE_DECISIONS = 100;
-/** The stop-line check passes with the car's center this close to the line, bumper short of it. */
-export const STOP_LINE_PASS_M = 3.5;
 
 const LEVELS: Level[] = [
   {
@@ -50,21 +49,16 @@ const LEVELS: Level[] = [
     description:
       "Millbrook streets, the on-ramp and merge, open road, the Cedar Town exit.",
   },
-  {
-    id: "stop-line",
-    title: "Stop-line check",
-    description: `A red light, no traffic: stop with the car's center within ${STOP_LINE_PASS_M} m of the line, then go on green.`,
-  },
+  ...SCENARIOS.map(({ id, title, description }) => ({
+    id,
+    title,
+    description,
+  })),
 ];
 
-interface StopLineCheck {
-  crossing: Crossing;
-  node: Junction;
-  northSouth: boolean;
-  phase: "red" | "green" | "done";
-  stoppedCenterM?: number;
-  resumed?: boolean;
-}
+/** The world a level drives in: a trip's own, or its scenario's. */
+export const worldOf = (level: string): WorldType =>
+  scenarioById(level)?.world ?? (level as WorldType);
 
 export interface DrivingRun {
   sim: Simulation;
@@ -75,36 +69,8 @@ export interface DrivingRun {
   steps: number;
   /** The state and request of the decision being made. */
   pending: { state: DecisionState; prepared: PreparedRequest } | null;
-  check: StopLineCheck | null;
-}
-
-/** Holds the check's signal red (or green) whatever the clock says. */
-function holdSignal(run: DrivingRun): void {
-  const check = run.check;
-  if (!check) return;
-  const red = check.phase === "red";
-  check.node.offset = (check.northSouth === red ? 12 : 2) - run.sim.time;
-}
-
-function createStopLine(sim: Simulation): StopLineCheck {
-  const v = sim.player;
-  sim.traffic = [];
-  sim.pedestrians = [];
-  const crossing = v.route.crossings.find(
-    (c) => sim.world.byId[c.nodeId]?.control === "signal",
-  );
-  if (!crossing)
-    throw new Error("this world has no signalled crossing on the route");
-  const node = sim.world.byId[crossing.nodeId] as Junction;
-  v.s = crossing.stopS - 65;
-  Object.assign(v, pointAt(v.route.points, v.s));
-  v.heading = crossing.approach;
-  return {
-    crossing,
-    node,
-    northSouth: Math.abs(Math.cos(crossing.approach)) > 0.5,
-    phase: "red",
-  };
+  /** The scenario check, on a scenario level. */
+  scenario: ScenarioRun | null;
 }
 
 function records(run: DrivingRun): DecisionRecord[] {
@@ -117,36 +83,33 @@ function records(run: DrivingRun): DecisionRecord[] {
 }
 
 /**
- * Ends a turn: the stop-line check notes a stop at the red line and turns
- * the signal green. `advance` calls it after its steps; a view that paces
- * the same steps over frames calls it once they are done.
+ * Ends a turn: a scenario notes what the turn did (the stop-line check
+ * turns its light green after a stop). `advance` calls it after its steps;
+ * a view that paces the same steps over frames calls it once they are done.
  */
 export function settleTurn(run: DrivingRun): void {
-  const check = run.check;
-  if (
-    check?.phase === "red" &&
-    run.decisions > 1 &&
-    run.sim.player.speed < 0.1
-  ) {
-    check.stoppedCenterM = check.crossing.stopS - run.sim.player.s;
-    check.phase = "green";
-  }
+  run.scenario?.settle(run.sim, run.decisions);
 }
 
 export const driving: Dungeon<DrivingRun> = {
   id: "driving",
   title: "Autopilot driving",
   description:
-    "Drive a seeded town, city, or interstate trip: signals, stop signs, traffic, pedestrians, and a stop-line check.",
+    "Drive a seeded town, city, or interstate trip, or take a scenario check: a stop line, a stop sign, a merge, a blocked lane, off-road recovery.",
   levels: LEVELS,
-  create(seed, level) {
+  evaluation:
+    "No safety nets: paths are offered up to the speed limit whatever the traffic ahead, paths predicted to collide stay in, and no brake overrides the chosen speed.",
+  create(seed, level, options = {}) {
     if (!LEVELS.some((l) => l.id === level))
       throw new Error(`driving has no level ${level}`);
-    const world: WorldType =
-      level === "stop-line" ? "town" : (level as WorldType);
-    const sim = new Simulation(seed, world);
+    const sim = new Simulation(seed, worldOf(level));
     sim.autopilot = true;
-    const check = level === "stop-line" ? createStopLine(sim) : null;
+    if (options.evaluation) {
+      sim.evaluation = true;
+      sim.safety = false;
+      sim.yieldStops = true;
+    }
+    const scenario = scenarioById(level)?.setup(sim) ?? null;
     return {
       sim,
       level,
@@ -154,12 +117,12 @@ export const driving: Dungeon<DrivingRun> = {
       brakeSteps: 0,
       steps: 0,
       pending: null,
-      check,
+      scenario,
     };
   },
   observe(run) {
-    if (run.check) {
-      holdSignal(run);
+    if (run.scenario) {
+      run.scenario.hold(run.sim);
       scanScene(run.sim);
     }
     const state = decisionState(run.sim);
@@ -188,15 +151,12 @@ export const driving: Dungeon<DrivingRun> = {
     v.target = candidate.velocity_mps;
     const route = expanded.route?.choice;
     if (route && route !== "keep") chooseRoute(run.sim, route);
-    if (run.check?.phase === "green") {
-      run.check.resumed = candidate.velocity_mps > 0;
-      run.check.phase = "done";
-    }
+    run.scenario?.applied(candidate.velocity_mps);
   },
   advance(run) {
-    if (run.check?.phase === "done") return;
+    if (run.scenario?.done()) return;
     for (let i = 0; i < TURN_STEPS; i++) {
-      holdSignal(run);
+      run.scenario?.hold(run.sim);
       run.sim.step(STEP_S);
       run.steps++;
       if (run.sim.brakeReason) run.brakeSteps++;
@@ -204,13 +164,13 @@ export const driving: Dungeon<DrivingRun> = {
     settleTurn(run);
   },
   step(run, dt) {
-    holdSignal(run);
+    run.scenario?.hold(run.sim);
     run.sim.step(dt);
     run.steps++;
     if (run.sim.brakeReason) run.brakeSteps++;
   },
   outcome(run): Outcome {
-    const { sim, check } = run;
+    const { sim, scenario } = run;
     const metrics: Record<string, number> = {
       decisions: run.decisions,
       sim_s: round(sim.time, 2),
@@ -220,32 +180,13 @@ export const driving: Dungeon<DrivingRun> = {
         ? { safety_brake_pct: Math.round((100 * run.brakeSteps) / run.steps) }
         : {}),
     };
-    if (check) {
-      const exhausted =
-        check.phase === "red" && run.decisions >= STOP_LINE_DECISIONS;
-      const finished = check.phase === "done" || exhausted || !!sim.crash;
-      const center = check.stoppedCenterM;
-      if (center !== undefined) {
-        metrics.stopped_center_m = round(center, 2);
-        metrics.bumper_gap_m = round(center - sim.player.depth / 2, 2);
-      }
-      const stoppedWell =
-        center !== undefined &&
-        center < STOP_LINE_PASS_M &&
-        center > sim.player.depth / 2;
+    if (scenario) {
+      const verdict = scenario.verdict(sim, run.decisions);
       return {
-        finished,
-        ...(finished
-          ? {
-              passed:
-                stoppedWell &&
-                check.resumed === true &&
-                sim.collisions === 0 &&
-                sim.violations === 0,
-            }
-          : {}),
+        finished: verdict.finished,
+        ...(verdict.passed !== undefined ? { passed: verdict.passed } : {}),
         violations: sim.violations,
-        metrics,
+        metrics: { ...metrics, ...verdict.metrics },
         records: records(run),
       };
     }

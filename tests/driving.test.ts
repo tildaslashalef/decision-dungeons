@@ -4,14 +4,19 @@ import type { Request } from "../src/contract/request.ts";
 import { parseRequest, validateAnswers } from "../src/contract/validate.ts";
 import { bulkLast } from "../src/deciders/nuclis.ts";
 import { randomDecider } from "../src/deciders/random.ts";
+import { crossing } from "../src/dungeons/crossing/crossing.ts";
 import {
   decideByRule,
   drivingRule,
 } from "../src/dungeons/driving/decide/rule.ts";
 import { driving } from "../src/dungeons/driving/driving.ts";
+import { SCENARIOS } from "../src/dungeons/driving/scenarios.ts";
 import { worldObservation } from "../src/dungeons/driving/sim/observation.ts";
 import { generateWorld } from "../src/dungeons/driving/world/world.ts";
+import { runEpisode } from "../src/dungeons/run.ts";
 import { playTurn } from "../src/dungeons/turn.ts";
+
+const ids = { id: "random", model: "uniform" };
 
 const options = (model: string, seed = 1) => ({
   model,
@@ -136,3 +141,85 @@ test("the same seed and answers replay the same run, inspected or not", async ()
   expect(await play(false)).toEqual(plain);
   expect(await play(true)).toEqual(plain);
 }, 30_000);
+
+describe("evaluation mode", () => {
+  test("turns off the safety brake and the collision filter, and only when asked", () => {
+    const plain = driving.create(1, "town");
+    expect(plain.sim.safety).toBe(true);
+    expect(driving.observe(plain).request).toBeDefined();
+    expect(plain.pending?.state.evaluation).toBeUndefined();
+    const evaluated = driving.create(1, "town", { evaluation: true });
+    expect(evaluated.sim.safety).toBe(false);
+    driving.observe(evaluated);
+    expect(evaluated.pending?.state.evaluation).toBe(true);
+  });
+
+  test("offers in-lane paths predicted to collide that the default run never does", async () => {
+    // Town seed 1 under the rule: the default planner tapers every path to
+    // the traffic ahead; evaluation mode offers faster ones that would hit.
+    const offered = async (evaluation: boolean) => {
+      const run = driving.create(1, "town", { evaluation });
+      let count = 0;
+      for (let i = 0; i < 100; i++) {
+        const turn = await playTurn(driving, run, (r: Request) =>
+          decideWith(drivingRule, r, options("baseline")),
+        );
+        const vectors = run.sim.lastDecisionState?.vectors ?? {};
+        for (const id of Object.keys(run.sim.lastPlan?.eligible ?? {})) {
+          const v = vectors[id];
+          if (v?.collision_imminent && v.velocity_mps !== 0 && v.stays_on_road)
+            count++;
+        }
+        if (turn.outcome.finished) break;
+      }
+      return count;
+    };
+    expect(await offered(false)).toBe(0);
+    expect(await offered(true)).toBeGreaterThan(0);
+  }, 60_000);
+
+  test("is recorded in every result, and ignored by a dungeon without safety nets", async () => {
+    const decide = (r: Request) =>
+      decideWith(randomDecider(), r, options("uniform", 1));
+    const plain = await runEpisode(crossing, "signal", 1, ids, decide);
+    expect(plain.evaluation).toBe(false);
+    const asked = await runEpisode(crossing, "signal", 1, ids, decide, {
+      evaluation: true,
+    });
+    expect(asked.evaluation).toBe(false);
+  });
+});
+
+describe("scenario levels", () => {
+  test("every scenario sets up on seeds 1–10", () => {
+    for (const scenario of SCENARIOS)
+      for (let seed = 1; seed <= 10; seed++)
+        expect(() => driving.create(seed, scenario.id)).not.toThrow();
+  });
+
+  for (const scenario of SCENARIOS.filter((s) => s.id !== "stop-line"))
+    test(`the rule passes ${scenario.id}`, async () => {
+      const run = driving.create(1, scenario.id);
+      let outcome = driving.outcome(run);
+      while (!outcome.finished)
+        outcome = (
+          await playTurn(driving, run, (r: Request) =>
+            decideWith(drivingRule, r, options("baseline")),
+          )
+        ).outcome;
+      expect(outcome.passed).toBe(true);
+      expect(outcome.metrics.collisions).toBe(0);
+    }, 60_000);
+
+  test("a scenario is the same run for the same seed and answers", async () => {
+    const play = async () => {
+      const run = driving.create(2, "stop-sign");
+      for (let i = 0; i < 30; i++)
+        await playTurn(driving, run, (r: Request) =>
+          decideWith(randomDecider(), r, options("uniform", 2)),
+        );
+      return [run.sim.player.x, run.sim.player.z, run.sim.time];
+    };
+    expect(await play()).toEqual(await play());
+  }, 30_000);
+});

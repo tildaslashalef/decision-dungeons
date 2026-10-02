@@ -43,8 +43,7 @@ const post = (message: FromWorker) => postMessage(message);
 function snapshot(r: DrivingRun): Snapshot {
   const sim = r.sim;
   const v = sim.player;
-  const offsets: Record<string, number> = {};
-  if (r.check) offsets[r.check.node.id] = r.check.node.offset;
+  const offsets = r.scenario?.offsets() ?? {};
   return {
     t: sim.time,
     distance: sim.distance,
@@ -130,7 +129,9 @@ function tick(): void {
 function handle(message: ToWorker): void {
   if (message.type === "start") {
     stopTicker();
-    run = driving.create(message.seed, message.level);
+    run = driving.create(message.seed, message.level, {
+      evaluation: message.evaluation,
+    });
     routeVersion = run.sim.routeVersion;
     const current = run.sim.traffic.map((c) => ({
       id: c.id,
@@ -196,7 +197,7 @@ function handle(message: ToWorker): void {
     }
     case "advance": {
       const snapshots: Snapshot[] = [];
-      if (r.check?.phase !== "done")
+      if (!r.scenario?.done())
         for (let i = 0; i < TURN_STEPS; i++) {
           driving.step(r, STEP_S);
           snapshots.push(snapshot(r));

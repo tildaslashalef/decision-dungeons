@@ -42,6 +42,10 @@ import {
 
 export interface DecisionState {
   batch_id: string;
+  /** Evaluation mode: colliding candidates stay eligible. Absent otherwise. */
+  evaluation?: true;
+  /** The junction's rules make the player yield now, and a stop may be offered for it (`Simulation.yieldStops`). */
+  yield_required?: true;
   route_version: number;
   global: GlobalNavigation;
   driving_style: { name: string; description: string; rules: string[] };
@@ -133,6 +137,13 @@ const DRIVING_STYLE = {
 const MOVERS = new Set(["car", "motorcycle", "pedestrian"]);
 
 /** Plans a fresh batch of candidates and assembles the decision state around it. */
+/** Rule reasons that make the player wait for someone else's turn. */
+const YIELDS = new Set([
+  "Yield to first arrival",
+  "Yield to crossing traffic",
+  "Letting stopped traffic clear",
+]);
+
 export function decisionState(sim: Simulation): DecisionState {
   // Decide on a fresh scan, not the last sensor tick.
   scanScene(sim);
@@ -174,9 +185,11 @@ export function decisionState(sim: Simulation): DecisionState {
       : turning && nav.turn_distance_m < 48
         ? 12
         : sim.world.theme.limit;
+  // Evaluation mode lifts the traffic taper: in-lane paths fast enough to
+  // hit the car ahead are sampled, and the decider must turn them down.
   const ceiling = round(
     Math.min(
-      env.planningMax,
+      sim.evaluation ? env.roadMax : env.planningMax,
       uTurn?.speed_limit_mps ?? Number.POSITIVE_INFINITY,
       turnCap,
     ),
@@ -190,6 +203,7 @@ export function decisionState(sim: Simulation): DecisionState {
     `b${++sim.planSequence}`,
     ceiling,
     env.rule,
+    sim.evaluation,
   );
   sim.lastPlan = plan;
   // Readable edges in normal driving; the raw road polygons only in recovery.
@@ -198,6 +212,10 @@ export function decisionState(sim: Simulation): DecisionState {
   const player = sim.player;
   const state: DecisionState = {
     batch_id: plan.batch_id,
+    ...(sim.evaluation ? { evaluation: true as const } : {}),
+    ...(sim.yieldStops && env.rule.mustStop && YIELDS.has(env.rule.reason)
+      ? { yield_required: true as const }
+      : {}),
     route_version: sim.routeVersion,
     global: globalNavigation(sim),
     driving_style: DRIVING_STYLE,
