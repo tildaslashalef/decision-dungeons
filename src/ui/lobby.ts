@@ -2,6 +2,7 @@
 // evaluation mode (when the dungeon has safety nets), the case set (when
 // it plays from one), and seed on the other; then start the run.
 
+import type { LevelTag } from "../dungeons/dungeon.ts";
 import { dungeonById } from "../dungeons/registry.ts";
 import { autopilotPicker, usable } from "./autopilot.ts";
 import { h } from "./dom.ts";
@@ -10,6 +11,20 @@ import { svgIcon } from "./icons.ts";
 import { floor, sky } from "./sky.ts";
 import type { Store } from "./store.ts";
 import { backLink, topbar } from "./topbar.ts";
+
+/** How the lobby names each level tag: the models it is meant to test. */
+const LEVEL_TAGS: Record<LevelTag, { label: string; detail: string }> = {
+  "many-questions": {
+    label: "Several questions · for clef-flash",
+    detail:
+      "Every question about a case goes in one request: clef-flash answers them all in one pass, Laya runs a pass per question.",
+  },
+  "long-input": {
+    label: "Long input · for clef-flash",
+    detail:
+      "Past Laya's budget (512 or 1,024 tokens), so it reads a cut state; clef-flash reads up to 16,384 tokens.",
+  },
+};
 
 export interface LobbyActions {
   play(): void;
@@ -82,6 +97,19 @@ export function lobbyPage(store: Store, actions: LobbyActions): HTMLElement {
           }),
           h("b", {}, level.title),
           h("span", {}, level.description),
+          level.tags?.length
+            ? h(
+                "ul",
+                { class: "level-tags" },
+                level.tags.map((tag) =>
+                  h(
+                    "li",
+                    { class: "level-tag", title: LEVEL_TAGS[tag].detail },
+                    LEVEL_TAGS[tag].label,
+                  ),
+                ),
+              )
+            : null,
         ),
       ),
     ),

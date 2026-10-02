@@ -60,6 +60,15 @@ const LEVELS: TextLevel[] = [
     description:
       "Two thousand words of newsletter; when there is fraud, it is the last line. Past a short model's budget.",
     questions: { phishing: PHISHING },
+    tags: ["long-input"],
+  },
+  {
+    id: "all-questions",
+    title: "Phishing and filing",
+    description:
+      "Both questions about every email in one request: is it fraud, and where does it go. An email is right only when both are. Pass with 90% right.",
+    questions: { phishing: PHISHING, route: ROUTE },
+    tags: ["many-questions"],
   },
 ];
 

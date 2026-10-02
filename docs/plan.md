@@ -519,6 +519,20 @@ three.js Ferrari (MIT). Asset license files travel with the assets.
   per request with every question in it, at most two requests in flight,
   and a timeout from the work (queue wait plus tokens), so Laya keeps its
   short bound and a hang still surfaces fast (2026-10-03).
+- Each text dungeon has an `all-questions` level asking every one of its
+  questions about each case in one request (Inbox: phishing and route;
+  Tickets: team, urgency, refund; Logs: page and cause, with a `none`
+  cause for windows with nothing to page for); a case is right only when
+  every answer is. Levels carry tags (`many-questions`, `long-input`) that
+  name what they test; the dungeon stays decider-agnostic and the lobby
+  renders them as "for clef-flash" (2026-10-03).
+- A case set grows by whole new levels: a write whose set holds every
+  stored level case for case and adds levels inserts those levels'
+  cases (`extended`), and the server adds a generator's new levels to an
+  existing base set the same way. A run of an old level plays exactly the
+  cases it played before; the set's hash changes with its new levels, so
+  results from before name the earlier hash. Generators that gained a
+  level are `@2` (2026-10-03).
 - Next after clef-flash support: a Laya→clef cascade, Laya screening
   every state and clef-flash deciding the unsure ones, measured against
   each alone; clef-flash alone stays a choice (2026-10-03).
@@ -1014,6 +1028,45 @@ server at nuclis `5dc6783`, reporting `packs`):
 Not done: the lobby and settings page show clef like any model (no UI
 change was needed, none was checked in a browser this session); clef is
 not yet in the comparison tables.
+
+### Several questions per case (2026-10-03)
+
+Delivered: an `all-questions` level in Inbox, Ticket triage, and Logs
+(*Decisions*), tagged `many-questions`; the long levels tagged
+`long-input`; the lobby's tag pills ("Several questions · for
+clef-flash", "Long input · for clef-flash"); case sets that grow by new
+levels, so the user's and every existing base set gains the level in
+place (generators `inbox@2`, `tickets@2`, `logs@2`).
+
+Validated on the Apple M4 Pro:
+
+- `bun test`: 101 pass (a set grows by a level keeping every stored case,
+  a changed stored level is still refused; every `all-questions` case has
+  a known answer for each question its level asks). `bun run lint` clean.
+- The rule, seeds 1-4 (`bun run eval --dungeon <id> --level
+  all-questions --decider rule --seeds 1-4`): Inbox 4/4 (0.90-1.00),
+  Logs 4/4 (0.90-1.00), Tickets 2/4 (0.80-0.95; its urgency rule).
+  The throwaway home's base sets, written before, grew in place.
+- `scripts/browser-check.ts none` passed on a throwaway server (no page
+  scroll at five sizes with the fifth level). Looked at
+  `artifacts/screenshots/lobby-inbox-{1440x900,1024x640}.png` and
+  `{tickets,logs}-all-questions-{running,finished}.png` (every question's
+  answer and expected value on the case card; no console errors).
+- Seed 1, one eval at a time, nuclis 0.4.0-dev on Metal (server at
+  nuclis `fd09aa4`), base sets as above:
+
+  | dungeon (questions) | model | result | right | Brier | ms/case | tokens | truncated | wall s |
+  | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
+  | Inbox (2) | laya-multilingual | fail | 10/20 | 0.165 | 84 | 10,924 | 0 | 1.7 |
+  | Inbox (2) | clef-flash | pass | 18/20 | 0.035 | 1,896 | 10,020 | 0 | 37.9 |
+  | Tickets (3) | laya-multilingual | fail | 5/20 | 0.356 | 88 | 13,127 | 0 | 1.8 |
+  | Tickets (3) | clef-flash | fail | 17/20 | 0.056 | 2,334 | 11,929 | 0 | 46.7 |
+  | Logs (2) | laya-multilingual | fail | 4/20 | 0.339 | 404 | 32,932 | 2 | 8.1 |
+  | Logs (2) | clef-flash | pass | 18/20 | 0.005 | 4,089 | 21,526 | 0 | 81.8 |
+
+  clef-flash is right on 53 of 60 cases at all of its questions at once,
+  laya-multilingual on 19, at 20-45 times the time per case (single
+  runs, not a benchmark).
 
 ### Pick up here
 

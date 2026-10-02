@@ -31,17 +31,35 @@ export interface Generator {
 export const GENERATORS: Record<string, Generator> = {
   inbox: {
     id: INBOX_GENERATOR,
-    base: { phishing: 120, triage: 100, languages: 80, long: 60 },
+    base: {
+      phishing: 120,
+      triage: 100,
+      languages: 80,
+      long: 60,
+      "all-questions": 60,
+    },
     generate: inboxCases,
   },
   tickets: {
     id: TICKETS_GENERATOR,
-    base: { routing: 100, urgency: 100, refunds: 80, languages: 80 },
+    base: {
+      routing: 100,
+      urgency: 100,
+      refunds: 80,
+      languages: 80,
+      "all-questions": 60,
+    },
     generate: ticketCases,
   },
   logs: {
     id: LOGS_GENERATOR,
-    base: { incident: 100, thresholds: 100, "root-cause": 80, long: 60 },
+    base: {
+      incident: 100,
+      thresholds: 100,
+      "root-cause": 80,
+      long: 60,
+      "all-questions": 60,
+    },
     generate: logCases,
   },
 };
@@ -245,9 +263,14 @@ export class CaseStore {
 
   /**
    * Stores a set. An existing set of the same name is left alone when its
-   * hash matches, refused when it differs, unless `replace`.
+   * hash matches, and grows when the new set holds every one of its levels
+   * case for case and adds levels (a run of an old level plays exactly what
+   * it played before). Anything else is refused, unless `replace`.
    */
-  write(set: CaseSet, replace = false): "written" | "unchanged" | "replaced" {
+  write(
+    set: CaseSet,
+    replace = false,
+  ): "written" | "unchanged" | "extended" | "replaced" {
     if (!NAME.test(set.name))
       throw new CaseError(
         "a set name is lower-case letters, digits, dots, dashes, or underscores",
@@ -259,6 +282,7 @@ export class CaseStore {
       )
       .get(set.dungeon, set.name);
     if (existing?.hash === set.hash) return "unchanged";
+    if (existing && !replace && this.extend(set)) return "extended";
     if (existing && !replace)
       throw new CaseError(
         `${set.dungeon} already has a set named ${set.name} with other cases; choose another name or --replace it`,
@@ -299,11 +323,82 @@ export class CaseStore {
     return existing ? "replaced" : "written";
   }
 
-  /** Writes each text dungeon's base set if it is missing. */
+  /**
+   * Adds the levels `set` has beyond the stored set of its name, when every
+   * stored level is in `set` with the same cases; false, writing nothing,
+   * otherwise.
+   */
+  private extend(set: CaseSet): boolean {
+    const stored = this.load(set.dungeon, set.name);
+    if (!stored) return false;
+    const ofLevel = (cases: TextCase[], level: string) =>
+      cases.filter((c) => c.level === level);
+    const added = Object.keys(set.levels).filter(
+      (level) => !Object.hasOwn(stored.levels, level),
+    );
+    if (
+      !added.length ||
+      Object.keys(stored.levels).some(
+        (level) =>
+          !Object.hasOwn(set.levels, level) ||
+          caseHash(ofLevel(stored.cases, level)) !==
+            caseHash(ofLevel(set.cases, level)),
+      )
+    )
+      return false;
+    const db = this.open();
+    db.transaction(() => {
+      db.run(
+        "UPDATE case_sets SET generator = ?, count = ?, hash = ?, levels = ? WHERE dungeon = ? AND name = ?",
+        [
+          set.generator,
+          set.count,
+          set.hash,
+          JSON.stringify(set.levels),
+          set.dungeon,
+          set.name,
+        ],
+      );
+      const insert = db.prepare(
+        "INSERT INTO cases (dungeon, set_name, id, level, lang, input, truth, why) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+      );
+      for (const c of set.cases)
+        if (added.includes(c.level))
+          insert.run(
+            set.dungeon,
+            set.name,
+            c.id,
+            c.level,
+            c.lang,
+            JSON.stringify(c.input),
+            JSON.stringify(c.truth),
+            c.why,
+          );
+    })();
+    return true;
+  }
+
+  /**
+   * Writes each text dungeon's base set if it is missing, and adds to it
+   * the generator's levels it lacks, keeping its stored levels' counts.
+   */
   ensureBase(): void {
-    for (const [dungeon, generator] of Object.entries(GENERATORS))
-      if (!this.list(dungeon).some((s) => s.name === BASE_SET))
+    for (const [dungeon, generator] of Object.entries(GENERATORS)) {
+      const stored = this.list(dungeon).find((s) => s.name === BASE_SET);
+      if (!stored)
         this.write(buildSet(dungeon, BASE_SET, BASE_SEED, generator.base));
+      else if (
+        Object.keys(generator.base).some(
+          (l) => !Object.hasOwn(stored.levels, l),
+        )
+      )
+        this.write(
+          buildSet(dungeon, BASE_SET, stored.seed, {
+            ...generator.base,
+            ...stored.levels,
+          }),
+        );
+    }
   }
 }
 

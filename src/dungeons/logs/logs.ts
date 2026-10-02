@@ -38,6 +38,17 @@ const CAUSE = {
   },
 };
 
+/** The cause, or that there is nothing to page for: asked beside `page`. */
+const CAUSE_OR_NONE = {
+  type: "choice" as const,
+  instructions:
+    "What is the most likely root cause of the incident in this window? If there is no incident to page for, answer none.",
+  criteria: {
+    ...CAUSE.criteria,
+    none: "no incident to page for: noise, a blip, a retry, or a problem that already recovered",
+  },
+};
+
 const LEVELS: TextLevel[] = [
   {
     id: "incident",
@@ -65,6 +76,15 @@ const LEVELS: TextLevel[] = [
     description:
       "Three hundred lines of healthy noise; when there is an incident, it starts in the last minute. Past a short model's budget.",
     questions: { page: PAGE },
+    tags: ["long-input"],
+  },
+  {
+    id: "all-questions",
+    title: "Page and cause",
+    description:
+      "Both questions about every window in one request: page or not, and the root cause or none. A window is right only when both are.",
+    questions: { page: PAGE, cause: CAUSE_OR_NONE },
+    tags: ["many-questions"],
   },
 ];
 
@@ -133,7 +153,10 @@ function rule(request: Request): Answers {
   if (q.breach)
     answers.breach = { type: "noul", noul: breaches(w.lines) ? 0.99 : 0.01 };
   if (q.cause?.type === "choice") {
-    const choice = cause(w.lines);
+    const choice =
+      "none" in q.cause.criteria && !shouldPage(w.lines)
+        ? "none"
+        : cause(w.lines);
     answers.cause = {
       type: "choice",
       choice,

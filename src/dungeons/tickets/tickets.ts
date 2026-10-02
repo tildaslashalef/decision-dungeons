@@ -73,6 +73,14 @@ const LEVELS: TextLevel[] = [
       "Routing tickets written in Spanish, German, French, and Portuguese.",
     questions: { team: TEAM },
   },
+  {
+    id: "all-questions",
+    title: "Route, rate, and refund",
+    description:
+      "All three questions about every ticket in one request: the team, the urgency, and whether money is asked back. A ticket is right only when all three are.",
+    questions: { team: TEAM, urgency: URGENCY, refund: REFUND },
+    tags: ["many-questions"],
+  },
 ];
 
 const asTicket = (request: Request): Ticket => {

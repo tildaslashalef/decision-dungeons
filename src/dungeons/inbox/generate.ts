@@ -22,7 +22,7 @@ import {
 } from "../text/vocab.ts";
 import { LONG_PARAGRAPHS, TRANSLATED } from "./text.ts";
 
-export const INBOX_GENERATOR = "inbox@1";
+export const INBOX_GENERATOR = "inbox@2";
 
 /** Where a person would file it; `report_phishing` is any fraud attempt. */
 export type Route =
@@ -569,9 +569,14 @@ function build(
 ): { built: Built; lang: string } {
   switch (level) {
     case "phishing":
-    case "triage": {
+    case "triage":
+    case "all-questions": {
       const phishing =
-        level === "phishing" ? index % 2 === 0 : chance(rng, 0.25);
+        level === "phishing"
+          ? index % 2 === 0
+          : level === "all-questions"
+            ? index % 3 === 0
+            : chance(rng, 0.25);
       return {
         built: pick(rng, phishing ? PHISHING : GENUINE)(rng),
         lang: "en",
@@ -594,6 +599,7 @@ export const INBOX_TRUTH: Record<string, ("phishing" | "route")[]> = {
   triage: ["route"],
   languages: ["phishing"],
   long: ["phishing"],
+  "all-questions": ["phishing", "route"],
 };
 
 export function inboxCases(

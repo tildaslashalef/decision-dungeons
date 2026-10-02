@@ -200,6 +200,46 @@ describe("case store", () => {
     store.close();
   });
 
+  test("a set grows by new levels only, keeping every stored case", () => {
+    const store = new CaseStore(newHome());
+    const { "all-questions": _added, ...older } = (
+      GENERATORS.tickets as (typeof GENERATORS)[string]
+    ).base;
+    const before = buildSet("tickets", "base", BASE_SEED, older);
+    expect(store.write(before)).toBe("written");
+    // A changed stored level is still refused.
+    const changed = buildSet("tickets", "base", BASE_SEED, {
+      ...older,
+      routing: 10,
+      "all-questions": 5,
+    });
+    expect(() => store.write(changed)).toThrow(CaseError);
+    store.ensureBase();
+    const grown = store.load("tickets", "base");
+    expect(grown?.hash).toBe(setOf("tickets").hash);
+    expect(grown?.levels["all-questions"]).toBe(60);
+    const byId = (a: { id: string }, b: { id: string }) =>
+      a.id < b.id ? -1 : 1;
+    expect(grown?.cases.filter((c) => c.level !== "all-questions")).toEqual(
+      [...before.cases].sort(byId),
+    );
+    expect(store.write(setOf("tickets"))).toBe("unchanged");
+    store.close();
+  });
+
+  test("a many-questions level asks every question it scores", () => {
+    for (const [id, set] of Object.entries(sets)) {
+      const dungeon = dungeonById(id) as AnyDungeon;
+      const level = dungeon.levels.find((l) => l.id === "all-questions");
+      expect(level?.tags).toEqual(["many-questions"]);
+      const run = dungeon.create(1, "all-questions", { cases: set });
+      const asked = Object.keys(dungeon.observe(run).request.questions);
+      expect(asked.length).toBeGreaterThan(1);
+      for (const c of set.cases.filter((c) => c.level === "all-questions"))
+        expect(Object.keys(c.truth).sort()).toEqual([...asked].sort());
+    }
+  });
+
   test("runs in WAL mode, versioned, and reads while another process writes", async () => {
     const home = newHome();
     const store = new CaseStore(home);

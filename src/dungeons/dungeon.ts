@@ -7,10 +7,18 @@ import type { Decider } from "../contract/decider.ts";
 import type { Request } from "../contract/request.ts";
 import type { CaseSet } from "./text/cases.ts";
 
+/**
+ * What a level demands beyond its dungeon's usual, for the lobby to point
+ * out: several questions about each case in one request, or inputs past a
+ * short model's budget.
+ */
+export type LevelTag = "many-questions" | "long-input";
+
 export interface Level {
   id: string;
   title: string;
   description: string;
+  tags?: LevelTag[];
 }
 
 export interface Observation {

@@ -8,7 +8,7 @@ import { hash, pick, type Rng, seeded } from "../../lib/random.ts";
 import type { TextCase } from "../text/cases.ts";
 import { between, chance } from "../text/vocab.ts";
 
-export const LOGS_GENERATOR = "logs@1";
+export const LOGS_GENERATOR = "logs@2";
 
 export type Cause =
   | "database"
@@ -433,6 +433,7 @@ export const LOGS_TRUTH: Record<string, ("page" | "breach" | "cause")[]> = {
   thresholds: ["breach"],
   "root-cause": ["cause"],
   long: ["page"],
+  "all-questions": ["page", "cause"],
 };
 
 export function logCases(
@@ -485,7 +486,12 @@ export function logCases(
       truth =
         level === "root-cause"
           ? { cause: story.cause as Cause }
-          : { page: story.page };
+          : level === "all-questions"
+            ? {
+                page: story.page,
+                cause: story.page ? (story.cause as Cause) : "none",
+              }
+            : { page: story.page };
       why = story.why;
     }
     return {

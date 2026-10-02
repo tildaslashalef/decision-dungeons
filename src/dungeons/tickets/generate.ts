@@ -8,7 +8,7 @@ import type { TextCase } from "../text/cases.ts";
 import { between, CUSTOMERS, isoAt, money, personName } from "../text/vocab.ts";
 import { TICKETS_TRANSLATED } from "./text.ts";
 
-export const TICKETS_GENERATOR = "tickets@1";
+export const TICKETS_GENERATOR = "tickets@2";
 
 export type Team =
   | "billing"
@@ -323,6 +323,7 @@ export const TICKETS_TRUTH: Record<string, ("team" | "urgency" | "refund")[]> =
     urgency: ["urgency"],
     refunds: ["refund"],
     languages: ["team"],
+    "all-questions": ["team", "urgency", "refund"],
   };
 
 export function ticketCases(
@@ -337,7 +338,7 @@ export function ticketCases(
     if (level === "languages") {
       lang = pick(rng, Object.keys(TICKETS_TRANSLATED));
       built = ticket(rng, pick(rng, TICKETS_TRANSLATED[lang] as Template[]));
-    } else if (level === "refunds") {
+    } else if (level === "refunds" || level === "all-questions") {
       // Half from billing, where refunds and their look-alikes live.
       built = ticket(rng, pick(rng, index % 2 ? REFUND_TEMPLATES : TEMPLATES));
     } else built = ticket(rng, pick(rng, TEMPLATES));

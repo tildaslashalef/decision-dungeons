@@ -100,10 +100,11 @@ export function textDungeon(spec: TextSpec): Dungeon<TextRun> {
     id: spec.id,
     title: spec.title,
     description: spec.description,
-    levels: spec.levels.map(({ id, title, description }) => ({
+    levels: spec.levels.map(({ id, title, description, tags }) => ({
       id,
       title,
       description,
+      ...(tags ? { tags } : {}),
     })),
     caseSets: true,
     create(seed, level, options = {}) {
