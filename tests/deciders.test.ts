@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { decideWith } from "../src/contract/decider.ts";
+import { decideManyWith, decideWith } from "../src/contract/decider.ts";
 import type { Request } from "../src/contract/request.ts";
 import { bulkLast, nuclisDecider } from "../src/deciders/nuclis.ts";
 import { apiBase, nuclisHttp } from "../src/deciders/nuclis-http.ts";
@@ -196,6 +196,48 @@ describe("nuclis over its API", () => {
     const swerve = setup({ decisions: () => ok(decideOutput("swerve")) });
     await expect(
       decideWith(swerve.decider, request, options()),
+    ).rejects.toMatchObject({ code: "invalid_answer" });
+  });
+
+  test("batches many states per call, grouped by questions, in order", async () => {
+    const { fake, decider } = setup({
+      decisions: (body) => {
+        const states = (body as { states: { n: number }[] }).states;
+        const one = decideOutput("stop").results[0];
+        return ok({ ...decideOutput("stop"), results: states.map(() => one) });
+      },
+    });
+    const many = Array.from({ length: 70 }, (_, n) => ({
+      ...request,
+      state: { n },
+    }));
+    const other = {
+      ...request,
+      questions: {
+        motion: { ...request.questions.motion, instructions: "Other?" },
+      },
+    };
+    const decisions = await decideManyWith(
+      decider,
+      [...many, other as Request],
+      options(),
+    );
+    expect(decisions).toHaveLength(71);
+    // 70 with one question set: 64 then 6; the odd one alone.
+    expect(
+      fake.calls.map((c) => (c.body as { states: unknown[] }).states.length),
+    ).toEqual([64, 6, 1]);
+    expect(decisions[0]?.debug?.batch).toBe(64);
+    expect(decisions[70]?.debug?.batch).toBe(1);
+    expect(decisions.every((d) => d.answers.motion?.type === "choice")).toBe(
+      true,
+    );
+  });
+
+  test("a batch answered with the wrong count is a typed error", async () => {
+    const { decider } = setup({ decisions: () => ok(decideOutput("stop")) });
+    await expect(
+      decideManyWith(decider, [request, request], options()),
     ).rejects.toMatchObject({ code: "invalid_answer" });
   });
 

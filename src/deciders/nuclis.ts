@@ -3,7 +3,7 @@
 // appears with no code change here. The shapes read below are those of
 // nuclis's docs/reference/api.md.
 
-import type { Answers, Decision, Usage } from "../contract/answer.ts";
+import type { Decision, Usage } from "../contract/answer.ts";
 import type { Decider, ModelInfo } from "../contract/decider.ts";
 import { DecideError, isDecideError } from "../contract/errors.ts";
 import type { Request } from "../contract/request.ts";
@@ -94,62 +94,76 @@ function answersFrom(raw: unknown): unknown {
   return out;
 }
 
+/** Reads every result of `POST /v1/decisions`, one per request in order. */
+export function decisionsFrom(
+  requests: Request[],
+  model: string,
+  output: unknown,
+): Decision[] {
+  if (
+    !isObject(output) ||
+    !Array.isArray(output.results) ||
+    output.results.length !== requests.length
+  )
+    throw new DecideError(
+      "invalid_answer",
+      `nuclis /decisions did not send ${requests.length} result${requests.length === 1 ? "" : "s"}`,
+    );
+  const timings: Decision["timings"] = { total: 0 };
+  if (isObject(output.timings_ms)) {
+    const t = output.timings_ms;
+    const load = finite(t.load);
+    const tokenize = finite(t.tokenize);
+    const encode = finite(t.encode);
+    if (load !== undefined) timings.load = load;
+    if (tokenize !== undefined) timings.tokenize = tokenize;
+    if (encode !== undefined) timings.encode = encode;
+  }
+  const answeredBy = typeof output.model === "string" ? output.model : model;
+  return output.results.map((result: unknown, i) => {
+    if (!isObject(result))
+      throw new DecideError(
+        "invalid_answer",
+        "nuclis /decisions sent no result",
+      );
+    const decision: Decision = {
+      decider: "nuclis",
+      model: answeredBy,
+      answers: validateAnswers(
+        requests[i] as Request,
+        answersFrom(result.answers),
+      ),
+      timings: { ...timings },
+      // nuclis runs locally: a decision costs nothing.
+      costUsd: 0,
+    };
+    if (isObject(result.usage)) {
+      const inputTokens = finite(result.usage.input_tokens);
+      const outputTokens = finite(result.usage.output_tokens);
+      if (inputTokens !== undefined && outputTokens !== undefined) {
+        const usage: Usage = { inputTokens, outputTokens };
+        decision.usage = usage;
+      }
+    }
+    if (isObject(result.nuclis)) {
+      const stateTokens = finite(result.nuclis.state_tokens);
+      const truncated = result.nuclis.truncated;
+      decision.debug = {
+        ...(stateTokens !== undefined ? { stateTokens } : {}),
+        ...(typeof truncated === "boolean" ? { truncated } : {}),
+      };
+    }
+    return decision;
+  });
+}
+
 /** Reads the one result of `POST /v1/decisions` into a Decision. */
 export function decisionFrom(
   request: Request,
   model: string,
   output: unknown,
 ): Decision {
-  if (
-    !isObject(output) ||
-    !Array.isArray(output.results) ||
-    output.results.length !== 1
-  )
-    throw new DecideError(
-      "invalid_answer",
-      "nuclis /decisions did not send exactly one result",
-    );
-  const result: unknown = output.results[0];
-  if (!isObject(result))
-    throw new DecideError("invalid_answer", "nuclis /decisions sent no result");
-  const answers: Answers = validateAnswers(
-    request,
-    answersFrom(result.answers),
-  );
-  const decision: Decision = {
-    decider: "nuclis",
-    model: typeof output.model === "string" ? output.model : model,
-    answers,
-    timings: { total: 0 },
-    // nuclis runs locally: a decision costs nothing.
-    costUsd: 0,
-  };
-  if (isObject(output.timings_ms)) {
-    const t = output.timings_ms;
-    const load = finite(t.load);
-    const tokenize = finite(t.tokenize);
-    const encode = finite(t.encode);
-    if (load !== undefined) decision.timings.load = load;
-    if (tokenize !== undefined) decision.timings.tokenize = tokenize;
-    if (encode !== undefined) decision.timings.encode = encode;
-  }
-  if (isObject(result.usage)) {
-    const inputTokens = finite(result.usage.input_tokens);
-    const outputTokens = finite(result.usage.output_tokens);
-    if (inputTokens !== undefined && outputTokens !== undefined) {
-      const usage: Usage = { inputTokens, outputTokens };
-      decision.usage = usage;
-    }
-  }
-  if (isObject(result.nuclis)) {
-    const stateTokens = finite(result.nuclis.state_tokens);
-    const truncated = result.nuclis.truncated;
-    decision.debug = {
-      ...(stateTokens !== undefined ? { stateTokens } : {}),
-      ...(typeof truncated === "boolean" ? { truncated } : {}),
-    };
-  }
-  return decision;
+  return decisionsFrom([request], model, output)[0] as Decision;
 }
 
 export function nuclisDecider(api: NuclisApi): Decider {
@@ -184,6 +198,16 @@ export function nuclisDecider(api: NuclisApi): Decider {
         signal,
       );
       return decisionFrom(request, model, output);
+    },
+    // One call for many states; the caller groups requests by questions.
+    async decideBatch(requests, { model, signal }) {
+      const questions = requests[0]?.questions;
+      if (!questions) return [];
+      const output = await api.decisions(
+        { model, states: requests.map((r) => r.state), questions },
+        signal,
+      );
+      return decisionsFrom(requests, model, output);
     },
   };
 }

@@ -61,6 +61,12 @@ export interface Dungeon<Run> {
   caseSets?: true;
   create(seed: number, level: string, options?: RunOptions): Run;
   observe(run: Run): Observation;
+  /**
+   * Every remaining decision at once, for a dungeon whose decisions do not
+   * depend on earlier answers; applying them in order plays the same run
+   * as observing one at a time.
+   */
+  observeAll?(run: Run): Observation[];
   apply(run: Run, answers: Answers): void;
   /**
    * Turn-based play: advances simulated time from one decision to the next.

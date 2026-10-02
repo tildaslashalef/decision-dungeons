@@ -67,6 +67,8 @@ export interface DecisionDebug {
   stateTokens?: number;
   /** The state was cut to fit the model's budget. */
   truncated?: boolean;
+  /** Decisions answered in the same batch call, this one included. */
+  batch?: number;
 }
 
 export interface Decision {

@@ -134,6 +134,13 @@ export function textDungeon(spec: TextSpec): Dungeon<TextRun> {
       if (!c || !level) throw new Error(`the ${spec.id} run is over`);
       return { request: { state: spec.state(c), questions: level.questions } };
     },
+    observeAll(run) {
+      const level = levelOf(run.level);
+      if (!level) return [];
+      return run.cases.slice(run.index).map((c) => ({
+        request: { state: spec.state(c), questions: level.questions },
+      }));
+    },
     apply(run, answers: Answers) {
       const c = run.cases[run.index];
       if (!c) return;

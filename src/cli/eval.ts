@@ -7,7 +7,12 @@
 //   bun run eval --dungeon driving --level town --decider random --evaluation
 
 import { parseArgs } from "node:util";
-import { type Decider, decideWith } from "../contract/decider.ts";
+import {
+  BATCH_LIMIT,
+  type Decider,
+  decideManyWith,
+  decideWith,
+} from "../contract/decider.ts";
 import {
   createDeciders,
   DECIDE_TIMEOUT_MS,
@@ -30,6 +35,7 @@ const USAGE = `usage:
   bun run check <dungeon>/<level> --decider <id> [--model <id>] [--seeds 42] [--evaluation] [--json]
 --evaluation turns the dungeon's safety nets off (driving: the safety brake and the collision filter)
 --set <name> picks a text dungeon's case set (default base; bun run seed writes more)
+--sequential asks one case at a time where the dungeon and decider could batch them
 dungeons: ${Object.values(dungeons)
   .map((d) => `${d.id} (${d.levels.map((l) => l.id).join(", ")})`)
   .join("; ")}`;
@@ -73,6 +79,7 @@ function table(results: RunResult[]): string {
     "asked",
     ...(truncated ? ["truncated"] : []),
     "ms/decision",
+    "wall s",
   ];
   const rows = results.map((r) => [
     r.level,
@@ -89,6 +96,7 @@ function table(results: RunResult[]): string {
     String(r.asked),
     ...(truncated ? [format(r.truncated)] : []),
     format(r.meanDecideMs, 0),
+    (r.wallMs / 1000).toFixed(1),
   ]);
   const line = (cells: string[]) => `| ${cells.join(" | ")} |`;
   return [line(head), line(head.map(() => "---")), ...rows.map(line)].join(
@@ -109,6 +117,7 @@ async function main(argv: string[]): Promise<void> {
       seeds: { type: "string" },
       evaluation: { type: "boolean", default: false },
       set: { type: "string" },
+      sequential: { type: "boolean", default: false },
       json: { type: "boolean", default: false },
     },
   });
@@ -168,6 +177,17 @@ async function main(argv: string[]): Promise<void> {
           evaluation: values.evaluation,
           ...(cases ? { cases } : {}),
         },
+        decider.decideBatch && !values.sequential
+          ? (requests) =>
+              decideManyWith(decider, requests, {
+                model,
+                seed,
+                signal: AbortSignal.timeout(
+                  DECIDE_TIMEOUT_MS[deciderId] *
+                    Math.max(1, Math.ceil(requests.length / BATCH_LIMIT)),
+                ),
+              })
+          : undefined,
       );
       results.push(result);
       console.log(JSON.stringify(result));

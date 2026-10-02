@@ -3,6 +3,7 @@ import { mkdtempSync, rmSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { decideWith } from "../src/contract/decider.ts";
+import type { Request } from "../src/contract/request.ts";
 import { parseRequest, validateAnswers } from "../src/contract/validate.ts";
 import { randomDecider } from "../src/deciders/random.ts";
 import type { AnyDungeon } from "../src/dungeons/dungeon.ts";
@@ -34,6 +35,7 @@ const sets: Record<string, CaseSet> = Object.fromEntries(
     buildSet(id, "base", BASE_SEED, g.base),
   ]),
 );
+const ids = { id: "random", model: "uniform" };
 const setOf = (id: string): CaseSet => {
   const set = sets[id];
   if (!set) throw new Error(`no ${id} set`);
@@ -145,6 +147,37 @@ describe("text dungeons", () => {
     expect(result.outcome.finished).toBe(true);
     expect(result.outcome.metrics.accuracy).toBeLessThan(0.6);
     expect(() => dungeon.create(1, "routing")).toThrow("bun run seed");
+  });
+});
+
+describe("batched runs", () => {
+  test("play the same run as one case at a time, in fewer calls", async () => {
+    const dungeon = dungeonById("inbox") as AnyDungeon;
+    const decide = (request: Request) =>
+      decideWith(randomDecider(), request, {
+        model: "uniform",
+        seed: 5,
+        signal: AbortSignal.timeout(1000),
+      });
+    const one = await runEpisode(dungeon, "triage", 5, ids, decide, {
+      cases: setOf("inbox"),
+    });
+    let calls = 0;
+    const many = await runEpisode(
+      dungeon,
+      "triage",
+      5,
+      ids,
+      decide,
+      { cases: setOf("inbox") },
+      async (requests) => {
+        calls++;
+        return Promise.all(requests.map(decide));
+      },
+    );
+    expect(calls).toBe(1);
+    expect(many.batched).toBe(true);
+    expect(many.outcome).toEqual(one.outcome);
   });
 });
 

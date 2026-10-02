@@ -814,6 +814,20 @@ Validated on the Apple M4 Pro:
   thresholds played by the rule in the browser (pass, 95–100%). Looked at
   `artifacts/screenshots/{gate-1440x900,lobby-inbox-1440x900,inbox-rule-running,logs-rule-finished}.png`.
 
+Batched decisions (2026-10-02): text dungeons' cases are independent,
+so `Dungeon.observeAll` gives every request of a run at once and
+`decideManyWith` sends those with the same questions together, up to 64
+states per `/v1/decisions` call (`Decider.decideBatch`, nuclis only);
+each answer is validated as one at a time is, `debug.batch` names the
+call's size, and `timings.total` is the call's time shared out. `bun run
+eval` batches where it can; `--sequential` turns it off; every result now
+records `wallMs` and, when batched, `batched`. Measured on the M4 Pro,
+`laya-multilingual`, Logs thresholds and incident, seeds 1–3, while three
+`laya` driving evals shared the server (so relative, not absolute):
+identical answers both ways (same correct counts and Brier scores), wall
+time per 20-case run 2.5–4.9 s batched against 11.9–17.4 s one at a time,
+about 4.3× faster. `bun test` 85 pass.
+
 ### Pick up here
 
 Finish milestone 3, in this order, each a commit with its tests, checks,
@@ -826,9 +840,6 @@ and a *Progress* entry:
 
 Then, per *Milestones*:
 
-4. **Batched decisions for text dungeons**: their cases are independent,
-   so a headless run can send up to 64 states per `/v1/decisions`
-   request; measure the speedup against one request per case.
 5. **Milestone 5, the second 3D dungeon.**
 6. A measurement table: every dungeon, rule, random, `laya`,
    `laya-multilingual`, seeds 1–4, on the real server.

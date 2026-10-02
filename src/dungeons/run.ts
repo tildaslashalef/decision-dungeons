@@ -29,7 +29,14 @@ export interface RunResult {
   costUsd?: number;
   /** Why the run stopped early, when a decision failed. */
   error?: { code: string; message: string };
+  /** The whole run's wall time on this machine, ms. */
+  wallMs: number;
+  /** Set when the run's decisions were sent together (`Dungeon.observeAll`). */
+  batched?: true;
 }
+
+/** Decides many independent requests, one decision each, in order. */
+export type DecideManyFn = (requests: Request[]) => Promise<Decision[]>;
 
 export async function runEpisode(
   dungeon: AnyDungeon,
@@ -38,7 +45,9 @@ export async function runEpisode(
   decider: { id: string; model: string },
   decide: (request: Request) => Promise<Decision>,
   options: RunOptions = {},
+  decideMany?: DecideManyFn,
 ): Promise<RunResult> {
+  const started = performance.now();
   const evaluation = !!options.evaluation && !!dungeon.evaluation;
   const run = dungeon.create(seed, level, {
     evaluation,
@@ -51,25 +60,49 @@ export async function runEpisode(
   let truncated: number | undefined;
   let costUsd: number | undefined;
   let error: RunResult["error"];
-  while (!outcome.finished) {
+  const tally = (d: Decision | undefined) => {
+    if (!d) return;
+    asked++;
+    decideMs += d.timings.total;
+    if (d.usage) inputTokens = (inputTokens ?? 0) + d.usage.inputTokens;
+    if (d.debug?.truncated !== undefined)
+      truncated = (truncated ?? 0) + (d.debug.truncated ? 1 : 0);
+    if (d.costUsd !== undefined) costUsd = (costUsd ?? 0) + d.costUsd;
+  };
+  const failure = (e: unknown): RunResult["error"] =>
+    isDecideError(e)
+      ? { code: e.code, message: e.message }
+      : {
+          code: "unavailable",
+          message: e instanceof Error ? e.message : String(e),
+        };
+  const batched = !!decideMany && !!dungeon.observeAll;
+  if (batched && decideMany && dungeon.observeAll) {
+    const observations = dungeon.observeAll(run);
+    const ask = observations.filter(
+      (o) => Object.keys(o.request.questions).length > 0,
+    );
+    try {
+      const decisions = await decideMany(ask.map((o) => o.request));
+      let k = 0;
+      for (const o of observations) {
+        const d = ask.includes(o) ? decisions[k++] : undefined;
+        dungeon.apply(run, { ...o.resolved, ...d?.answers });
+        dungeon.advance?.(run);
+        tally(d);
+      }
+    } catch (e) {
+      error = failure(e);
+    }
+    outcome = dungeon.outcome(run);
+  }
+  while (!outcome.finished && !batched) {
     try {
       const turn = await playTurn(dungeon, run, decide);
       outcome = turn.outcome;
-      const d = turn.decision;
-      if (!d) continue;
-      asked++;
-      decideMs += d.timings.total;
-      if (d.usage) inputTokens = (inputTokens ?? 0) + d.usage.inputTokens;
-      if (d.debug?.truncated !== undefined)
-        truncated = (truncated ?? 0) + (d.debug.truncated ? 1 : 0);
-      if (d.costUsd !== undefined) costUsd = (costUsd ?? 0) + d.costUsd;
+      tally(turn.decision);
     } catch (e) {
-      error = isDecideError(e)
-        ? { code: e.code, message: e.message }
-        : {
-            code: "unavailable",
-            message: e instanceof Error ? e.message : String(e),
-          };
+      error = failure(e);
       break;
     }
   }
@@ -90,5 +123,7 @@ export async function runEpisode(
     ...(truncated !== undefined ? { truncated } : {}),
     ...(costUsd !== undefined ? { costUsd } : {}),
     ...(error ? { error } : {}),
+    wallMs: Math.round(performance.now() - started),
+    ...(batched ? { batched: true as const } : {}),
   };
 }
