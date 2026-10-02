@@ -13,9 +13,10 @@ play headless from the command line and produce comparison tables.
 | --- | --- | --- |
 | **Autopilot driving** (3D) | Chooses each maneuver of a car through traffic | Town, city, interstate; stop line, stop sign, merge gap, blocked lane, off-road recovery |
 | **Night Tower** (3D) | Works an airport tower: clear each arrival to land or send it around, release departures between them | Quiet evening, rush hour, low visibility, go-around check |
-| **Inbox** | Spots phishing and fraud, files mail | Phishing, filing, four languages, long digests |
-| **Ticket triage** | Routes support tickets, scores urgency, spots refund requests | Routing, urgency, refunds, four languages |
-| **Logs** | Decides whether to page on-call from production logs | Page or not, numbers against a policy, root cause, long windows |
+| **Inbox** | Spots phishing and fraud, files mail | Phishing, filing, four languages, long digests, both questions at once |
+| **Ticket triage** | Routes support tickets, scores urgency, spots refund requests | Routing, urgency, refunds, four languages, all three at once |
+| **Logs** | Decides whether to page on-call from production logs | Page or not, numbers against a policy, root cause, long windows, page and cause at once |
+| **Receipts** (images) | Reimburses expense receipts against a policy, reads them | The policy from the data, the picture, or both; the total; everything on the slip |
 | **Crossing** | Drives or stops at a signalled line | Signal, distance, both |
 
 Every run is deterministic: the same seed and the same answers give the
@@ -74,11 +75,18 @@ states into one GPU pass (Laya); clef-flash is sent one case at a time.
 
 ## Case sets
 
-The text dungeons play synthetic cases (emails, tickets, log windows)
-written by seeded generators, so every label follows from how the case
-was built. They live in SQLite at `~/.decision-dungeons/dungeons.db`. Sets
-are immutable and content-hashed, and each result records the set it
-played.
+The text dungeons play synthetic cases (emails, tickets, log windows,
+receipts) written by seeded generators, so every label follows from how
+the case was built. They live in SQLite at
+`~/.decision-dungeons/dungeons.db`. A set's cases never change (a set only
+gains whole new levels), sets are content-hashed, and each result records
+the set it played. Receipts are rendered to pictures in headless Chromium
+when their set is written; install it once with
+`bunx playwright@1.63.0 install chromium`.
+
+Levels tagged in the lobby are made for `clef-flash`: several questions
+about a case in one request, inputs past Laya's budget, or pictures, which
+only a model that reads images can see.
 
 ```sh
 bun run seed                                              # each dungeon's base set (also written on first use)
@@ -109,8 +117,8 @@ bun run lint       # tsc --noEmit and biome check
 
 Tests stub the nuclis API; `tests/nuclis-live.test.ts` also runs against a
 real `nuclis serve` when one answers. Browser checks (`scripts/*-check.ts`)
-drive the UI in headless Chromium through `playwright-core`, which is not
-a dependency; see each script's header for setup.
+drive the UI in headless Chromium through `playwright-core`; see each
+script's header.
 
 The driving simulation is checked decision by decision against JevPilot,
 which it rewrites, given a JevPilot checkout (branch `nuclis-decider`):

@@ -58,6 +58,9 @@ export function typesafeDecider(settings: TypesafeSettings): Decider {
         : { configured: false, reason: unconfigured, pricing: JEV_PRICING },
     async decide(request, { model, signal }) {
       if (!apiKey) throw new DecideError("unconfigured", unconfigured);
+      // Jev's protocol has no images; dropping them would change the question.
+      if (request.images)
+        throw new DecideError("rejected", "TypeSafe Jev takes no images");
       let res: Response;
       try {
         res = await send(TYPESAFE_URL, {

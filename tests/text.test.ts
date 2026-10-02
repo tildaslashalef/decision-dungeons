@@ -19,6 +19,7 @@ import {
   CaseStore,
   GENERATORS,
 } from "../src/server/cases.ts";
+import { fakeRender, TINY_PNG } from "./fake-render.ts";
 
 const homes: string[] = [];
 afterAll(() => {
@@ -184,7 +185,7 @@ describe("batched runs", () => {
 
 describe("case store", () => {
   test("writes once, refuses a different set under the same name, replaces when told", () => {
-    const store = new CaseStore(newHome());
+    const store = new CaseStore(newHome(), { render: fakeRender });
     const set = buildSet("logs", "extra", 7, { thresholds: 30 });
     expect(store.write(set)).toBe("written");
     for (const file of [store.file, `${store.file}-wal`, `${store.file}-shm`])
@@ -200,8 +201,8 @@ describe("case store", () => {
     store.close();
   });
 
-  test("a set grows by new levels only, keeping every stored case", () => {
-    const store = new CaseStore(newHome());
+  test("a set grows by new levels only, keeping every stored case", async () => {
+    const store = new CaseStore(newHome(), { render: fakeRender });
     const { "all-questions": _added, ...older } = (
       GENERATORS.tickets as (typeof GENERATORS)[string]
     ).base;
@@ -214,7 +215,7 @@ describe("case store", () => {
       "all-questions": 5,
     });
     expect(() => store.write(changed)).toThrow(CaseError);
-    store.ensureBase();
+    await store.ensureBase();
     const grown = store.load("tickets", "base");
     expect(grown?.hash).toBe(setOf("tickets").hash);
     expect(grown?.levels["all-questions"]).toBe(60);
@@ -231,7 +232,7 @@ describe("case store", () => {
     for (const [id, set] of Object.entries(sets)) {
       const dungeon = dungeonById(id) as AnyDungeon;
       const level = dungeon.levels.find((l) => l.id === "all-questions");
-      expect(level?.tags).toEqual(["many-questions"]);
+      expect(level?.tags).toContain("many-questions");
       const run = dungeon.create(1, "all-questions", { cases: set });
       const asked = Object.keys(dungeon.observe(run).request.questions);
       expect(asked.length).toBeGreaterThan(1);
@@ -242,13 +243,13 @@ describe("case store", () => {
 
   test("runs in WAL mode, versioned, and reads while another process writes", async () => {
     const home = newHome();
-    const store = new CaseStore(home);
-    store.ensureBase();
+    const store = new CaseStore(home, { render: fakeRender });
+    await store.ensureBase();
     const db = new Database(store.file, { readonly: true });
     expect(db.query("PRAGMA journal_mode").get()).toEqual({
       journal_mode: "wal",
     });
-    expect(db.query("PRAGMA user_version").get()).toEqual({ user_version: 1 });
+    expect(db.query("PRAGMA user_version").get()).toEqual({ user_version: 2 });
     db.close();
     // A seed in another process while this one reads: neither waits on the other.
     const writer = Bun.spawn(
@@ -282,7 +283,7 @@ describe("case store", () => {
     store.close();
   });
 
-  test("adopts a file written before the schema had a version", () => {
+  test("adopts a file written before the schema had a version", async () => {
     const home = newHome();
     const old = new Database(join(home, "dungeons.db"), { create: true });
     old.run(
@@ -293,19 +294,86 @@ describe("case store", () => {
     );
     old.run("CREATE INDEX cases_by_level ON cases (dungeon, set_name, level)");
     old.close();
-    const store = new CaseStore(home);
-    store.ensureBase();
+    const store = new CaseStore(home, { render: fakeRender });
+    await store.ensureBase();
     expect(store.load("logs", "base", "long")?.cases.length).toBe(60);
     store.close();
   });
 
-  test("writes every base set on first use, and loads one level", () => {
-    const store = new CaseStore(newHome());
-    store.ensureBase();
+  test("writes every base set on first use, and loads one level", async () => {
+    const store = new CaseStore(newHome(), { render: fakeRender });
+    await store.ensureBase();
     expect(store.list("inbox").map((s) => s.name)).toEqual(["base"]);
     const long = store.load("inbox", "base", "long");
     expect(long?.cases.every((c) => c.level === "long")).toBe(true);
     expect(long?.hash).toBe(sets.inbox?.hash as string);
     store.close();
+  });
+});
+
+describe("receipts", () => {
+  test("the same receipts as text, picture, or both, the picture only where the level shows it", async () => {
+    const store = new CaseStore(newHome(), { render: fakeRender });
+    await store.ensureBase();
+    const set = store.load("receipts", "base") as CaseSet;
+    expect(set.cases.every((c) => c.source && c.images?.[0] === TINY_PNG)).toBe(
+      true,
+    );
+    const dungeon = dungeonById("receipts") as AnyDungeon;
+    const asked = (level: string) => {
+      const run = dungeon.create(3, level, { cases: set }) as TextRun;
+      return { run, request: dungeon.observe(run).request };
+    };
+    const text = asked("policy-text");
+    const image = asked("policy-image");
+    const both = asked("policy-both");
+    expect(image.run.cases.map((c) => c.id)).toEqual(
+      text.run.cases.map((c) => c.id),
+    );
+    expect(text.request.images).toBeUndefined();
+    expect(image.request.images).toEqual([TINY_PNG]);
+    expect(typeof image.request.state).toBe("string");
+    expect(both.request.images).toEqual([TINY_PNG]);
+    expect(both.request.state).toEqual(text.request.state);
+    // Every request is valid at the server's boundary, images included.
+    expect(parseRequest(JSON.parse(JSON.stringify(image.request)))).toEqual(
+      image.request,
+    );
+    // The total question offers the case's own four totals, the truth among them.
+    const total = asked("total");
+    const q = total.request.questions.total;
+    const c = total.run.cases[0];
+    expect(q?.type === "choice" && Object.keys(q.criteria)).toHaveLength(4);
+    expect(q?.type === "choice" && Object.keys(q.criteria)).toContain(
+      String(c?.truth.total),
+    );
+    store.close();
+  });
+
+  test("the rule applies the policy to the data and cannot see a picture", async () => {
+    const dungeon = dungeonById("receipts") as AnyDungeon;
+    const set = setOf("receipts");
+    for (const seed of [1, 2, 3]) {
+      const result = await runEpisode(
+        dungeon,
+        "policy-text",
+        seed,
+        { id: "rule", model: "baseline" },
+        (request) =>
+          decideWith(dungeon.rule, request, {
+            model: "baseline",
+            signal: AbortSignal.timeout(1000),
+          }),
+        { cases: set },
+      );
+      expect(result.outcome.metrics.accuracy).toBe(1);
+    }
+    const run = dungeon.create(1, "policy-image", { cases: set });
+    await expect(
+      decideWith(dungeon.rule, dungeon.observe(run).request, {
+        model: "baseline",
+        signal: AbortSignal.timeout(1000),
+      }),
+    ).rejects.toMatchObject({ code: "rejected" });
   });
 });

@@ -78,8 +78,12 @@ export class Player {
       debug: [],
       play: { selection, run: null, outcome: fresh, status: "loading" },
     });
+    // A level that plays another level's cases needs that level's.
+    const pool =
+      dungeon.levels.find((l) => l.id === selection.level)?.casesOf ??
+      selection.level;
     api
-      .caseSet(selection.dungeon, selection.caseSet, selection.level)
+      .caseSet(selection.dungeon, selection.caseSet, pool)
       .then((cases) =>
         begin(
           dungeon.create(selection.seed, selection.level, {

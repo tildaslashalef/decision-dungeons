@@ -25,7 +25,8 @@ import { ConfigError, type ConfigStore, parsePatch } from "./config.ts";
 import { log } from "./log.ts";
 
 /** Body bounds per route, in bytes. */
-export const DECIDE_BODY_LIMIT = 256 * 1024;
+/** A request with its images, under nuclis's own 4 MiB body. */
+export const DECIDE_BODY_LIMIT = 4 * 1024 * 1024;
 export const CONFIG_BODY_LIMIT = 16 * 1024;
 /** Decisions running at once; more are refused, not queued. */
 export const MAX_IN_FLIGHT = 3;
@@ -227,15 +228,20 @@ export function createApp(options: AppOptions) {
   }
 
   /** `GET /api/cases/:dungeon` lists sets; `/:dungeon/:set[?level=]` sends one. */
-  function caseSets(
+  async function caseSets(
     dungeon: string,
     name: string | undefined,
     level: string | undefined,
-  ): Response {
+  ): Promise<Response> {
     const d = dungeonById(dungeon);
     if (!d?.caseSets)
       return fail(404, "not_found", `${dungeon} plays no case sets`);
-    options.cases.ensureBase();
+    try {
+      await options.cases.ensureBase();
+    } catch (error) {
+      if (!(error instanceof CaseError)) throw error;
+      return fail(503, "cases_unavailable", error.message);
+    }
     if (name === undefined)
       return json(200, { sets: options.cases.list(dungeon), base: BASE_SET });
     if (!NAME.test(name) || (level !== undefined && !NAME.test(level)))

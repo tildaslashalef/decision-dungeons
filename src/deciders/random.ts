@@ -37,7 +37,13 @@ export function randomDecider(): Decider {
     id: "random",
     label: "Random",
     models: async () => [
-      { id: RANDOM_MODEL, label: "Uniform choice", available: true },
+      // It looks at nothing, so a request with images is the floor's as any.
+      {
+        id: RANDOM_MODEL,
+        label: "Uniform choice",
+        available: true,
+        images: true,
+      },
     ],
     status: async () => ({ configured: true, reachable: true }),
     async decide(request, { seed = 0 }) {

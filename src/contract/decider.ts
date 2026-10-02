@@ -10,6 +10,8 @@ export interface ModelInfo {
   id: string;
   label: string;
   available: boolean;
+  /** Reads a request's images; absent: it cannot see them. */
+  images?: boolean;
   /** Why the model cannot be used, when it cannot. */
   reason?: string;
 }
@@ -46,7 +48,7 @@ export interface Decider {
   prepare?(request: Request, model: string): Request;
   decide(request: Request, options: DecideOptions): Promise<Decision>;
   /**
-   * Many requests with the same questions in one call, at most
+   * Many requests with the same questions and images in one call, at most
    * `BATCH_LIMIT`; one decision per request, in order. Optional: a decider
    * without it is asked one request at a time.
    */
@@ -134,9 +136,11 @@ export async function decideManyWith(
   const sent = requests.map((r) =>
     decider.prepare ? decider.prepare(r, options.model) : r,
   );
+  // A call's images go with every state in it, so only requests with the
+  // same questions and the same images share one.
   const groups = new Map<string, number[]>();
   sent.forEach((r, i) => {
-    const key = JSON.stringify(r.questions);
+    const key = JSON.stringify([r.questions, r.images ?? []]);
     groups.set(key, [...(groups.get(key) ?? []), i]);
   });
   const out: Decision[] = new Array(requests.length);

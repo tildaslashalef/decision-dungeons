@@ -14,7 +14,11 @@ import {
   type DeciderSettings,
 } from "../src/deciders/registry.ts";
 import { crossing } from "../src/dungeons/crossing/crossing.ts";
-import { createApp, MAX_IN_FLIGHT } from "../src/server/app.ts";
+import {
+  createApp,
+  DECIDE_BODY_LIMIT,
+  MAX_IN_FLIGHT,
+} from "../src/server/app.ts";
 import { CaseStore } from "../src/server/cases.ts";
 import { ConfigStore, configHome } from "../src/server/config.ts";
 import {
@@ -24,6 +28,7 @@ import {
   modelListing,
   ok,
 } from "./fake-nuclis.ts";
+import { fakeRender } from "./fake-render.ts";
 
 const fake = fakeNuclis({
   models: () => ok(modelListing),
@@ -50,7 +55,7 @@ function start(env: Record<string, string> = {}) {
   });
   const app = createApp({
     store,
-    cases: new CaseStore(store.home),
+    cases: new CaseStore(store.home, { render: fakeRender }),
     deciders: (settings) => {
       seen.push(settings);
       const deciders = createDeciders({ ...settings, fetch: fake.fetch });
@@ -323,7 +328,7 @@ describe("decide", () => {
       dungeon: "crossing",
       decider: "random",
       model: "uniform",
-      request: { ...request, state: "x".repeat(300_000) },
+      request: { ...request, state: "x".repeat(DECIDE_BODY_LIMIT + 1) },
     });
     expect(big.status).toBe(413);
 

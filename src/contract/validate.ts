@@ -14,6 +14,12 @@ import { DecideError } from "./errors.ts";
 import type { JsonValue, Question, Request } from "./request.ts";
 
 export const MAX_QUESTIONS = 32;
+/** nuclis's per-request bound. */
+export const MAX_IMAGES = 8;
+/** Base64 characters across a request's images, under nuclis's 4 MiB body. */
+export const MAX_IMAGE_CHARS = 3 * 1024 * 1024;
+const IMAGE_URL =
+  /^data:image\/(png|jpeg|webp|gif);base64,[A-Za-z0-9+/]+={0,2}$/;
 export const MAX_OPTIONS = 64;
 
 /** Probabilities are reported rounded (nuclis to 4 places), so sums drift a little. */
@@ -100,7 +106,27 @@ export function parseRequest(raw: unknown): Request {
   for (const [id, question] of entries)
     questions[id] = questionFrom(id, question);
   // JSON.parse output is JSON by construction; callers parse before calling.
-  return { state: raw.state as JsonValue, questions };
+  const request: Request = { state: raw.state as JsonValue, questions };
+  if (raw.images !== undefined) request.images = imagesFrom(raw.images);
+  return request;
+}
+
+function imagesFrom(raw: unknown): string[] {
+  if (!Array.isArray(raw) || raw.length === 0 || raw.length > MAX_IMAGES)
+    throw new RequestError(`images must be a list of 1 to ${MAX_IMAGES}`);
+  let chars = 0;
+  for (const image of raw) {
+    if (typeof image !== "string" || !IMAGE_URL.test(image))
+      throw new RequestError(
+        "each image must be a base64 data URL (png, jpeg, webp, or gif)",
+      );
+    chars += image.length;
+  }
+  if (chars > MAX_IMAGE_CHARS)
+    throw new RequestError(
+      `images take at most ${MAX_IMAGE_CHARS} characters in all`,
+    );
+  return raw as string[];
 }
 
 function invalid(id: string, why: string): DecideError {

@@ -226,6 +226,60 @@ function drawInbox(key: string): SVGElement {
   );
 }
 
+/** A long printed receipt, a lens over its total. */
+function drawReceipts(key: string): SVGElement {
+  const sky = `${key}-sky`;
+  const line = (y: number, w: number, right = true) => [
+    rect(96, y, w, 6, "#c9cdd3", { rx: 3 }),
+    right ? rect(184, y, 26, 6, "#b6bbc2", { rx: 3 }) : null,
+  ];
+  return frame(
+    "A printed receipt under a magnifying glass",
+    svg(
+      "defs",
+      {},
+      gradient(sky, [
+        [0, "#f6e3ec"],
+        [1, "#f8f6f7"],
+      ]),
+    ),
+    rect(0, 0, 300, 400, `url(#${sky})`),
+    // The slip, with a torn bottom edge.
+    path(
+      "M82 40 L218 40 L218 352 L206 344 L194 352 L182 344 L170 352 L158 344 L146 352 L134 344 L122 352 L110 344 L98 352 L82 344 Z",
+      { fill: "#fdfcf8", stroke: "#d9d3d6" },
+    ),
+    rect(112, 62, 76, 9, "#3b4048", { rx: 3 }),
+    rect(122, 78, 56, 5, "#b6bbc2", { rx: 2.5 }),
+    path("M96 98 L204 98", { stroke: "#a8adb4", "stroke-dasharray": "4 4" }),
+    ...line(112, 64),
+    ...line(128, 52),
+    ...line(144, 70),
+    ...line(160, 44),
+    path("M96 180 L204 180", { stroke: "#a8adb4", "stroke-dasharray": "4 4" }),
+    ...line(194, 40),
+    ...line(210, 30),
+    rect(96, 232, 44, 10, "#3b4048", { rx: 3 }),
+    rect(168, 232, 42, 10, "#3b4048", { rx: 3 }),
+    path("M96 262 L204 262", { stroke: "#a8adb4", "stroke-dasharray": "4 4" }),
+    rect(96, 276, 70, 6, "#c9cdd3", { rx: 3 }),
+    // The lens over the total.
+    svg("circle", {
+      cx: 188,
+      cy: 238,
+      r: 34,
+      fill: "#c2185b14",
+      stroke: "#c2185b",
+      "stroke-width": 6,
+    }),
+    path("M212 262 L246 300", {
+      stroke: "#3b4048",
+      "stroke-width": 12,
+      "stroke-linecap": "round",
+    }),
+  );
+}
+
 /** A queue of support tickets, the top one flagged. */
 function drawTickets(key: string): SVGElement {
   const sky = `${key}-sky`;
@@ -450,6 +504,17 @@ const ART: Record<string, DungeonArt> = {
       { icon: "scroll", text: "Long windows" },
     ],
     draw: drawLogs,
+  },
+  receipts: {
+    accent: "#c2185b",
+    tagline: "Approve expense receipts, from the data or the picture.",
+    emblem: "receipt",
+    facts: [
+      { icon: "image", text: "Printed slips" },
+      { icon: "eye", text: "Text, picture, or both" },
+      { icon: "gauge", text: "Limits and totals" },
+    ],
+    draw: drawReceipts,
   },
   crossing: {
     accent: "#e82127",

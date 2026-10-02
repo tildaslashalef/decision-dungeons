@@ -3,6 +3,7 @@ import { type Decider, decideWith } from "../src/contract/decider.ts";
 import { DecideError } from "../src/contract/errors.ts";
 import type { Request } from "../src/contract/request.ts";
 import {
+  MAX_IMAGE_CHARS,
   parseRequest,
   RequestError,
   validateAnswers,
@@ -149,6 +150,24 @@ describe("parseRequest", () => {
     expect(
       bad({ q: { type: "noul", instructions: "i", criteria: { maybe: "x" } } }),
     ).toThrow("only the keys true and false");
+  });
+
+  test("takes images as base64 data URLs only, within nuclis's bounds", () => {
+    const png = "data:image/png;base64,iVBORw0KGgo=";
+    const withImages = (images: unknown) => () =>
+      parseRequest({ ...request, images });
+    expect(withImages([png])()).toEqual({ ...request, images: [png] });
+    expect(withImages([])).toThrow("1 to 8");
+    expect(withImages(Array(9).fill(png))).toThrow("1 to 8");
+    expect(withImages(["https://example.com/a.png"])).toThrow("data URL");
+    expect(withImages(["data:image/svg+xml;base64,PHN2Zz4="])).toThrow(
+      "data URL",
+    );
+    expect(withImages(["data:image/png;base64,not base64!"])).toThrow(
+      "data URL",
+    );
+    const huge = `data:image/png;base64,${"A".repeat(MAX_IMAGE_CHARS)}`;
+    expect(withImages([huge])).toThrow("characters in all");
   });
 });
 

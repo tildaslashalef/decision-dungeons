@@ -149,7 +149,7 @@ async function main(argv: string[]): Promise<void> {
   let cases: Awaited<ReturnType<CaseStore["load"]>> = null;
   if (dungeon.caseSets) {
     const caseStore = new CaseStore(home);
-    caseStore.ensureBase();
+    await caseStore.ensureBase();
     cases = caseStore.load(dungeon.id, values.set ?? BASE_SET);
     caseStore.close();
     if (!cases) fail(`${dungeon.id} has no case set ${values.set}`);

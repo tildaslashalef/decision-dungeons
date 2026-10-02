@@ -1,15 +1,20 @@
 // The text dungeons' case sets, in SQLite (`dungeons.db` in the config
-// home, mode 600). A set is written once from a seeded generator and never
-// edited: more cases means a new set, so a result's set name and hash
-// always name the cases it played. The `base` set of each dungeon is
-// written on first use, exactly as `bun run seed` writes it. Server and
-// CLI only (bun:sqlite).
+// home, mode 600). A set is written once from a seeded generator, and its
+// stored cases never change: it may only gain whole new levels, so a run
+// of a level always plays the cases it played before. The `base` set of
+// each dungeon is written on first use, exactly as `bun run seed` writes
+// it. Cases with a picture are rendered from their source before they are
+// stored. Server and CLI only (bun:sqlite).
 
 import { Database } from "bun:sqlite";
 import { chmodSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { INBOX_GENERATOR, inboxCases } from "../dungeons/inbox/generate.ts";
 import { LOGS_GENERATOR, logCases } from "../dungeons/logs/generate.ts";
+import {
+  RECEIPTS_GENERATOR,
+  receiptCases,
+} from "../dungeons/receipts/generate.ts";
 import type { CaseSet, CaseSetInfo, TextCase } from "../dungeons/text/cases.ts";
 import {
   TICKETS_GENERATOR,
@@ -62,6 +67,11 @@ export const GENERATORS: Record<string, Generator> = {
     },
     generate: logCases,
   },
+  receipts: {
+    id: RECEIPTS_GENERATOR,
+    base: { "policy-text": 60, total: 40, "all-questions": 40 },
+    generate: receiptCases,
+  },
 };
 
 export class CaseError extends Error {
@@ -73,7 +83,16 @@ export function caseHash(cases: TextCase[]): string {
   const hasher = new Bun.CryptoHasher("sha256");
   for (const c of [...cases].sort((a, b) => (a.id < b.id ? -1 : 1)))
     hasher.update(
-      JSON.stringify([c.id, c.level, c.lang, c.input, c.truth, c.why]),
+      JSON.stringify([
+        c.id,
+        c.level,
+        c.lang,
+        c.input,
+        c.truth,
+        c.why,
+        // Only when present, so sets without pictures keep their hashes.
+        ...(c.source ? [c.source] : []),
+      ]),
     );
   return hasher.digest("hex").slice(0, 16);
 }
@@ -122,7 +141,16 @@ interface CaseRow {
   input: string;
   truth: string;
   why: string;
+  source: string | null;
+  images: string | null;
 }
+
+/** Fills each case's `images` from its `source`. */
+export type Renderer = (cases: TextCase[]) => Promise<TextCase[]>;
+
+/** Headless Chromium, loaded only when a set has pictures to render. */
+const chromiumRenderer: Renderer = async (cases) =>
+  (await import("./render.ts")).renderCases(cases);
 
 /**
  * Tuned for this store's use: read often (the server, every eval), written
@@ -174,6 +202,10 @@ const MIGRATIONS: string[][] = [
     "DROP INDEX IF EXISTS cases_by_level",
     "CREATE INDEX IF NOT EXISTS cases_by_level_id ON cases (dungeon, set_name, level, id)",
   ],
+  [
+    "ALTER TABLE cases ADD COLUMN source TEXT",
+    "ALTER TABLE cases ADD COLUMN images TEXT",
+  ],
 ];
 
 function migrate(db: Database): void {
@@ -195,8 +227,31 @@ export class CaseStore {
   readonly file: string;
   private db: Database | null = null;
 
-  constructor(readonly home: string) {
+  private readonly renderer: Renderer;
+  private basing: Promise<void> | null = null;
+
+  constructor(
+    readonly home: string,
+    options: { render?: Renderer } = {},
+  ) {
     this.file = join(home, DB_FILE);
+    this.renderer = options.render ?? chromiumRenderer;
+  }
+
+  /** `set` with every pictured case's images rendered from its source. */
+  async rendered(set: CaseSet): Promise<CaseSet> {
+    const missing = set.cases.filter((c) => c.source && !c.images);
+    if (!missing.length) return set;
+    const done = new Map(
+      (await this.renderer(missing)).map((c) => [c.id, c.images]),
+    );
+    return {
+      ...set,
+      cases: set.cases.map((c) => {
+        const images = done.get(c.id);
+        return images ? { ...c, images } : c;
+      }),
+    };
   }
 
   private open(): Database {
@@ -240,12 +295,12 @@ export class CaseStore {
     const rows = level
       ? db
           .query<CaseRow, [string, string, string]>(
-            "SELECT id, level, lang, input, truth, why FROM cases WHERE dungeon = ? AND set_name = ? AND level = ? ORDER BY id",
+            "SELECT id, level, lang, input, truth, why, source, images FROM cases WHERE dungeon = ? AND set_name = ? AND level = ? ORDER BY id",
           )
           .all(dungeon, name, level)
       : db
           .query<CaseRow, [string, string]>(
-            "SELECT id, level, lang, input, truth, why FROM cases WHERE dungeon = ? AND set_name = ? ORDER BY id",
+            "SELECT id, level, lang, input, truth, why, source, images FROM cases WHERE dungeon = ? AND set_name = ? ORDER BY id",
           )
           .all(dungeon, name);
     return {
@@ -257,6 +312,8 @@ export class CaseStore {
         input: JSON.parse(r.input),
         truth: JSON.parse(r.truth),
         why: r.why,
+        ...(r.source ? { source: JSON.parse(r.source) } : {}),
+        ...(r.images ? { images: JSON.parse(r.images) } : {}),
       })),
     };
   }
@@ -275,6 +332,7 @@ export class CaseStore {
       throw new CaseError(
         "a set name is lower-case letters, digits, dots, dashes, or underscores",
       );
+
     const db = this.open();
     const existing = db
       .query<{ hash: string }, [string, string]>(
@@ -283,6 +341,7 @@ export class CaseStore {
       .get(set.dungeon, set.name);
     if (existing?.hash === set.hash) return "unchanged";
     if (existing && !replace && this.extend(set)) return "extended";
+    unrendered(set, set.cases);
     if (existing && !replace)
       throw new CaseError(
         `${set.dungeon} already has a set named ${set.name} with other cases; choose another name or --replace it`,
@@ -306,7 +365,7 @@ export class CaseStore {
         ],
       );
       const insert = db.prepare(
-        "INSERT INTO cases (dungeon, set_name, id, level, lang, input, truth, why) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+        "INSERT INTO cases (dungeon, set_name, id, level, lang, input, truth, why, source, images) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
       );
       for (const c of set.cases)
         insert.run(
@@ -318,6 +377,8 @@ export class CaseStore {
           JSON.stringify(c.input),
           JSON.stringify(c.truth),
           c.why,
+          c.source ? JSON.stringify(c.source) : null,
+          c.images ? JSON.stringify(c.images) : null,
         );
     })();
     return existing ? "replaced" : "written";
@@ -346,6 +407,10 @@ export class CaseStore {
       )
     )
       return false;
+    unrendered(
+      set,
+      set.cases.filter((c) => added.includes(c.level)),
+    );
     const db = this.open();
     db.transaction(() => {
       db.run(
@@ -360,7 +425,7 @@ export class CaseStore {
         ],
       );
       const insert = db.prepare(
-        "INSERT INTO cases (dungeon, set_name, id, level, lang, input, truth, why) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+        "INSERT INTO cases (dungeon, set_name, id, level, lang, input, truth, why, source, images) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
       );
       for (const c of set.cases)
         if (added.includes(c.level))
@@ -373,6 +438,8 @@ export class CaseStore {
             JSON.stringify(c.input),
             JSON.stringify(c.truth),
             c.why,
+            c.source ? JSON.stringify(c.source) : null,
+            c.images ? JSON.stringify(c.images) : null,
           );
     })();
     return true;
@@ -381,25 +448,51 @@ export class CaseStore {
   /**
    * Writes each text dungeon's base set if it is missing, and adds to it
    * the generator's levels it lacks, keeping its stored levels' counts.
+   * Concurrent callers share one pass.
    */
-  ensureBase(): void {
+  ensureBase(): Promise<void> {
+    this.basing ??= this.writeBase().finally(() => {
+      this.basing = null;
+    });
+    return this.basing;
+  }
+
+  private async writeBase(): Promise<void> {
     for (const [dungeon, generator] of Object.entries(GENERATORS)) {
       const stored = this.list(dungeon).find((s) => s.name === BASE_SET);
-      if (!stored)
-        this.write(buildSet(dungeon, BASE_SET, BASE_SEED, generator.base));
-      else if (
-        Object.keys(generator.base).some(
-          (l) => !Object.hasOwn(stored.levels, l),
+      const levels = stored
+        ? { ...generator.base, ...stored.levels }
+        : generator.base;
+      if (
+        stored &&
+        Object.keys(generator.base).every((l) =>
+          Object.hasOwn(stored.levels, l),
         )
       )
-        this.write(
-          buildSet(dungeon, BASE_SET, stored.seed, {
-            ...generator.base,
-            ...stored.levels,
-          }),
-        );
+        continue;
+      const set = buildSet(
+        dungeon,
+        BASE_SET,
+        stored?.seed ?? BASE_SEED,
+        levels,
+      );
+      // Render only the cases this write will add.
+      const adding = stored
+        ? set.cases.filter((c) => !Object.hasOwn(stored.levels, c.level))
+        : set.cases;
+      const rendered = await this.rendered({ ...set, cases: adding });
+      const byId = new Map(rendered.cases.map((c) => [c.id, c]));
+      this.write({ ...set, cases: set.cases.map((c) => byId.get(c.id) ?? c) });
     }
   }
+}
+
+/** Refuses to store pictured cases without their rendered images. */
+function unrendered(set: CaseSet, cases: TextCase[]): void {
+  if (cases.some((c) => c.source && !c.images))
+    throw new CaseError(
+      `${set.dungeon}/${set.name} has pictures not yet rendered (CaseStore.rendered)`,
+    );
 }
 
 function info(row: SetRow): CaseSetInfo {

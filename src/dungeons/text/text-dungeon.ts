@@ -22,6 +22,7 @@ export const CASES_PER_RUN = 20;
 /** A run passes with at least this share of cases fully right. */
 export const PASS_ACCURACY = 0.9;
 
+/** A level and its questions; with `casesOf`, its cases are picked in that level's order. */
 export interface TextLevel extends Level {
   questions: Record<string, Question>;
 }
@@ -31,8 +32,10 @@ export interface TextSpec {
   title: string;
   description: string;
   levels: TextLevel[];
-  /** The request's state for a case: what the decider reads. */
-  state(c: TextCase): JsonValue;
+  /** The request's state for a case at a level: what the decider reads. */
+  state(c: TextCase, level: TextLevel): JsonValue;
+  /** Questions whose options come from the case; absent: the level's. */
+  questions?(c: TextCase, level: TextLevel): Record<string, Question>;
   /** The baseline's answers, read off the request alone. */
   rule(request: Request): Answers;
   /** A few words naming the case in records. */
@@ -73,6 +76,11 @@ const shown = (value: Truth | undefined) =>
 
 export function textDungeon(spec: TextSpec): Dungeon<TextRun> {
   const levelOf = (id: string) => spec.levels.find((l) => l.id === id);
+  const requestFor = (c: TextCase, level: TextLevel): Request => ({
+    state: spec.state(c, level),
+    questions: spec.questions?.(c, level) ?? level.questions,
+    ...(level.images && c.images?.length ? { images: c.images } : {}),
+  });
   const rule: Decider = {
     id: "rule",
     label: "Fixed rule",
@@ -100,12 +108,7 @@ export function textDungeon(spec: TextSpec): Dungeon<TextRun> {
     id: spec.id,
     title: spec.title,
     description: spec.description,
-    levels: spec.levels.map(({ id, title, description, tags }) => ({
-      id,
-      title,
-      description,
-      ...(tags ? { tags } : {}),
-    })),
+    levels: spec.levels.map(({ questions: _, ...level }) => level),
     caseSets: true,
     create(seed, level, options = {}) {
       if (!levelOf(level)) throw new Error(`${spec.id} has no level ${level}`);
@@ -114,9 +117,10 @@ export function textDungeon(spec: TextSpec): Dungeon<TextRun> {
         throw new Error(
           `${spec.id} plays from a case set; run \`bun run seed\` to write one`,
         );
-      const cases = pickCases(set, level, seed, CASES_PER_RUN);
+      const pool = levelOf(level)?.casesOf ?? level;
+      const cases = pickCases(set, pool, seed, CASES_PER_RUN);
       if (!cases.length)
-        throw new Error(`case set ${set.name} has no ${level} cases`);
+        throw new Error(`case set ${set.name} has no ${pool} cases`);
       return {
         seed,
         level,
@@ -133,14 +137,14 @@ export function textDungeon(spec: TextSpec): Dungeon<TextRun> {
       const c = run.cases[run.index];
       const level = levelOf(run.level);
       if (!c || !level) throw new Error(`the ${spec.id} run is over`);
-      return { request: { state: spec.state(c), questions: level.questions } };
+      return { request: requestFor(c, level) };
     },
     observeAll(run) {
       const level = levelOf(run.level);
       if (!level) return [];
-      return run.cases.slice(run.index).map((c) => ({
-        request: { state: spec.state(c), questions: level.questions },
-      }));
+      return run.cases
+        .slice(run.index)
+        .map((c) => ({ request: requestFor(c, level) }));
     },
     apply(run, answers: Answers) {
       const c = run.cases[run.index];

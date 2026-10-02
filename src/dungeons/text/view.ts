@@ -1,5 +1,5 @@
 // The text dungeons in the browser: the case as a person would see it (an
-// email, a ticket, a log window) beside the questions, the decider's
+// email, a ticket, a log window, a receipt) beside the questions, the decider's
 // answers, the known answers, and why. Every case's result runs along the
 // bottom.
 
@@ -8,11 +8,13 @@ import { type Child, h } from "../../ui/dom.ts";
 import type { PlayStatus } from "../../ui/store.ts";
 import type { Email } from "../inbox/generate.ts";
 import type { LogWindow } from "../logs/generate.ts";
+import { printed, type ReceiptInput, SYMBOLS } from "../receipts/generate.ts";
+import { dungeonById } from "../registry.ts";
 import type { Ticket } from "../tickets/generate.ts";
 import type { TextCase, Truth } from "./cases.ts";
 import { answerValue, type TextRun } from "./text-dungeon.ts";
 
-export type Document = "email" | "ticket" | "logs";
+export type Document = "email" | "ticket" | "logs" | "receipt";
 
 const row = (label: string, value: Child, cls = "") =>
   h(
@@ -142,9 +144,46 @@ function given(answer: Answer | undefined): string {
     : `${answer.choice} (${Math.round(p * 100)}%)`;
 }
 
-function document(kind: Document, c: TextCase): HTMLElement {
+/** What the autopilot was given at each kind of level, for the caption. */
+const SHOWN = {
+  only: "the picture only",
+  "with-text": "the picture and the data",
+  text: "the data only, as JSON",
+};
+
+/** The slip as the person watching sees it, captioned with what the autopilot got. */
+function receipt(c: TextCase, level: string): HTMLElement {
+  const { receipt: r } = c.input as unknown as ReceiptInput;
+  const images = dungeonById("receipts")?.levels.find(
+    (l) => l.id === level,
+  )?.images;
+  return h(
+    "article",
+    { class: "doc doc-receipt" },
+    h(
+      "header",
+      {},
+      h("h3", {}, r.merchant),
+      row("Charged", `${printed(r.total, r.currency)} · ${r.payment}`),
+      row("Autopilot", `sees ${SHOWN[images ?? "text"]}`),
+    ),
+    h(
+      "div",
+      { class: "doc-picture" },
+      c.images?.[0]
+        ? h("img", {
+            src: c.images[0],
+            alt: `The ${r.merchant} receipt, ${SYMBOLS[r.currency]}${r.total.toFixed(2)}`,
+          })
+        : h("p", {}, "No picture in this case set."),
+    ),
+  );
+}
+
+function document(kind: Document, c: TextCase, level: string): HTMLElement {
   if (kind === "email") return email(c.input as unknown as Email);
   if (kind === "ticket") return ticket(c.input as unknown as Ticket);
+  if (kind === "receipt") return receipt(c, level);
   return logs(c.input as unknown as LogWindow);
 }
 
@@ -192,7 +231,7 @@ export function textView(
     h(
       "div",
       { class: "text-grid" },
-      document(kind, c),
+      document(kind, c, run.level),
       h(
         "aside",
         { class: "text-answers" },

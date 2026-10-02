@@ -37,4 +37,9 @@ export type QuestionType = Question["type"];
 export interface Request {
   state: JsonValue;
   questions: Record<string, Question>;
+  /**
+   * Pictures read before the state, as data URLs (`data:image/png;base64,…`).
+   * Only a decider whose model reports `ModelInfo.images` can see them.
+   */
+  images?: string[];
 }

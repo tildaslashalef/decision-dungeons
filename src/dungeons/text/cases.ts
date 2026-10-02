@@ -10,6 +10,13 @@ import { hash, type Rng, seeded } from "../../lib/random.ts";
 /** A question's known answer: a noul's truth, a choice's option, a score's level. */
 export type Truth = boolean | string | number;
 
+/** The page a case's picture is rendered from, written by the seeded generator. */
+export interface CaseSource {
+  html: string;
+  /** The page's width in CSS pixels; its height is the content's. */
+  width: number;
+}
+
 export interface TextCase {
   /** Unique within its set, stable across reseeding with the same arguments. */
   id: string;
@@ -20,6 +27,13 @@ export interface TextCase {
   truth: Record<string, Truth>;
   /** Why the truth is what it is, for a person reading the result. */
   why: string;
+  /**
+   * The case's picture as a page. The set's hash covers it, not the image,
+   * so a set reproduces exactly whatever renders it.
+   */
+  source?: CaseSource;
+  /** `source` rendered, as PNG data URLs; a stored case with a source has them. */
+  images?: string[];
 }
 
 export interface CaseSetInfo {

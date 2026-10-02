@@ -36,6 +36,9 @@ import doorOpen from "@phosphor-icons/core/assets/duotone/door-open-duotone.svg"
 import envelope from "@phosphor-icons/core/assets/duotone/envelope-simple-duotone.svg" with {
   type: "text",
 };
+import eye from "@phosphor-icons/core/assets/duotone/eye-duotone.svg" with {
+  type: "text",
+};
 import fish from "@phosphor-icons/core/assets/duotone/fish-simple-duotone.svg" with {
   type: "text",
 };
@@ -54,6 +57,9 @@ import hash from "@phosphor-icons/core/assets/duotone/hash-duotone.svg" with {
 import headset from "@phosphor-icons/core/assets/duotone/headset-duotone.svg" with {
   type: "text",
 };
+import image from "@phosphor-icons/core/assets/duotone/image-duotone.svg" with {
+  type: "text",
+};
 import key from "@phosphor-icons/core/assets/duotone/key-duotone.svg" with {
   type: "text",
 };
@@ -61,6 +67,9 @@ import play from "@phosphor-icons/core/assets/duotone/play-duotone.svg" with {
   type: "text",
 };
 import plugs from "@phosphor-icons/core/assets/duotone/plugs-connected-duotone.svg" with {
+  type: "text",
+};
+import receipt from "@phosphor-icons/core/assets/duotone/receipt-duotone.svg" with {
   type: "text",
 };
 import scroll from "@phosphor-icons/core/assets/duotone/scroll-duotone.svg" with {
@@ -140,6 +149,9 @@ const SOURCES = {
   gauge,
   headset,
   scroll,
+  receipt,
+  eye,
+  image,
   airplane,
   landing,
   fog,

@@ -28,6 +28,8 @@ const MS_PER_TOKEN = 8;
 const SEQUENCE_OVERHEAD_TOKENS = 150;
 /** Low on purpose, so token estimates err long. */
 const CHARS_PER_TOKEN = 3;
+/** nuclis's bound on one image's tokens. */
+const IMAGE_TOKENS = 1_024;
 /** Requests in flight per non-packing model: more only lengthen nuclis's queue. */
 const SEQUENTIAL_IN_FLIGHT = 2;
 
@@ -105,6 +107,7 @@ export function decisionModels(listing: unknown): ModelInfo[] {
       label: id,
       available: reason === undefined,
       ...(reason ? { reason } : {}),
+      ...(x.images === true ? { images: true } : {}),
     };
   });
 }
@@ -128,7 +131,10 @@ export function sequenceTokens(request: Request, maxLen?: number): number {
   const chars =
     JSON.stringify(request.state ?? "").length +
     JSON.stringify(request.questions).length;
-  const tokens = Math.ceil(chars / CHARS_PER_TOKEN) + SEQUENCE_OVERHEAD_TOKENS;
+  const tokens =
+    Math.ceil(chars / CHARS_PER_TOKEN) +
+    SEQUENCE_OVERHEAD_TOKENS +
+    (request.images?.length ?? 0) * IMAGE_TOKENS;
   return maxLen === undefined ? tokens : Math.min(tokens, maxLen);
 }
 
@@ -318,7 +324,12 @@ export function nuclisDecider(api: NuclisApi): Decider {
         request,
         model,
         await api.decisions(
-          { model, state: request.state, questions: request.questions },
+          {
+            model,
+            state: request.state,
+            questions: request.questions,
+            ...(request.images ? { images: request.images } : {}),
+          },
           signal,
         ),
       );
@@ -365,8 +376,15 @@ export function nuclisDecider(api: NuclisApi): Decider {
           out.push(await one(request, model, signal));
         return out;
       }
+      // The caller groups by images too, so the first request's are all's.
+      const images = requests[0]?.images;
       const output = await api.decisions(
-        { model, states: requests.map((r) => r.state), questions },
+        {
+          model,
+          states: requests.map((r) => r.state),
+          questions,
+          ...(images ? { images } : {}),
+        },
         signal,
       );
       return decisionsFrom(requests, model, output);

@@ -64,7 +64,7 @@ function levelCounts(
   );
 }
 
-function main(argv: string[]): void {
+async function main(argv: string[]): Promise<void> {
   const { values } = parseArgs({
     args: argv,
     options: {
@@ -107,7 +107,7 @@ function main(argv: string[]): void {
         seed,
         levelCounts(dungeon, values.count, values.level),
       );
-      const result = store.write(set, values.replace);
+      const result = store.write(await store.rendered(set), values.replace);
       console.log(
         `${dungeon}/${name}: ${result}, ${set.count} cases, hash ${set.hash} (${Math.round(performance.now() - started)} ms) in ${store.file}`,
       );
@@ -120,4 +120,4 @@ function main(argv: string[]): void {
   }
 }
 
-main(process.argv.slice(2));
+await main(process.argv.slice(2));

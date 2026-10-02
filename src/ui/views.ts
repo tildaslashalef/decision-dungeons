@@ -20,6 +20,7 @@ const views: Record<string, View> = {
   inbox: (run, status) => textView("email", run as TextRun, status),
   tickets: (run, status) => textView("ticket", run as TextRun, status),
   logs: (run, status) => textView("logs", run as TextRun, status),
+  receipts: (run, status) => textView("receipt", run as TextRun, status),
 };
 
 /**

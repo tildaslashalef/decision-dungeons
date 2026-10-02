@@ -2,9 +2,10 @@
 // evaluation mode (when the dungeon has safety nets), the case set (when
 // it plays from one), and seed on the other; then start the run.
 
-import type { LevelTag } from "../dungeons/dungeon.ts";
+import type { Autopilot, DeciderView } from "../contract/api.ts";
+import type { Level, LevelTag } from "../dungeons/dungeon.ts";
 import { dungeonById } from "../dungeons/registry.ts";
-import { autopilotPicker, usable } from "./autopilot.ts";
+import { autopilotPicker, defaultAutopilot, usable } from "./autopilot.ts";
 import { h } from "./dom.ts";
 import { artFor } from "./dungeon-art.ts";
 import { svgIcon } from "./icons.ts";
@@ -24,7 +25,51 @@ const LEVEL_TAGS: Record<LevelTag, { label: string; detail: string }> = {
     detail:
       "Past Laya's budget (512 or 1,024 tokens), so it reads a cut state; clef-flash reads up to 16,384 tokens.",
   },
+  images: {
+    label: "Pictures · for clef-flash",
+    detail:
+      "The request carries a picture: only a model that reads images, such as clef-flash, can see it.",
+  },
 };
+
+/**
+ * The deciders as `level` can use them: a level with pictures needs a
+ * model that reads images, or the rule when the facts are also given as
+ * text.
+ */
+export function forLevel(
+  deciders: DeciderView[] | undefined,
+  level: Level | undefined,
+): DeciderView[] | undefined {
+  const images = level?.images;
+  if (!deciders || !images) return deciders;
+  return deciders.map((view) => ({
+    ...view,
+    models: view.models.map((m) => {
+      const sees =
+        m.images === true || (view.id === "rule" && images === "with-text");
+      if (sees || !m.available) return m;
+      return {
+        ...m,
+        available: false,
+        reason:
+          view.id === "rule"
+            ? "reads the data; this level shows only the picture"
+            : "cannot see pictures",
+      };
+    }),
+  }));
+}
+
+/** For a level the chosen autopilot cannot play: a model that sees pictures, else the usual default. */
+function fallback(deciders: DeciderView[]): Autopilot | undefined {
+  for (const view of deciders) {
+    if (view.id === "random") continue;
+    const model = view.models.find((m) => m.available && m.images);
+    if (model) return { decider: view.id, model: model.id };
+  }
+  return defaultAutopilot(deciders);
+}
 
 export interface LobbyActions {
   play(): void;
@@ -44,8 +89,17 @@ export function lobbyPage(store: Store, actions: LobbyActions): HTMLElement {
   const select = (patch: Partial<typeof selection>) =>
     store.set({ selection: { ...store.get().selection, ...patch } });
   const sets = caseSets?.[dungeon.id];
+  const levelOf = (id: string) => dungeon.levels.find((l) => l.id === id);
+  const level = levelOf(selection.level);
+  const pilotsHere = forLevel(deciders, level);
+  const chooseLevel = (id: string) => {
+    const here = forLevel(deciders, levelOf(id));
+    const keep = !here || usable(here, selection);
+    const next = keep ? undefined : fallback(here);
+    select({ level: id, ...(next ?? {}) });
+  };
   const ready =
-    usable(deciders, selection) &&
+    usable(pilotsHere, selection) &&
     (!dungeon.caseSets || !!sets?.some((s) => s.name === selection.caseSet));
   const autopilot = deciders?.find((d) => d.id === selection.decider);
 
@@ -93,7 +147,7 @@ export function lobbyPage(store: Store, actions: LobbyActions): HTMLElement {
             name: "level",
             value: level.id,
             checked: level.id === selection.level,
-            onchange: () => select({ level: level.id }),
+            onchange: () => chooseLevel(level.id),
           }),
           h("b", {}, level.title),
           h("span", {}, level.description),
@@ -119,8 +173,8 @@ export function lobbyPage(store: Store, actions: LobbyActions): HTMLElement {
     "section",
     { class: "lobby-step" },
     h("h2", {}, "Choose an autopilot"),
-    deciders
-      ? autopilotPicker(deciders, selection, (choice) => select(choice))
+    pilotsHere
+      ? autopilotPicker(pilotsHere, selection, (choice) => select(choice))
       : h(
           "p",
           { class: decidersError ? "error-text" : "" },
@@ -189,7 +243,7 @@ export function lobbyPage(store: Store, actions: LobbyActions): HTMLElement {
                 "span",
                 { class: "switch-hint" },
                 chosenSet
-                  ? `${chosenSet.levels[selection.level] ?? 0} ${selection.level} cases, ${chosenSet.generator}, hash ${chosenSet.hash}. A run asks 20, picked by the seed. bun run seed writes more sets.`
+                  ? `${chosenSet.levels[level?.casesOf ?? selection.level] ?? 0} ${level?.casesOf ?? selection.level} cases, ${chosenSet.generator}, hash ${chosenSet.hash}. A run asks 20, picked by the seed. bun run seed writes more sets.`
                   : "Choose a case set.",
               ),
             )

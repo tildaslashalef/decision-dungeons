@@ -52,7 +52,8 @@ export type ApiErrorCode =
   | "busy"
   | "forbidden"
   | "not_found"
-  | "config_error";
+  | "config_error"
+  | "cases_unavailable";
 
 export interface ApiErrorBody {
   error: { code: ApiErrorCode; message: string };

@@ -118,7 +118,12 @@ describe("nuclis over its API", () => {
     expect(await decider.models()).toEqual([
       { id: "laya", label: "laya", available: true },
       { id: "laya-multilingual", label: "laya-multilingual", available: true },
-      { id: "clef-flash", label: "clef-flash", available: true },
+      {
+        id: "clef-flash",
+        label: "clef-flash",
+        available: true,
+        images: true,
+      },
       {
         id: "laya-next",
         label: "laya-next",
@@ -173,6 +178,30 @@ describe("nuclis over its API", () => {
     expect(bodies).toHaveLength(10);
     expect(bodies.every((b) => "state" in b && !("states" in b))).toBe(true);
     expect(most).toBe(2);
+  });
+
+  test("sends a request's images, and batches only requests with the same ones", async () => {
+    const png = (n: number) => `data:image/png;base64,${"A".repeat(n)}=`;
+    const { fake, decider } = setup({
+      decisions: (body) => {
+        const states = (body as { states?: unknown[] }).states ?? [0];
+        const one = decideOutput("stop").results[0];
+        return ok({ ...decideOutput("stop"), results: states.map(() => one) });
+      },
+    });
+    const seen = { ...request, images: [png(4)] };
+    await decideWith(decider, seen, options("clef-flash"));
+    expect(posts(fake)[0]?.body).toMatchObject({ images: [png(4)] });
+    const requests = [seen, seen, { ...request, images: [png(8)] }, request];
+    await decideManyWith(decider, requests, options("laya"));
+    const calls = posts(fake)
+      .slice(1)
+      .map((c) => c.body as { states: unknown[]; images?: string[] });
+    expect(calls.map((c) => [c.states.length, c.images?.[0]])).toEqual([
+      [2, png(4)],
+      [1, png(8)],
+      [1, undefined],
+    ]);
   });
 
   test("bounds a packing model per call and any other by its tokens", async () => {
@@ -467,6 +496,25 @@ describe("TypeSafe", () => {
       code: "unavailable",
       message: "Could not reach TypeSafe",
     });
+  });
+
+  test("refuses a request with images, sending nothing", async () => {
+    const calls: unknown[] = [];
+    const decider = typesafeDecider({
+      apiKey: "sk-test",
+      fetch: (async (...args: unknown[]) => {
+        calls.push(args);
+        return Response.json({});
+      }) as typeof fetch,
+    });
+    await expect(
+      decideWith(
+        decider,
+        { ...request, images: ["data:image/png;base64,AA=="] },
+        options(JEV_MODEL),
+      ),
+    ).rejects.toMatchObject({ code: "rejected" });
+    expect(calls).toHaveLength(0);
   });
 
   test("an answer naming an option not offered is invalid", async () => {

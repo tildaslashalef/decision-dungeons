@@ -33,8 +33,8 @@ model, a GPU, a key, or the network; `tests/nuclis-live.test.ts` runs
 against the real server only when `GET /v1/health` answers. The TypeSafe
 decider is tested against a stubbed `fetch`; a real Jev call needs
 `TYPESAFE_API_KEY` and is an explicit command, never a default test.
-`clef-flash` takes images (`nuclis.images` in `GET /v1/models`), so
-milestone 6 can start.
+`clef-flash` takes images (`nuclis.images` in `GET /v1/models`); milestone
+6 is under way with Receipts, the first dungeon with pictures.
 
 ## Working notes
 
@@ -61,7 +61,7 @@ in `AGENTS.md`.
   sequence token, one state after another, and every other request waits
   behind it (nuclis queues a request up to 300 s). Never leave a clef
   eval running in the background of a check; it holds the GPU.
-- **Check it.** `bun test` (99 tests, 3 of them live against nuclis when
+- **Check it.** `bun test` (106 tests, 3 of them live against nuclis when
   it is up; no network or model otherwise), `bun run lint`
   (`tsc --noEmit` and `biome check`), `bun run eval …` and
   `bun run check driving/stop-line --decider rule` (*Headless runs*).
@@ -197,8 +197,12 @@ reads and writes. That is the interface every decider speaks:
 
 - `Request`: `{ state, questions: { [id]: { type, instructions, criteria } } }`,
   `type` one of `choice`, `score`, `noul`.
-- `Request` may carry images once nuclis accepts them (MODL-34 session 4
-  defines the field); until then dungeons send text and JSON only.
+- `Request.images`: pictures as base64 data URLs (png, jpeg, webp, gif), 1
+  to 8, at most 3 MiB of base64 in all, read before the state. Only a
+  model whose `ModelInfo.images` is set sees them (nuclis: its
+  `nuclis.images`; random answers without looking); TypeSafe refuses a
+  request with images (`rejected`), and a call batches only requests with
+  the same images.
 - `Answer`: Jev's fields (`choice`/`probabilities`/`confidence`, `score`,
   `noul`) plus an optional `debug` object (logits, temperature, tokens
   read, state kept) that only the debug sidebar reads.
@@ -472,8 +476,8 @@ three.js Ferrari (MIT). Asset license files travel with the assets.
    (*Decisions*).
 5. **A second 3D dungeon**, designed here (the user asked for a
    surprise): Night Tower (*Dungeon 2*).
-6. **Vision**, once nuclis serves clef-flash with images (MODL-34
-   session 4). Images are rendered from seeds (the three.js scene, or
+6. **Vision**, now that nuclis serves clef-flash with images. Receipts
+   (documents) is the first; the others below follow. Images are rendered from seeds (the three.js scene, or
    seeded HTML through headless Playwright) and stored as fixtures, so
    runs repeat.
    - **Driving, seeing instead of being told**: the camera frame beside
@@ -533,6 +537,25 @@ three.js Ferrari (MIT). Asset license files travel with the assets.
   cases it played before; the set's hash changes with its new levels, so
   results from before name the earlier hash. Generators that gained a
   level are `@2` (2026-10-03).
+- Pictures come from the case set, never from a model or the network: a
+  generator writes each pictured case's page (`TextCase.source`, seeded
+  HTML), and the store renders it once, when the set is written, in
+  headless Chromium (`src/server/render.ts`, injected so tests use a fake
+  PNG). The set's hash covers the source, not the PNG, so a set reproduces
+  exactly whatever renders it, and sets without pictures keep their hashes
+  (2026-10-03).
+- The first vision dungeon is Receipts (the user's choice): expense
+  receipts reimbursed against a travel policy (trip dates, a limit per
+  kind of expense, no alcohol), their total read among four printed
+  candidates, their currency and kind. The policy levels ask the same
+  receipts as data, as a picture, and as both (`casesOf`), so a run shows
+  whether seeing adds anything to reading. Levels with pictures say so
+  (`Level.images`: `only` or `with-text`); the lobby disables models that
+  cannot see them, and the rule where the picture is all there is
+  (2026-10-03).
+- The settings page's per-dungeon list scrolls inside its card past the
+  viewport's height, so the page still never scrolls as dungeons are
+  added (2026-10-03).
 - Next after clef-flash support: a Laya→clef cascade, Laya screening
   every state and clef-flash deciding the unsure ones, measured against
   each alone; clef-flash alone stays a choice (2026-10-03).
@@ -1068,20 +1091,79 @@ Validated on the Apple M4 Pro:
   laya-multilingual on 19, at 20-45 times the time per case (single
   runs, not a benchmark).
 
+### Milestone 6, vision: in progress (2026-10-03)
+
+Delivered: images in the contract and the deciders (*The decision
+contract*), pictured cases rendered from their seeded source into the case
+set (*Decisions*), and Receipts: five levels (policy as text, from the
+picture, picture and text, read the total, everything on the slip), its
+rule (the policy applied to the data), the slip in the play view with
+what the autopilot was given, the gate's gateway, and the lobby's picture
+tags and filtering. `playwright-core` became a dev dependency for the
+renderer.
+
+Validated on the Apple M4 Pro:
+
+- `bun test`: 106 pass (images within bounds, nuclis sending them and
+  batching only equal ones, TypeSafe refusing them; the three policy
+  levels asking the same receipts with the picture only where shown; the
+  total question offering the case's own four totals; the rule exact on
+  the data and `rejected` on a picture; the store rendering on first use
+  through a fake renderer). `bun run lint` clean.
+- The base set (`receipts@1`, 140 cases, hash `e351cc3291c927df`)
+  rendered and stored in about 9 s on first use, about 32 KB a slip at
+  340 px wide; the policy levels approve 27 of 60, and every total
+  question's four options hold the truth.
+- `bun run eval --dungeon receipts --level policy-text --decider rule
+  --seeds 1-4`: 20 of 20 on every seed.
+- Seed 1, one eval at a time, nuclis 0.4.0-dev on Metal (server at nuclis
+  `fd09aa4`):
+
+  | level | model | result | right | Brier | ms/case | tokens | wall s |
+  | --- | --- | --- | ---: | ---: | ---: | ---: | ---: |
+  | policy-text | laya-multilingual | fail | 6/20 | 0.543 | 53 | 6,633 | 1.1 |
+  | policy-image | laya-multilingual | `rejected` | — | — | — | — | — |
+  | policy-text | clef-flash | fail | 17/20 | 0.097 | 1,553 | 8,024 | 31.1 |
+  | policy-image | clef-flash | fail | 16/20 | 0.130 | 2,250 | 8,051 | 45.0 |
+  | policy-both | clef-flash | pass | 18/20 | 0.078 | 2,809 | 10,955 | 56.2 |
+  | total | clef-flash | pass | 20/20 | — | 2,004 | 6,616 | 40.1 |
+  | all-questions | clef-flash | fail | 16/20 | 0.144 | 3,421 | 14,219 | 68.4 |
+
+  On the same receipts clef-flash is right on 17 from the data, 16 from
+  the picture alone, and 18 with both; it read every total right from
+  the picture. Laya cannot see pictures (`images_unsupported`, a typed
+  rejection), and on the data it is near chance. Single runs, not a
+  benchmark.
+- `scripts/browser-check.ts none` passed on a throwaway server after the
+  settings fix (no page scroll at five sizes; the defaults list scrolls
+  inside its card at 1024x640 and 1280x720). Looked at
+  `artifacts/screenshots/{gate-receipts,lobby-receipts,lobby-receipts-image,receipts-rule-running,receipts-clef-image,receipts-clef-both,config-1280x720}.png`:
+  choosing a picture level switched the autopilot to clef-flash and
+  disabled Laya, the rule, and TypeSafe; clef-flash played the picture
+  levels in the browser with no console errors.
+
+Not done: the receipts' line prices are random splits of the subtotal
+(a lemonade can cost more than a curry), harmless to the policy but not
+realistic; the other vision dungeons of *Milestones*.
+
 ### Pick up here
 
-Milestones 1-5 are done, and clef-flash is supported. What is left, in
-order:
+Milestones 1-5 are done; clef-flash is supported, every text dungeon asks
+all its questions at once on one level, and milestone 6 has its first
+dungeon. What is left, in order:
 
 1. **The Laya→clef cascade** (*Decisions*, 2026-10-03): a nuclis choice
    where Laya screens every state and clef-flash decides the ones Laya is
    unsure of, measured against each alone on the text dungeons; then
    clef-flash in the comparison tables (driving turn-based, text
-   dungeons, Night Tower), one eval at a time, since clef holds the GPU.
-2. **Milestone 6, vision**: `clef-flash` reads images (`nuclis.images`);
-   see *Milestones*.
+   dungeons, Night Tower, Receipts over seeds 1-4), one eval at a time,
+   since clef holds the GPU.
+2. **Milestone 6, the next vision dungeons** (*Milestones*): driving
+   frames with a blind-state level, dashboards beside logs, interface
+   screenshots, rendered inbox mail. Receipts' line prices could be made
+   realistic first.
 3. **Wider measurements**: the text dungeons and Night Tower over seeds
-   1-4 for every decider, uncontended (one eval at a time), and TypeSafe
-   Jev when the user approves a paid run.
+   1-4 for every decider, uncontended, and TypeSafe Jev when the user
+   approves a paid run.
 4. **Night Tower, if the user wants more of it**: a ground radar view,
    arrivals' speed control, a second runway.

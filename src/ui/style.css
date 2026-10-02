@@ -1264,8 +1264,12 @@ button.primary:hover {
   height: 15px;
 }
 .default-list {
+  /* Room below the page head and the card's own head; past it the list
+     scrolls inside the card, so the page never does. */
+  max-height: max(220px, calc(100dvh - 360px));
   margin: 8px 0 0;
   padding: 0;
+  overflow-y: auto;
   list-style: none;
 }
 .default-row {
@@ -2033,4 +2037,20 @@ button.primary:hover {
   font-size: 11px;
   font-weight: 560;
   white-space: nowrap;
+}
+
+/* Receipts: the printed slip */
+.doc-picture {
+  display: grid;
+  place-items: center;
+  max-height: 520px;
+  padding: 16px;
+  overflow-y: auto;
+  background: #eceef1;
+}
+.doc-picture img {
+  display: block;
+  max-width: 100%;
+  border-radius: 4px;
+  box-shadow: 0 6px 18px #0000001f;
 }

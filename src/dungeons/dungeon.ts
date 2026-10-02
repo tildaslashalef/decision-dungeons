@@ -9,16 +9,23 @@ import type { CaseSet } from "./text/cases.ts";
 
 /**
  * What a level demands beyond its dungeon's usual, for the lobby to point
- * out: several questions about each case in one request, or inputs past a
- * short model's budget.
+ * out: several questions about each case in one request, inputs past a
+ * short model's budget, or pictures.
  */
-export type LevelTag = "many-questions" | "long-input";
+export type LevelTag = "many-questions" | "long-input" | "images";
 
 export interface Level {
   id: string;
   title: string;
   description: string;
   tags?: LevelTag[];
+  /**
+   * Its requests carry pictures: `only` them (the facts are in the picture
+   * alone), or `with-text`, beside the same facts as text.
+   */
+  images?: "only" | "with-text";
+  /** Plays another level's cases, the same cases shown another way. */
+  casesOf?: string;
 }
 
 export interface Observation {

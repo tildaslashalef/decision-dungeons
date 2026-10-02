@@ -26,6 +26,8 @@ const FIRST_BACKOFF_MS = 100;
 export type DecisionsBody = {
   model: string;
   questions: Record<string, Question>;
+  /** Read before every state of the call. */
+  images?: string[];
 } & ({ state: unknown } | { states: unknown[] });
 
 /** The routes this project uses; each resolves to the route's parsed JSON body. */
