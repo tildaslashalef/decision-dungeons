@@ -9,6 +9,7 @@ import {
 } from "../dungeons/driving/ui/stage.ts";
 import type { TextRun } from "../dungeons/text/text-dungeon.ts";
 import { textView } from "../dungeons/text/view.ts";
+import { mountTowerStage } from "../dungeons/tower/ui/stage.ts";
 import { h } from "./dom.ts";
 import type { PlayStatus } from "./store.ts";
 
@@ -29,6 +30,7 @@ export type Stage = (root: HTMLElement, ctx: StageContext) => () => void;
 
 const stages: Record<string, Stage> = {
   driving: mountDrivingStage,
+  tower: mountTowerStage,
 };
 
 export function dungeonStage(id: string): Stage | undefined {

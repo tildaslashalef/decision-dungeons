@@ -85,6 +85,7 @@ for (const [width, height] of [
     ["/d/crossing", ".picker", "lobby"],
     ["/d/driving", ".picker", "lobby-driving"],
     ["/d/inbox", ".picker", "lobby-inbox"],
+    ["/d/tower", ".picker", "lobby-tower"],
     ["/config", ".card-nuclis", "config"],
   ] as const) {
     await page.goto(`${BASE}${path}`);

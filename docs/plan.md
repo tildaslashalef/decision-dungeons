@@ -6,15 +6,13 @@ dungeon, its level, and the **autopilot** (which decider, which model), then
 watches it play, with a debug sidebar showing what the decider read and
 answered. The same dungeons run headless and produce comparison tables.
 
-Status (2026-10-02): milestones 1 (the skeleton) and 2 (driving,
-headless, proven bit-identical against JevPilot) are done; nuclis is
-reached through `nuclis serve`'s HTTP API. Milestone 3 (driving UI) is
-**in progress**: the scene, HUD, gate, and lobbies are done; the
-inspector's world tab, evaluation mode, and four scenario levels remain.
-The user asked for the whole plan end to end: then milestone 4 (text
-dungeons, cases in SQLite) and milestone 5 (a second 3D dungeon);
-milestone 6 (vision) waits for an image model (*Progress* → *Pick up
-here*). A new session starts at *Start here* below.
+Status (2026-10-02): milestones 1 to 5 are done: the skeleton, driving
+(headless and proven bit-identical against JevPilot, then its UI with the
+world inspector, evaluation mode, and five scenario checks), the text
+dungeons (Inbox, Ticket triage, Logs, cases in SQLite), and Night Tower,
+the second 3D dungeon; nuclis is reached through `nuclis serve`'s HTTP
+API. Milestone 6 (vision) waits for an image model (*Progress* -> *Pick
+up here*). A new session starts at *Start here* below.
 
 ## Start here
 
@@ -262,6 +260,9 @@ decision-dungeons/
                    four languages, digest paragraphs)
       tickets/     tickets.ts, generate.ts, text.ts
       logs/        logs.ts, generate.ts
+      tower/       Night Tower: sim.ts (traffic, runway, rules), tower.ts
+                   (levels, request, rule, outcome), ui/ (stage.ts,
+                   scene.ts, tower.css)
       driving/
         world/     geometry, grid (town, city), highway, road, reroute
         sim/       simulation, vehicle, traffic, collisions, courtesy,
@@ -278,8 +279,8 @@ decision-dungeons/
     cli/           eval.ts: `bun run eval` and `bun run check`; seed.ts:
                    `bun run seed`
   tests/           contract, deciders (stubbed nuclis API), nuclis-live,
-                   server, log, crossing, driving, driving-ui, text
-  scripts/         browser-check, driving-check, frame-probe,
+                   server, log, crossing, driving, driving-ui, text, tower
+  scripts/         browser-check, driving-check, tower-check, frame-probe,
                    driving-reference (vs JevPilot), render-icons
   public/          models, textures, draco, icons, with licenses
   NOTICE.md
@@ -389,6 +390,41 @@ Differences are explained or fixed before the UI work. Done: every run
 is bit-identical (*Progress*, milestone 2); `scripts/driving-reference.ts`
 keeps it so.
 
+## Dungeon 2: Night Tower
+
+The surprise 3D dungeon (`src/dungeons/tower/`): the decider works the
+tower of Port Alder International's single runway 27 after dark.
+
+- **The simulation** (`sim.ts`): arrivals are handed over on a 10 nm,
+  three-degree final; at 2.5 nm the tower must clear each to land or send
+  it around. Departures taxi out to the holding point; the head of the
+  queue is offered to the tower until it is released (asked again every
+  10 s while held). Fixed 50 ms steps and seeded schedules (operators,
+  types, wake categories, spacing); runway occupancy is computed by
+  stepping a copy of a flight alone, so the times the request states are
+  exact. Incidents: landing with the runway occupied (the crew goes around,
+  counted), a take-off roll within 120 s of a heavy's, and in low
+  visibility a runway clear less than 45 s before a landing.
+- **The request**: the rules, the runway's occupants and when each
+  clears, arrivals with their threshold times, the departure queue, and
+  the decisive numbers again in each option's text (`land`/`go_around`,
+  `take_off`/`hold`). **The rule**: exact timing arithmetic with small
+  margins. **Levels**: quiet evening, rush hour, low visibility, and the
+  go-around check (a jet rejects its take-off and stops at 650 m as an
+  arrival reaches 2.5 nm: send it around, then land it). A shift passes
+  with every flight handled and no incident.
+- **The stage** (`ui/`): the airfield built in code at blue hour (runway
+  markings, edge, centreline, threshold and end lights, an approach light
+  system with its sequenced flasher, PAPI, taxiway and exits, stop bar,
+  floodlit apron, terminal, hangars, the tower, the town's lights), and
+  low-poly airliners with liveries, cabin windows, navigation lights,
+  strobes, beacons, and landing-light beams. Flight strips, a radio
+  transcript in ATC phraseology, the question on screen, tower-cab /
+  final-approach / overview cameras (C), time at 1x, 4x, 16x (1-3), the
+  shared debug sidebar (N). The simulation runs on the main thread in the
+  same 50 ms steps as headless and stops at each question, so a browser
+  shift is the headless one (`tests/tower.test.ts` asserts it).
+
 ## Headless runs
 
 ```sh
@@ -424,10 +460,8 @@ three.js Ferrari (MIT). Asset license files travel with the assets.
    from how each case was built (never from a model), which can add more
    cases at any time without changing what a run already played
    (*Decisions*).
-5. **A second 3D dungeon**, designed here (the user asked for a surprise):
-   its own deterministic world in a worker, the same contract, a rule and
-   the random floor, and a check that separates deciders, at the gate's
-   look. Named in *Progress* when it ships.
+5. **A second 3D dungeon**, designed here (the user asked for a
+   surprise): Night Tower (*Dungeon 2*).
 6. **Vision**, once nuclis serves clef-flash with images (MODL-34
    session 4). Images are rendered from seeds (the three.js scene, or
    seeded HTML through headless Playwright) and stored as fixtures, so
@@ -505,6 +539,11 @@ three.js Ferrari (MIT). Asset license files travel with the assets.
 - The text dungeons' gate marks are Phosphor icons (envelope, ticket,
   terminal), already a dependency, rather than new game-icons.net
   downloads (2026-10-02).
+- The second 3D dungeon is Night Tower, an airport tower at night: its
+  decisions are timing against stated numbers (the weakness the stop
+  line showed), it renders from code with three (no new dependency or
+  asset), and its simulation is light enough to run on the main thread
+  rather than in a worker (2026-10-02).
 - `RunResult.truncated` counts decisions whose state the model cut, from
   the decider's own report (2026-10-02).
 - The short-budget rewrite is split. Dungeons put each option's facts in
@@ -838,18 +877,87 @@ identical answers both ways (same correct counts and Brier scores), wall
 time per 20-case run 2.5–4.9 s batched against 11.9–17.4 s one at a time,
 about 4.3× faster. `bun test` 85 pass.
 
+### Milestone 5, Night Tower: done (2026-10-02)
+
+Delivered: *Dungeon 2* above; its gate gateway and lobby;
+`scripts/tower-check.ts`. Validated on the Apple M4 Pro:
+
+- `bun test`: 92 pass, among them the rule working every level on seeds
+  1-2 with no incident, random failing every traffic level with
+  incidents, every request valid, the go-around check failing a landing
+  clearance over the stopped jet, and a frame-by-frame stage run equal to
+  the headless one (outcome and every radio call).
+- Headless, seeds 1-3: the rule passes all four levels (rush hour: 22
+  flights, about 130 decisions, 0-1 go-arounds, departures held 118-148 s
+  on average); random fails every one (1-7 incidents, 4-21 go-arounds). A
+  whole rush-hour shift runs in under 100 ms.
+- `bun run eval --dungeon tower --level evening,go-around --decider
+  nuclis --seeds 1` against nuclis 0.4.0-dev: `laya` handled the quiet
+  evening's traffic with 2 incidents; `laya-multilingual` held every
+  departure for the whole shift (150 decisions, none released, timed
+  out); both cleared the landing over the stopped jet in the go-around
+  check.
+- `scripts/tower-check.ts evening,go-around` passed in headless Chromium
+  on Metal: 60 fps (p95 16.7 ms, none over 50 ms), both shifts passed by
+  the rule in the browser. Looked at
+  `artifacts/tower/evening-{tower,question,answered,final,overview,end}.png`,
+  `go-around-end.png`, and the lobby at five sizes.
+
+### The comparison across deciders
+
+Driving, seeds 1-4 per world, with and without evaluation mode
+(`bun run eval --dungeon driving --level <world> --decider <id> --seeds
+1-4 [--evaluation]`), on the Apple M4 Pro with nuclis 0.4.0-dev on Metal.
+Default runs (evaluation off) at `e27f03e`-`89bae20`, unchanged in
+behaviour across them (the reference check stays bit-identical);
+evaluation runs at `93a55ac`. ms/decision was measured with up to twelve
+evals sharing the nuclis server, so it is contended, not a latency
+figure; `laya`'s default runs were rerun alone after its first ones timed
+out at their first decision under that load.
+
+| decider | world | evaluation | passed | arrived | collisions | violations | safety brake % (mean) | decisions | ms/decision |
+| --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| laya | town | off | 4/4 | 4 | 0 | 0 | 5 | 689 | 676 |
+| laya | town | on | 2/4 | 2 | 2 | 0 | 0 | 607 | 1328 |
+| laya | city | off | 4/4 | 4 | 0 | 0 | 9 | 660 | 688 |
+| laya | city | on | 0/4 | 0 | 4 | 0 | 0 | 280 | 1582 |
+| laya | highway | off | 4/4 | 4 | 0 | 0 | 0 | 1389 | 382 |
+| laya | highway | on | 4/4 | 4 | 0 | 0 | 0 | 1389 | 688 |
+| laya-multilingual | town | off | 4/4 | 4 | 0 | 0 | 4 | 700 | 1528 |
+| laya-multilingual | town | on | 2/4 | 2 | 2 | 0 | 0 | 634 | 1291 |
+| laya-multilingual | city | off | 3/4 | 3 | 1 | 0 | 7 | 568 | 1729 |
+| laya-multilingual | city | on | 0/4 | 0 | 4 | 0 | 0 | 302 | 1539 |
+| laya-multilingual | highway | off | 3/4 | 4 | 0 | 1 | 0 | 1490 | 831 |
+| laya-multilingual | highway | on | 3/4 | 4 | 0 | 1 | 0 | 1492 | 662 |
+| random | town | off | 3/4 | 4 | 0 | 2 | 2 | 748 | 0 |
+| random | town | on | 2/4 | 3 | 1 | 1 | 0 | 701 | 0 |
+| random | city | off | 3/4 | 4 | 0 | 1 | 6 | 709 | 0 |
+| random | city | on | 0/4 | 1 | 3 | 1 | 0 | 499 | 0 |
+| random | highway | off | 4/4 | 4 | 0 | 0 | 0 | 1428 | 0 |
+| random | highway | on | 4/4 | 4 | 0 | 0 | 0 | 1431 | 0 |
+| rule | town | off | 4/4 | 4 | 0 | 0 | 3 | 685 | 0 |
+| rule | town | on | 2/4 | 3 | 1 | 1 | 0 | 643 | 0 |
+| rule | city | off | 4/4 | 4 | 0 | 0 | 5 | 658 | 0 |
+| rule | city | on | 1/4 | 1 | 3 | 0 | 0 | 420 | 0 |
+| rule | highway | off | 4/4 | 4 | 0 | 0 | 0 | 1359 | 0 |
+| rule | highway | on | 4/4 | 4 | 0 | 0 | 0 | 1359 | 0 |
+
+What it shows: with the safety nets on, every decider arrives nearly
+always, random included (10 of 12), as JevPilot found. Evaluation mode
+separates them where traffic is dense: in the city, rule 1/4, random 0/4,
+`laya` 0/4, `laya-multilingual` 0/4, all by collisions; the interstate
+stays easy for everyone (its traffic is spaced). The rule itself leans on
+the planner: it is the experiment's rule, kept for the JevPilot oracle.
+The text dungeons and Night Tower are measured in their milestones above.
+
 ### Pick up here
 
-Finish milestone 3, in this order, each a commit with its tests, checks,
-and a *Progress* entry:
+Milestones 1-5 are done. What is left, in order:
 
-2. **Measure evaluation mode**: rule, random, `laya`,
-   `laya-multilingual` on town, city, highway seeds 1–4 with and without
-   it, a table in *Progress* naming machine, deciders, seeds, commit, and
-   nuclis version.
-
-Then, per *Milestones*:
-
-5. **Milestone 5, the second 3D dungeon.**
-6. A measurement table: every dungeon, rule, random, `laya`,
-   `laya-multilingual`, seeds 1–4, on the real server.
+1. **Milestone 6, vision**, once nuclis serves an image model
+   (`GET /v1/models` lists none on 2026-10-02): see *Milestones*.
+2. **Wider measurements**: the text dungeons and Night Tower over seeds
+   1-4 for every decider, uncontended (one eval at a time), and TypeSafe
+   Jev when the user approves a paid run.
+3. **Night Tower, if the user wants more of it**: a ground radar view,
+   arrivals' speed control, a second runway.

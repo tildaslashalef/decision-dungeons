@@ -1,0 +1,338 @@
+/* Night Tower: dark glass over the airport at night, amber for questions,
+   green for clearances, red for incidents. Scoped to .tw-stage. */
+.tw-stage {
+  --tw-glass: rgb(16 20 32 / 0.72);
+  --tw-line: rgb(255 255 255 / 0.1);
+  --tw-text: #e8ebf2;
+  --tw-muted: #9aa3b5;
+  --tw-amber: #ffb347;
+  --tw-green: #3ddc84;
+  --tw-red: #ff5a4f;
+  --tw-blue: #6b8cff;
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  overflow: hidden;
+  color: var(--tw-text);
+  background: #0b1020;
+  font-size: 13px;
+}
+body.tw-tower {
+  overflow: hidden;
+}
+.tw-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+.tw-glass {
+  background: var(--tw-glass);
+  border: 1px solid var(--tw-line);
+  border-radius: 14px;
+  backdrop-filter: blur(12px);
+  box-shadow: 0 12px 40px rgb(0 0 0 / 0.35);
+}
+.tw-stage :where(button) {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border: 0;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.tw-stage :where(button:hover) {
+  background: rgb(255 255 255 / 0.08);
+}
+.tw-stage :where(button:focus-visible) {
+  outline: 2px solid var(--tw-amber);
+  outline-offset: 2px;
+}
+.tw-stage svg {
+  width: 17px;
+  height: 17px;
+  stroke-width: 1.8;
+}
+.tw-stage h2 {
+  margin: 0 0 8px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--tw-muted);
+}
+.tw-top {
+  position: absolute;
+  top: 18px;
+  left: 18px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 8px;
+}
+.tw-title {
+  display: grid;
+  padding-right: 6px;
+}
+.tw-title b {
+  font-family: "Fraunces Variable", serif;
+  font-size: 17px;
+  font-weight: 600;
+}
+.tw-title span,
+.tw-clock span {
+  color: var(--tw-muted);
+  font-size: 12px;
+}
+.tw-clock {
+  display: grid;
+  padding: 0 12px;
+  border-left: 1px solid var(--tw-line);
+}
+.tw-clock b {
+  font:
+    600 15px ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    monospace;
+  color: var(--tw-green);
+}
+.tw-banner {
+  position: absolute;
+  top: 22px;
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: min(640px, 60vw);
+  padding: 10px 18px;
+  border-radius: 999px;
+  font-weight: 600;
+  background: var(--tw-glass);
+  border: 1px solid var(--tw-line);
+  backdrop-filter: blur(12px);
+  text-align: center;
+}
+.tw-banner.ask {
+  color: #1d1300;
+  background: var(--tw-amber);
+}
+.tw-banner.ok {
+  color: #04210f;
+  background: var(--tw-green);
+}
+.tw-banner.warn {
+  color: #2a1600;
+  background: #ffcf6b;
+}
+.tw-banner.alert {
+  color: #fff;
+  background: var(--tw-red);
+}
+.tw-banner.muted {
+  color: var(--tw-muted);
+}
+.tw-board {
+  position: absolute;
+  top: 18px;
+  right: 18px;
+  bottom: 96px;
+  width: 300px;
+  padding: 14px;
+  overflow-y: auto;
+}
+.tw-strips h3 {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 10px 0 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--tw-muted);
+}
+.tw-strips ol {
+  display: grid;
+  gap: 5px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.tw-strip {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 1px 8px;
+  padding: 7px 10px 7px 12px;
+  border-radius: 7px;
+  background: rgb(255 255 255 / 0.05);
+  border-left: 4px solid var(--tw-blue);
+  cursor: pointer;
+}
+.tw-strip.departure {
+  border-left-color: #b38bff;
+}
+.tw-strip.cleared,
+.tw-strip.takeoff,
+.tw-strip.climb {
+  border-left-color: var(--tw-green);
+}
+.tw-strip.go_around,
+.tw-strip.stopped {
+  border-left-color: var(--tw-red);
+}
+.tw-strip.asking {
+  background: rgb(255 179 71 / 0.2);
+  box-shadow: inset 0 0 0 1px var(--tw-amber);
+}
+.tw-strip b {
+  font:
+    600 13px ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    monospace;
+}
+.tw-type,
+.tw-detail {
+  justify-self: end;
+  color: var(--tw-muted);
+  font-size: 12px;
+}
+.tw-state {
+  color: var(--tw-muted);
+  font-size: 12px;
+}
+.tw-none {
+  margin: 0;
+  color: var(--tw-muted);
+  font-size: 12px;
+}
+.tw-radio-box {
+  position: absolute;
+  left: 18px;
+  bottom: 96px;
+  width: min(560px, 46vw);
+  padding: 12px 14px;
+}
+.tw-radio {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 12.5px;
+}
+.tw-radio li {
+  display: grid;
+  grid-template-columns: 62px 44px 1fr;
+  gap: 6px;
+  color: var(--tw-muted);
+}
+.tw-radio time {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+.tw-radio li.tower {
+  color: var(--tw-text);
+}
+.tw-radio li.tower b {
+  color: var(--tw-green);
+}
+.tw-radio li.alert {
+  color: var(--tw-red);
+}
+.tw-dock {
+  position: absolute;
+  left: 50%;
+  bottom: 18px;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px;
+}
+.tw-pilot {
+  background: var(--tw-green);
+  color: #052512;
+  font-weight: 600;
+}
+.tw-pilot.paused {
+  background: rgb(255 255 255 / 0.12);
+  color: var(--tw-text);
+}
+.tw-speeds {
+  display: flex;
+  padding: 2px;
+  border-radius: 9px;
+  background: rgb(255 255 255 / 0.06);
+}
+.tw-speed {
+  padding: 6px 10px;
+  font-variant-numeric: tabular-nums;
+}
+.tw-speed.active {
+  background: rgb(255 255 255 / 0.16);
+}
+.tw-end {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgb(5 8 18 / 0.45);
+}
+.tw-end-card {
+  width: min(460px, 90vw);
+  padding: 28px;
+  border-radius: 18px;
+  background: #f8f9fb;
+  color: #171a20;
+  text-align: center;
+  box-shadow: 0 24px 80px rgb(0 0 0 / 0.5);
+}
+.tw-eyebrow {
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  color: #6b7077;
+}
+.tw-end-card.pass .tw-eyebrow {
+  color: #17863f;
+}
+.tw-end-card.fail .tw-eyebrow {
+  color: #c2261d;
+}
+.tw-end-card h1 {
+  margin: 8px 0;
+  font-family: "Fraunces Variable", serif;
+  font-size: 30px;
+}
+.tw-end-card p {
+  margin: 0 0 18px;
+  color: #4a5059;
+  line-height: 1.5;
+}
+.tw-end-actions {
+  display: grid;
+  gap: 8px;
+}
+.tw-end-actions button {
+  justify-content: center;
+}
+.tw-primary {
+  background: #171a20;
+  color: #fff;
+  padding: 11px;
+}
+.tw-secondary {
+  border: 1px solid #d5d9de;
+}
+.tw-link {
+  color: #6b7077;
+}
+@media (max-width: 900px) {
+  .tw-board {
+    display: none;
+  }
+  .tw-radio-box {
+    width: calc(100vw - 36px);
+  }
+}

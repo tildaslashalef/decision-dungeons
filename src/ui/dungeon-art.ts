@@ -307,6 +307,64 @@ function drawLogs(key: string): SVGElement {
   );
 }
 
+/** The runway at blue hour from the approach: lights converging, an aircraft's landing lights. */
+function drawTower(key: string): SVGElement {
+  const sky = `${key}-sky`;
+  const lights: SVGElement[] = [];
+  // Edge lights converging to the horizon, the green threshold bar, the approach lights.
+  for (let i = 0; i < 12; i++) {
+    const t = i / 12;
+    const y = 400 - (400 - 196) * (1 - (1 - t) ** 2.2);
+    const spread = 150 * (1 - t) ** 1.6 + 6;
+    const r = 3.4 * (1 - t) + 0.8;
+    lights.push(
+      svg("circle", { cx: 150 - spread, cy: y, r, fill: "#fff1d6" }),
+      svg("circle", { cx: 150 + spread, cy: y, r, fill: "#fff1d6" }),
+    );
+  }
+  for (let k = -6; k <= 6; k++)
+    lights.push(
+      svg("circle", { cx: 150 + k * 12, cy: 352, r: 3, fill: "#33ff88" }),
+    );
+  for (let i = 0; i < 5; i++)
+    lights.push(
+      svg("circle", {
+        cx: 150,
+        cy: 372 + i * 7,
+        r: 2.6 + i * 0.4,
+        fill: i === 2 ? "#ffffff" : "#ffe7c2",
+      }),
+    );
+  return frame(
+    "A runway at dusk seen from the approach, an airliner with its landing lights on",
+    svg(
+      "defs",
+      {},
+      gradient(sky, [
+        [0, "#0b1430"],
+        [0.55, "#3b4a8a"],
+        [0.82, "#e8836a"],
+        [1, "#ffbf86"],
+      ]),
+    ),
+    rect(0, 0, 300, 400, `url(#${sky})`),
+    rect(0, 196, 300, 204, "#151a23"),
+    path("M150 196 L40 400 L260 400 Z", { fill: "#22262e" }),
+    ...lights,
+    // The tower on the horizon, its cab lit.
+    rect(236, 132, 8, 64, "#2a2f38"),
+    rect(228, 122, 24, 12, "#3fb6aa", { rx: 3 }),
+    svg("circle", { cx: 240, cy: 116, r: 3, fill: "#ff3b30" }),
+    // An airliner on short final, landing lights blazing.
+    svg("circle", { cx: 128, cy: 108, r: 26, fill: "#fff3cf", opacity: 0.25 }),
+    path("M96 106 L164 104 L170 108 L164 112 L96 110 Z", { fill: "#d9dde3" }),
+    path("M124 108 L104 128 L114 128 L140 108 Z", { fill: "#c9cdd3" }),
+    path("M124 108 L104 90 L114 90 L140 108 Z", { fill: "#c9cdd3" }),
+    path("M98 106 L90 94 L96 94 L106 106 Z", { fill: "#0e8a7e" }),
+    svg("circle", { cx: 160, cy: 110, r: 4, fill: "#ffffff" }),
+  );
+}
+
 /** Any dungeon without its own illustration: a doorway into the dark. */
 function drawDoor(key: string): SVGElement {
   const depth = `${key}-depth`;
@@ -347,6 +405,18 @@ const ART: Record<string, DungeonArt> = {
       { icon: "trafficLights", text: "Stop-line check" },
     ],
     draw: drawDriving,
+  },
+  tower: {
+    accent: "#ffb347",
+    tagline:
+      "Work the tower at night: land them, launch them, keep the runway clean.",
+    emblem: "airplane",
+    facts: [
+      { icon: "landing", text: "One runway, two flows" },
+      { icon: "fog", text: "Low visibility" },
+      { icon: "radio", text: "Go-around check" },
+    ],
+    draw: drawTower,
   },
   inbox: {
     accent: "#0e8a7e",

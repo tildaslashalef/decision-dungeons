@@ -15,7 +15,19 @@ import arrowRight from "@phosphor-icons/core/assets/bold/arrow-right-bold.svg" w
 import close from "@phosphor-icons/core/assets/bold/x-bold.svg" with {
   type: "text",
 };
+import landing from "@phosphor-icons/core/assets/duotone/airplane-landing-duotone.svg" with {
+  type: "text",
+};
+import airplane from "@phosphor-icons/core/assets/duotone/airplane-tilt-duotone.svg" with {
+  type: "text",
+};
+import radio from "@phosphor-icons/core/assets/duotone/broadcast-duotone.svg" with {
+  type: "text",
+};
 import checkCircle from "@phosphor-icons/core/assets/duotone/check-circle-duotone.svg" with {
+  type: "text",
+};
+import fog from "@phosphor-icons/core/assets/duotone/cloud-fog-duotone.svg" with {
   type: "text",
 };
 import doorOpen from "@phosphor-icons/core/assets/duotone/door-open-duotone.svg" with {
@@ -128,6 +140,10 @@ const SOURCES = {
   gauge,
   headset,
   scroll,
+  airplane,
+  landing,
+  fog,
+  radio,
   // game-icons.net: dungeon accents.
   dungeonGate: gameDungeonGate,
   cityCar: gameCityCar,
