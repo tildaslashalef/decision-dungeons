@@ -15,7 +15,7 @@ import {
   type Selection,
   type Store,
 } from "./store.ts";
-import { dungeonView } from "./views.ts";
+import { dungeonStage, dungeonView } from "./views.ts";
 
 /** Pause between turns, so each answer stays on screen long enough to read. */
 const PACE_MS = 700;
@@ -36,6 +36,19 @@ export class Player {
     const dungeon = dungeonById(selection.dungeon);
     if (!dungeon) return;
     this.stop();
+    if (dungeonStage(dungeon.id)) {
+      // A full-screen stage creates and runs its own run.
+      this.store.set({
+        debug: [],
+        play: {
+          selection,
+          run: null,
+          outcome: { finished: false, violations: 0, metrics: {}, records: [] },
+          status: "waiting",
+        },
+      });
+      return;
+    }
     const run = dungeon.create(selection.seed, selection.level);
     this.nextId = 1;
     this.store.set({

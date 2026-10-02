@@ -12,7 +12,8 @@ import { replace } from "./dom.ts";
 import { focusGate, gatePage, orderedDungeons } from "./gate.ts";
 import { lobbyPage } from "./lobby.ts";
 import { Player, playView } from "./play.ts";
-import { type Selection, type State, Store } from "./store.ts";
+import { type PlayState, type Selection, type State, Store } from "./store.ts";
+import { dungeonStage } from "./views.ts";
 
 type Route = State["route"];
 
@@ -117,6 +118,14 @@ const app = document.getElementById("app");
 if (!app) throw new Error("index.html has no #app");
 document.body.append(debugSidebar(store));
 
+/** The full-screen stage on screen, if any; it stays mounted while its play lasts. */
+let mounted: { play: PlayState; unmount: () => void } | null = null;
+
+function unmountStage(): void {
+  mounted?.unmount();
+  mounted = null;
+}
+
 function render(): void {
   const state = store.get();
   if (!app) return;
@@ -124,6 +133,23 @@ function render(): void {
     navigate("lobby");
     return;
   }
+  const play = state.route === "play" ? state.play : undefined;
+  const stage = play ? dungeonStage(play.selection.dungeon) : undefined;
+  if (play && stage) {
+    if (mounted?.play === play) return;
+    unmountStage();
+    document.body.dataset.route = state.route;
+    mounted = {
+      play,
+      unmount: stage(app, {
+        store,
+        selection: play.selection,
+        exit: () => player.exit(),
+      }),
+    };
+    return;
+  }
+  unmountStage();
   document.body.dataset.route = state.route;
   if (state.route === "gate") {
     replace(

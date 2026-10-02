@@ -3,6 +3,7 @@
 
 import index from "../ui/index.html";
 import { createApp } from "./app.ts";
+import { serveAsset, serveWorker } from "./assets.ts";
 import { ConfigStore, configHome } from "./config.ts";
 import { iconRoutes } from "./icons.ts";
 
@@ -27,6 +28,11 @@ const server = Bun.serve({
     "/config": index,
     "/api/*": (req, srv) => app.fetch(req, srv.port ?? port),
     ...iconRoutes,
+    "/models/*": (req) => serveAsset(new URL(req.url).pathname),
+    "/textures/*": (req) => serveAsset(new URL(req.url).pathname),
+    "/draco/*": (req) => serveAsset(new URL(req.url).pathname),
+    "/workers/:name": (req) =>
+      serveWorker(req.params.name, env.NODE_ENV !== "production"),
   },
   fetch: () => new Response("Not found", { status: 404 }),
 });

@@ -116,6 +116,23 @@ function records(run: DrivingRun): DecisionRecord[] {
   }));
 }
 
+/**
+ * Ends a turn: the stop-line check notes a stop at the red line and turns
+ * the signal green. `advance` calls it after its steps; a view that paces
+ * the same steps over frames calls it once they are done.
+ */
+export function settleTurn(run: DrivingRun): void {
+  const check = run.check;
+  if (
+    check?.phase === "red" &&
+    run.decisions > 1 &&
+    run.sim.player.speed < 0.1
+  ) {
+    check.stoppedCenterM = check.crossing.stopS - run.sim.player.s;
+    check.phase = "green";
+  }
+}
+
 export const driving: Dungeon<DrivingRun> = {
   id: "driving",
   title: "Autopilot driving",
@@ -184,15 +201,7 @@ export const driving: Dungeon<DrivingRun> = {
       run.steps++;
       if (run.sim.brakeReason) run.brakeSteps++;
     }
-    const check = run.check;
-    if (
-      check?.phase === "red" &&
-      run.decisions > 1 &&
-      run.sim.player.speed < 0.1
-    ) {
-      check.stoppedCenterM = check.crossing.stopS - run.sim.player.s;
-      check.phase = "green";
-    }
+    settleTurn(run);
   },
   step(run, dt) {
     holdSignal(run);

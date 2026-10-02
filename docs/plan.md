@@ -353,8 +353,8 @@ three.js Ferrari (MIT). Asset license files travel with the assets.
 - clef-flash arrives through nuclis (MODL-34, after APPS-19), text first,
   images later; Decision Dungeons adds the turn-based mode for it and plans the
   vision dungeons as milestone 5 (2026-10-02).
-- Dependencies: lucide 0.577.0 (icons in the play view, as JevPilot;
-  the other pages use the icons below); dev only TypeScript
+- Dependencies: lucide 0.577.0 (icons in the play and driving views, as
+  JevPilot; the other pages use the icons below); dev only TypeScript
   7.0.2, Biome 2.5.15, @types/bun 1.4.2. Playwright is not a dependency:
   `scripts/browser-check.ts` finds `playwright-core` 1.63.0 through
   `NODE_PATH` (its header has the commands) (2026-10-02).
@@ -392,6 +392,20 @@ three.js Ferrari (MIT). Asset license files travel with the assets.
   (`public/icons/`: mark, favicon SVG and ICO, 180/192/512 PNGs, web
   manifest) is rendered from its SVG by `scripts/render-icons.ts`
   (2026-10-02).
+
+- The driving scene uses three, pinned at 0.183.2 as in JevPilot, with
+  `@types/three` 0.183.1 (dev). JevPilot's Model Y (CC BY 4.0), Poly Haven
+  models and textures (CC0), and Draco decoder (Apache 2.0) are copied
+  into `public/` with their license files and served read-only from
+  `/models`, `/textures`, and `/draco`; the unused Ferrari is left out
+  (2026-10-02).
+- The driving run plays in a Web Worker (`src/dungeons/driving/ui/sim.worker.ts`,
+  bundled and served at `/workers/driving-sim.js` by the server, since
+  Bun's HTML bundling does not follow `new Worker(new URL(...))`); the
+  page renders snapshots interpolated by wall time. Turn-based play asks
+  for the next decision while the current turn's 0.3 s still plays, so a
+  decider under about 0.35 s never visibly stops the car and the run stays
+  exactly the headless one (2026-10-02).
 
 ## Progress
 

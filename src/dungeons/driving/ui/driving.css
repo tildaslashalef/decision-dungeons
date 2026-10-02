@@ -1,0 +1,923 @@
+/* The driving stage: JevPilot's HUD over a full-screen 3D scene. Light
+   glass panels, a red autopilot accent, blue for the chosen path. Every
+   rule is scoped to .dd-stage so the rest of the app is untouched. */
+.dd-stage {
+  --dd-text: #171a20;
+  --dd-muted: #6b7077;
+  --dd-faint: #a3a6ab;
+  --dd-line: #e3e5e8;
+  --dd-soft: #f7f7f7;
+  --dd-blue: #3e6ae1;
+  --dd-accent: #e82127;
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  overflow: hidden;
+  color: var(--dd-text);
+  background: #b7c9db;
+  font-size: 13px;
+  font-synthesis: none;
+}
+body.dd-driving {
+  overflow: hidden;
+}
+.dd-stage :where(button) {
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 8px;
+  border-radius: 7px;
+  cursor: pointer;
+}
+:where(.dd-stage button:hover) {
+  background: #171a200d;
+}
+:where(.dd-stage button:disabled) {
+  opacity: 0.5;
+  cursor: default;
+}
+:where(.dd-stage button, .dd-stage select):focus-visible {
+  outline: 2px solid var(--dd-accent);
+  outline-offset: 3px;
+}
+:where(.dd-stage svg) {
+  width: 18px;
+  height: 18px;
+  stroke-width: 1.7;
+  flex-shrink: 0;
+}
+:where(.dd-stage kbd) {
+  font: 9px inherit;
+  font-family: inherit;
+  padding: 3px 5px;
+  border: 1px solid #e5e7eb55;
+  border-radius: 4px;
+  color: var(--dd-muted);
+  min-width: 18px;
+  text-align: center;
+}
+.dd-glass {
+  background: #ffffffed;
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  border: 1px solid #e4e6e8cc;
+  box-shadow: 0 6px 28px #00000020;
+}
+.dd-drive {
+  position: absolute;
+  inset: 0;
+}
+.dd-world {
+  width: 100%;
+  height: 100%;
+  display: block;
+  outline: 0;
+}
+.dd-vector-labels {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  overflow: hidden;
+}
+.dd-stage .vector-label {
+  position: absolute;
+  top: 0;
+  left: 0;
+  border: 1px solid #183c5866;
+  border-radius: 5px;
+  background: #e4f3f7e6;
+  color: #183c58;
+  box-shadow: 0 1px 8px #1d607b1a;
+  font:
+    500 10px ui-monospace,
+    "SFMono-Regular",
+    Menlo,
+    monospace;
+  padding: 4px 6px;
+  white-space: nowrap;
+  will-change: transform;
+  min-width: 30px;
+  text-align: center;
+}
+.dd-stage .vector-label.selected {
+  background: #007aff;
+  border-color: #0069dc;
+  color: #fff;
+  box-shadow: 0 2px 12px #0077c24a;
+  font-size: 11px;
+  font-weight: 650;
+  padding: 5px 8px;
+}
+
+/* Top bar */
+.dd-topbar {
+  position: absolute;
+  z-index: 5;
+  left: 22px;
+  top: 22px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 48px;
+  padding: 8px 8px 8px 6px;
+  border-radius: 12px;
+  max-width: calc(100% - 44px);
+}
+.dd-title {
+  font-size: 15px;
+  font-weight: 650;
+  letter-spacing: -0.3px;
+  white-space: nowrap;
+}
+.dd-world-picker {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding-left: 12px;
+  border-left: 1px solid var(--dd-line);
+  height: 28px;
+  min-width: 0;
+}
+.dd-world-picker select {
+  border: 0;
+  background: transparent;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 550;
+  color: inherit;
+  outline: none;
+  cursor: pointer;
+  max-width: 150px;
+}
+.dd-seed {
+  font-size: 11px;
+  color: var(--dd-faint);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.dd-world-picker button {
+  width: 32px;
+  height: 28px;
+  padding: 0;
+  color: var(--dd-muted);
+}
+.dd-world-picker svg {
+  width: 15px;
+}
+.dd-back {
+  width: 34px;
+  height: 34px;
+  padding: 0;
+}
+
+/* Navigation and minimap */
+.dd-navigation {
+  position: absolute;
+  top: 22px;
+  right: 22px;
+  z-index: 6;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+  max-width: min(480px, calc(100% - 440px));
+  pointer-events: none;
+}
+.dd-navigation > * {
+  pointer-events: auto;
+}
+.dd-navigation-card {
+  display: flex;
+  max-width: 100%;
+  align-items: center;
+  gap: 13px;
+  border-radius: 10px;
+  padding: 13px 12px 13px 14px;
+  min-height: 65px;
+}
+.dd-turn-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #44484f;
+  width: 32px;
+}
+.dd-turn-icon svg {
+  width: 29px;
+  height: 29px;
+  stroke-width: 2;
+}
+.dd-navigation-card strong {
+  display: block;
+  font-size: 13px;
+  font-weight: 550;
+}
+.dd-navigation-card > div > span {
+  display: block;
+  margin-top: 3px;
+  font-size: 11px;
+  color: var(--dd-faint);
+}
+.dd-nav-divider {
+  height: 27px;
+  width: 1px;
+  background: var(--dd-soft);
+  margin-left: 5px;
+}
+.dd-remaining {
+  font-size: 11px;
+  color: var(--dd-muted);
+  white-space: nowrap;
+}
+.dd-navigation-card > button {
+  padding: 4px;
+  color: var(--dd-muted);
+}
+.dd-navigation-card > button svg {
+  width: 16px;
+}
+.dd-navigation-card > button[aria-pressed="true"] {
+  color: var(--dd-accent);
+}
+.dd-minimap {
+  position: relative;
+  width: 180px;
+  border-radius: 10px;
+  overflow: hidden;
+}
+.dd-minimap canvas {
+  display: block;
+  width: 100%;
+  opacity: 0.9;
+  cursor: grab;
+  touch-action: none;
+}
+.dd-minimap .minimap-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px;
+  border-bottom: 1px solid var(--dd-line);
+  user-select: none;
+}
+.dd-minimap .minimap-toolbar > div {
+  display: flex;
+  gap: 2px;
+}
+.dd-minimap .minimap-toolbar button {
+  width: 26px;
+  height: 26px;
+  padding: 5px;
+  color: var(--dd-muted);
+}
+.dd-minimap .minimap-toolbar svg {
+  width: 15px;
+  height: 15px;
+}
+.dd-minimap .map-drag {
+  cursor: grab;
+  touch-action: none;
+}
+.dd-minimap.is-moving .map-drag,
+.dd-minimap.is-panning canvas {
+  cursor: grabbing;
+}
+
+/* Driver dock */
+.dd-bottom {
+  position: absolute;
+  bottom: 17px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 5;
+  width: max-content;
+  max-width: calc(100% - 32px);
+}
+.dd-dock {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  border-radius: 15px;
+  padding: 12px 14px;
+  height: 76px;
+}
+.dd-speed {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+.dd-stage .dd-speed > div {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 48px;
+}
+.dd-speed strong {
+  font-size: 38px;
+  font-weight: 500;
+  line-height: 0.98;
+  letter-spacing: -2px;
+  font-variant-numeric: tabular-nums;
+}
+.dd-speed div > span {
+  font-size: 9px;
+  color: var(--dd-muted);
+  margin-top: 4px;
+}
+.dd-limit {
+  border: 1.5px solid var(--dd-text);
+  border-radius: 5px;
+  padding: 3px 6px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  line-height: 1.25;
+  background: #ffffff;
+}
+.dd-limit small {
+  font-size: 6px;
+  letter-spacing: 0.6px;
+  color: var(--dd-faint);
+}
+.dd-limit b {
+  font-size: 15px;
+  font-weight: 500;
+}
+.dd-dock-divider {
+  width: 1px;
+  height: 37px;
+  background: var(--dd-soft);
+  margin: 0 2px;
+}
+.dd-pilot-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.dd-stage .dd-pilot {
+  border: 1px solid var(--dd-text);
+  background: var(--dd-text);
+  color: #ffffff;
+  border-radius: 8px;
+  min-height: 41px;
+  padding: 10px 12px;
+  white-space: nowrap;
+  font-size: 12px;
+  font-weight: 550;
+  gap: 8px;
+}
+.dd-stage .dd-pilot:hover {
+  background: #30343b;
+}
+.dd-stage .dd-pilot svg {
+  width: 17px;
+  height: 17px;
+}
+.dd-stage .dd-pilot kbd {
+  color: #ffffffb3;
+  border-color: #ffffff40;
+}
+.dd-stage .dd-pilot[aria-checked="true"] {
+  border-color: var(--dd-accent);
+  background: var(--dd-accent);
+}
+.dd-stage .dd-pilot[aria-checked="true"]:hover {
+  background: #c9161c;
+}
+.dd-stage .dd-candidates {
+  min-height: 41px;
+  border: 1px solid var(--dd-line);
+  border-radius: 8px;
+  color: var(--dd-muted);
+  padding: 7px 10px;
+}
+.dd-stage .dd-candidates svg {
+  width: 20px;
+  height: 20px;
+}
+.dd-stage .dd-candidates[aria-pressed="true"] {
+  color: var(--dd-blue);
+  border-color: #3e6ae155;
+  background: #3e6ae10f;
+}
+.dd-status {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  width: 190px;
+  flex: 0 1 190px;
+}
+.dd-pilot-state {
+  font-size: 12px;
+  font-weight: 550;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.dd-context {
+  font-size: 9px;
+  color: var(--dd-faint);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-height: 11px;
+}
+.dd-cost {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
+  font-size: 9px;
+  color: var(--dd-muted);
+}
+.dd-cost strong {
+  font:
+    500 10px ui-monospace,
+    "SFMono-Regular",
+    Menlo,
+    monospace;
+  color: #44484f;
+}
+.dd-tools {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+}
+.dd-stage .dd-tools button {
+  font-size: 11px;
+  padding: 7px 10px;
+  min-height: 36px;
+  gap: 6px;
+  color: var(--dd-muted);
+  white-space: nowrap;
+}
+.dd-stage .dd-tools svg {
+  width: 16px;
+  height: 16px;
+}
+.dd-tools button[aria-pressed="true"] {
+  color: var(--dd-blue);
+  background: #3e6ae114;
+}
+.dd-divider {
+  width: 1px;
+  height: 17px;
+  background: var(--dd-soft);
+  margin: 0 2px;
+}
+
+/* The debug sidebar sits on the left; keep the top bar clear of it. */
+.dd-stage.with-debug .dd-bottom {
+  left: calc(50% + 190px);
+  max-width: calc(100% - 420px);
+}
+
+/* Overlays */
+.dd-paused {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  background: #f7f7f74a;
+  backdrop-filter: blur(3px);
+  display: grid;
+  place-items: center;
+}
+.dd-stage .dd-paused > div {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  align-items: center;
+  border-radius: 15px;
+  padding: 26px 40px;
+  max-width: min(440px, 90vw);
+  text-align: center;
+}
+.dd-stage .dd-paused span {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 21px;
+  font-weight: 550;
+}
+.dd-paused-reason {
+  margin: 0;
+  font-size: 12px;
+  color: var(--dd-muted);
+  line-height: 1.5;
+}
+.dd-stage .dd-primary {
+  background: var(--dd-accent);
+  color: #ffffff;
+  border: 1px solid var(--dd-accent);
+  border-radius: 7px;
+  padding: 11px 19px;
+  font-size: 12px;
+  font-weight: 550;
+}
+.dd-stage .dd-primary:hover {
+  background: #c9161c;
+}
+.dd-stage .dd-secondary {
+  border: 1px solid #e5e7eb;
+  background: var(--dd-soft);
+  border-radius: 7px;
+  font-size: 11px;
+  padding: 9px 12px;
+}
+.dd-stage .dd-secondary svg,
+.dd-stage .dd-primary svg {
+  width: 14px;
+  height: 14px;
+}
+.dd-stage .dd-subtle {
+  font-size: 11px;
+  color: var(--dd-faint);
+}
+.dd-eyebrow {
+  font-size: 9px;
+  letter-spacing: 1.5px;
+  color: var(--dd-faint);
+}
+.dd-arrival {
+  /* Beside the car, not over it: the run's last moment stays in view. */
+  position: absolute;
+  z-index: 7;
+  right: 5vw;
+  bottom: 13vh;
+  width: 360px;
+  max-width: calc(100vw - 32px);
+  text-align: center;
+  padding: 35px 28px 23px;
+  border-radius: 17px;
+  display: flex;
+  align-items: center;
+  flex-direction: column;
+  gap: 8px;
+  animation: dd-crash-card 650ms ease-out both;
+}
+.dd-arrival-mark {
+  display: grid;
+  place-items: center;
+  width: 57px;
+  height: 57px;
+  border-radius: 50%;
+  margin-bottom: 13px;
+}
+.dd-arrival-mark.pass {
+  background: #eaf7ef;
+  color: #1a8f50;
+}
+.dd-arrival-mark.fail {
+  background: #fff0f1;
+  color: var(--dd-accent);
+}
+.dd-stage .dd-arrival-mark svg {
+  width: 26px;
+  height: 26px;
+}
+.dd-arrival h1 {
+  font-size: 34px;
+  letter-spacing: -1.2px;
+  font-weight: 600;
+  margin: 2px 0 4px;
+}
+.dd-arrival p {
+  font-size: 12px;
+  color: var(--dd-muted);
+  line-height: 1.6;
+  margin: 0 0 14px;
+}
+.dd-arrival .dd-primary {
+  width: 100%;
+}
+.dd-arrival .dd-secondary {
+  width: 100%;
+}
+.dd-stage.crashed .dd-bottom,
+.dd-stage.crashed .dd-navigation-card,
+.dd-stage.crashed .dd-minimap {
+  visibility: hidden;
+}
+.dd-crash {
+  position: absolute;
+  inset: auto 5vw 10vh auto;
+  z-index: 8;
+  width: 360px;
+  max-width: calc(100vw - 32px);
+  margin: 0;
+  padding: 30px;
+  background: #fffffff5;
+  border: 1px solid #ffffff;
+  border-radius: 14px;
+  box-shadow: 0 25px 100px #00000035;
+  color: var(--dd-text);
+  animation: dd-crash-card 650ms ease-out both;
+}
+.dd-crash[open] {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+}
+@keyframes dd-crash-card {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+}
+.dd-crash-symbol {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  background: #fff0f1;
+  color: var(--dd-accent);
+  border-radius: 50%;
+  margin-bottom: 18px;
+}
+.dd-crash .dd-eyebrow {
+  color: var(--dd-accent);
+}
+.dd-crash h1 {
+  font-size: 40px;
+  letter-spacing: -1.5px;
+  font-weight: 600;
+  margin: 6px 0 8px;
+}
+.dd-crash p {
+  font-size: 13px;
+  color: #646a73;
+  line-height: 1.6;
+  margin: 0;
+}
+.dd-crash-stats {
+  display: flex;
+  gap: 26px;
+  padding: 20px 0;
+  margin: 16px 0 8px;
+  border-top: 1px solid #e6e8eb;
+  align-self: stretch;
+}
+.dd-stage .dd-crash-stats div {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.dd-crash-stats strong {
+  font-size: 26px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+.dd-stage .dd-crash-stats span {
+  font-size: 10px;
+  color: var(--dd-muted);
+}
+.dd-crash .dd-primary {
+  align-self: stretch;
+  margin-bottom: 6px;
+}
+.dd-toast {
+  position: absolute;
+  left: 50%;
+  bottom: 110px;
+  transform: translateX(-50%);
+  max-width: min(480px, 90vw);
+  width: max-content;
+  z-index: 10;
+  background: #171a20f2;
+  color: #ffffff;
+  font-size: 11px;
+  padding: 13px 19px;
+  border: 1px solid #3b3f46;
+  border-radius: 8px;
+  box-shadow: 0 8px 30px #24272d3a;
+  line-height: 1.5;
+}
+.dd-toast.error {
+  background: #2b0c10f5;
+  color: #ff6b62;
+  border-color: #ff3b30;
+  font-weight: 650;
+}
+.dd-loader {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 14px;
+  background: #f5f6f8;
+  text-align: center;
+  padding: 24px;
+}
+.dd-loader strong {
+  font-size: 20px;
+  font-weight: 600;
+}
+.dd-loader p {
+  margin: 0;
+  color: #737985;
+}
+.dd-spinner {
+  width: 22px;
+  height: 22px;
+  border: 2px solid #dfe2e6;
+  border-top-color: var(--dd-text);
+  border-radius: 50%;
+  animation: dd-spin 0.9s linear infinite;
+}
+@keyframes dd-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .dd-spinner {
+    animation: none;
+  }
+}
+
+/* JSON inspector */
+.json-dialog {
+  width: min(1100px, 94vw);
+  height: 88dvh;
+  max-height: 1100px;
+  padding: 0;
+  border: 1px solid var(--dd-soft);
+  border-radius: 14px;
+  background: #ffffff;
+  color: var(--dd-text);
+  box-shadow: 0 20px 120px #112e3044;
+}
+.json-dialog[open] {
+  display: flex;
+  flex-direction: column;
+}
+.json-dialog::backdrop {
+  background: #24272d70;
+  backdrop-filter: blur(8px);
+}
+.json-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 17px 23px;
+  border-bottom: 1px solid var(--dd-soft);
+}
+.dd-stage .json-header > div {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+}
+.json-header strong {
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: -0.6px;
+}
+.dd-stage .json-header svg {
+  width: 17px;
+  color: var(--dd-muted);
+}
+.json-live {
+  font-size: 8px;
+  letter-spacing: 1px;
+  color: var(--dd-faint);
+  margin-left: 13px;
+}
+.json-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 15px 23px;
+  flex-wrap: wrap;
+}
+.json-tabs {
+  display: flex;
+  gap: 3px;
+  padding: 3px;
+  border-radius: 7px;
+  background: var(--dd-soft);
+}
+.dd-stage .json-tabs button {
+  font-size: 11px;
+  color: var(--dd-muted);
+  padding: 8px 13px;
+  border-radius: 5px;
+}
+.dd-stage .json-tabs .active {
+  background: #ffffff;
+  color: var(--dd-accent);
+  box-shadow: 0 1px 4px #24272d0c;
+}
+.json-actions {
+  display: flex;
+  gap: 8px;
+}
+.dd-stage .json-actions button {
+  font-size: 10px;
+  color: var(--dd-muted);
+}
+.dd-stage .json-actions svg {
+  width: 13px;
+}
+.json-description {
+  font-size: 11px;
+  color: var(--dd-muted);
+  margin: 0 23px 17px;
+}
+.json-content {
+  flex: 1;
+  min-height: 0;
+  background: #171a20;
+  color: #e5e7eb;
+  font:
+    11px / 1.75 ui-monospace,
+    "SFMono-Regular",
+    Menlo,
+    monospace;
+  margin: 0;
+  padding: 24px 28px;
+  overflow: auto;
+}
+.json-key {
+  color: #f0f1f3;
+}
+.json-string {
+  color: #c7cbd2;
+}
+.json-number {
+  color: #8db5ff;
+}
+.json-bool {
+  color: #ff9298;
+}
+
+@media (max-width: 1100px) {
+  .dd-tools button > span {
+    display: none;
+  }
+  .dd-navigation {
+    max-width: min(420px, calc(100% - 380px));
+  }
+}
+@media (max-width: 760px) {
+  .dd-topbar {
+    left: 12px;
+    top: 12px;
+    height: 44px;
+  }
+  .dd-title {
+    display: none;
+  }
+  .dd-navigation {
+    top: 66px;
+    right: 12px;
+    max-width: calc(100% - 24px);
+  }
+  .dd-nav-divider,
+  .dd-remaining {
+    display: none;
+  }
+  .dd-minimap {
+    width: 148px;
+  }
+  .dd-dock {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    height: auto;
+    padding: 11px;
+    gap: 9px;
+  }
+  .dd-dock-divider {
+    display: none;
+  }
+  .dd-stage .dd-pilot kbd {
+    display: none;
+  }
+  .dd-status {
+    width: auto;
+  }
+  .dd-stage.with-debug .dd-bottom {
+    left: 50%;
+    max-width: calc(100% - 32px);
+  }
+}
+
+/* Last, so it wins over every equally specific display rule above. */
+.dd-stage [hidden] {
+  display: none;
+}
