@@ -11,6 +11,7 @@ import { chmodSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { INBOX_GENERATOR, inboxCases } from "../dungeons/inbox/generate.ts";
 import { LOGS_GENERATOR, logCases } from "../dungeons/logs/generate.ts";
+import { ORACLE_GENERATOR, oracleCases } from "../dungeons/oracle/generate.ts";
 import {
   RECEIPTS_GENERATOR,
   receiptCases,
@@ -72,6 +73,11 @@ export const GENERATORS: Record<string, Generator> = {
     base: { "policy-text": 60, total: 40, "all-questions": 40 },
     generate: receiptCases,
   },
+  oracle: {
+    id: ORACLE_GENERATOR,
+    base: { numbers: 120, many: 80 },
+    generate: oracleCases,
+  },
 };
 
 export class CaseError extends Error {
@@ -90,8 +96,9 @@ export function caseHash(cases: TextCase[]): string {
         c.input,
         c.truth,
         c.why,
-        // Only when present, so sets without pictures keep their hashes.
+        // Only when present, so sets without them keep their hashes.
         ...(c.source ? [c.source] : []),
+        ...(c.odds ? [{ odds: c.odds }] : []),
       ]),
     );
   return hasher.digest("hex").slice(0, 16);
@@ -143,6 +150,7 @@ interface CaseRow {
   why: string;
   source: string | null;
   images: string | null;
+  odds: string | null;
 }
 
 /** Fills each case's `images` from its `source`. */
@@ -206,6 +214,7 @@ const MIGRATIONS: string[][] = [
     "ALTER TABLE cases ADD COLUMN source TEXT",
     "ALTER TABLE cases ADD COLUMN images TEXT",
   ],
+  ["ALTER TABLE cases ADD COLUMN odds TEXT"],
 ];
 
 function migrate(db: Database): void {
@@ -295,12 +304,12 @@ export class CaseStore {
     const rows = level
       ? db
           .query<CaseRow, [string, string, string]>(
-            "SELECT id, level, lang, input, truth, why, source, images FROM cases WHERE dungeon = ? AND set_name = ? AND level = ? ORDER BY id",
+            "SELECT id, level, lang, input, truth, why, source, images, odds FROM cases WHERE dungeon = ? AND set_name = ? AND level = ? ORDER BY id",
           )
           .all(dungeon, name, level)
       : db
           .query<CaseRow, [string, string]>(
-            "SELECT id, level, lang, input, truth, why, source, images FROM cases WHERE dungeon = ? AND set_name = ? ORDER BY id",
+            "SELECT id, level, lang, input, truth, why, source, images, odds FROM cases WHERE dungeon = ? AND set_name = ? ORDER BY id",
           )
           .all(dungeon, name);
     return {
@@ -314,6 +323,7 @@ export class CaseStore {
         why: r.why,
         ...(r.source ? { source: JSON.parse(r.source) } : {}),
         ...(r.images ? { images: JSON.parse(r.images) } : {}),
+        ...(r.odds ? { odds: JSON.parse(r.odds) } : {}),
       })),
     };
   }
@@ -365,7 +375,7 @@ export class CaseStore {
         ],
       );
       const insert = db.prepare(
-        "INSERT INTO cases (dungeon, set_name, id, level, lang, input, truth, why, source, images) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        "INSERT INTO cases (dungeon, set_name, id, level, lang, input, truth, why, source, images, odds) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
       );
       for (const c of set.cases)
         insert.run(
@@ -379,6 +389,7 @@ export class CaseStore {
           c.why,
           c.source ? JSON.stringify(c.source) : null,
           c.images ? JSON.stringify(c.images) : null,
+          c.odds ? JSON.stringify(c.odds) : null,
         );
     })();
     return existing ? "replaced" : "written";
@@ -425,7 +436,7 @@ export class CaseStore {
         ],
       );
       const insert = db.prepare(
-        "INSERT INTO cases (dungeon, set_name, id, level, lang, input, truth, why, source, images) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        "INSERT INTO cases (dungeon, set_name, id, level, lang, input, truth, why, source, images, odds) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
       );
       for (const c of set.cases)
         if (added.includes(c.level))
@@ -440,6 +451,7 @@ export class CaseStore {
             c.why,
             c.source ? JSON.stringify(c.source) : null,
             c.images ? JSON.stringify(c.images) : null,
+            c.odds ? JSON.stringify(c.odds) : null,
           );
     })();
     return true;

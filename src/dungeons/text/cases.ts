@@ -25,6 +25,11 @@ export interface TextCase {
   lang: string;
   input: JsonValue;
   truth: Record<string, Truth>;
+  /**
+   * The true probability of each yes-or-no question, where the generator
+   * knows it: the chance the outcome in `truth` was drawn from.
+   */
+  odds?: Record<string, number>;
   /** Why the truth is what it is, for a person reading the result. */
   why: string;
   /**

@@ -231,12 +231,14 @@ describe("case store", () => {
   test("a many-questions level asks every question it scores", () => {
     for (const [id, set] of Object.entries(sets)) {
       const dungeon = dungeonById(id) as AnyDungeon;
-      const level = dungeon.levels.find((l) => l.id === "all-questions");
-      expect(level?.tags).toContain("many-questions");
-      const run = dungeon.create(1, "all-questions", { cases: set });
+      const level = dungeon.levels.find((l) =>
+        l.tags?.includes("many-questions"),
+      );
+      if (!level) throw new Error(`${id} has no many-questions level`);
+      const run = dungeon.create(1, level.id, { cases: set });
       const asked = Object.keys(dungeon.observe(run).request.questions);
       expect(asked.length).toBeGreaterThan(1);
-      for (const c of set.cases.filter((c) => c.level === "all-questions"))
+      for (const c of set.cases.filter((c) => c.level === level.id))
         expect(Object.keys(c.truth).sort()).toEqual([...asked].sort());
     }
   });
@@ -249,7 +251,7 @@ describe("case store", () => {
     expect(db.query("PRAGMA journal_mode").get()).toEqual({
       journal_mode: "wal",
     });
-    expect(db.query("PRAGMA user_version").get()).toEqual({ user_version: 2 });
+    expect(db.query("PRAGMA user_version").get()).toEqual({ user_version: 3 });
     db.close();
     // A seed in another process while this one reads: neither waits on the other.
     const writer = Bun.spawn(

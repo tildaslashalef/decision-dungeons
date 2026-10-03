@@ -40,6 +40,15 @@ export interface TextSpec {
   rule(request: Request): Answers;
   /** A few words naming the case in records. */
   summary(c: TextCase): string;
+  /**
+   * Scores the run in place of accuracy, for cases with no single right
+   * answer; `passed` counts only once the run is finished.
+   */
+  score?(run: TextRun): Pick<Outcome, "metrics" | "calibration"> & {
+    passed: boolean;
+  };
+  /** An answered case's record line; absent: each answer against its truth. */
+  record?(c: TextCase, answers: Answers): string;
 }
 
 export interface TextRun {
@@ -170,16 +179,30 @@ export function textDungeon(spec: TextSpec): Dungeon<TextRun> {
         );
       }
       run.answers.push(answers);
-      run.records.push({
-        index: run.index,
-        summary: `${spec.summary(c)}: ${parts.join(", ")}`,
-        correct,
-      });
+      run.records.push(
+        spec.record
+          ? { index: run.index, summary: spec.record(c, answers) }
+          : {
+              index: run.index,
+              summary: `${spec.summary(c)}: ${parts.join(", ")}`,
+              correct,
+            },
+      );
       run.index++;
     },
     step() {},
     outcome(run): Outcome {
       const finished = run.index >= run.cases.length;
+      if (spec.score) {
+        const { passed, ...scored } = spec.score(run);
+        return {
+          finished,
+          ...(finished ? { passed } : {}),
+          violations: 0,
+          ...scored,
+          records: run.records,
+        };
+      }
       const decided = run.records.length;
       const correct = run.records.filter((r) => r.correct).length;
       const accuracy = decided ? correct / decided : undefined;

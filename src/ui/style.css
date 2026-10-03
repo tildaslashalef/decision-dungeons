@@ -1663,6 +1663,133 @@ button.primary:hover {
   }
 }
 
+/* The Oracle: the day beside its chances and the reliability diagram */
+.oracle-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  gap: 18px;
+  margin: 14px 0;
+}
+.doc-harbour header {
+  background: #f4f1ea;
+}
+.harbour-lines {
+  max-height: min(430px, calc(100dvh - 380px));
+  overflow-y: auto;
+  margin: 0;
+  padding: 12px 16px 14px 18px;
+  list-style: none;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.harbour-lines li {
+  padding: 3px 0;
+  border-bottom: 1px dashed #eceae4;
+}
+.harbour-lines li.note {
+  color: #8a3b12;
+  font-style: italic;
+}
+.harbour-table {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 5px 16px;
+  margin: 0;
+  padding: 14px 16px;
+  font-size: 13px;
+}
+.harbour-table dt {
+  color: var(--muted);
+}
+.harbour-table dd {
+  margin: 0;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+.oracle-side {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+}
+.odds {
+  display: grid;
+  gap: 6px;
+}
+.odds-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 12px;
+}
+.odds-head span {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.odds-track {
+  display: block;
+  width: 100%;
+  height: 22px;
+}
+.reliability {
+  margin: 0;
+  padding: 10px 12px 6px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #ffffff;
+}
+.reliability figcaption {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 12.5px;
+}
+.chart-legend {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 11.5px;
+}
+.chart-legend .key {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  margin-left: 6px;
+}
+.key-observed {
+  border-radius: 50%;
+  background: #2a78d6;
+}
+.key-truth {
+  background: #eb6834;
+  transform: rotate(45deg) scale(0.85);
+}
+.reliability-chart {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: calc(100dvh - 520px);
+  min-height: 150px;
+}
+.chart-tick {
+  font-size: 10px;
+  fill: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.oracle-figures {
+  grid-template-columns: 1fr 1fr;
+  margin-top: 0;
+}
+.fact small {
+  color: var(--muted);
+  font-size: 10.5px;
+}
+@media (max-width: 860px) {
+  .oracle-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* Debug sidebar */
 .debug-sidebar {
   background: #fbfbfcf7;

@@ -7,6 +7,7 @@ import {
   mountDrivingStage,
   type StageContext,
 } from "../dungeons/driving/ui/stage.ts";
+import { oracleView } from "../dungeons/oracle/view.ts";
 import type { TextRun } from "../dungeons/text/text-dungeon.ts";
 import { textView } from "../dungeons/text/view.ts";
 import { mountTowerStage } from "../dungeons/tower/ui/stage.ts";
@@ -21,6 +22,7 @@ const views: Record<string, View> = {
   tickets: (run, status) => textView("ticket", run as TextRun, status),
   logs: (run, status) => textView("logs", run as TextRun, status),
   receipts: (run, status) => textView("receipt", run as TextRun, status),
+  oracle: (run, status) => oracleView(run as TextRun, status),
 };
 
 /**

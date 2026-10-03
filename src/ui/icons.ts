@@ -24,6 +24,9 @@ import airplane from "@phosphor-icons/core/assets/duotone/airplane-tilt-duotone.
 import radio from "@phosphor-icons/core/assets/duotone/broadcast-duotone.svg" with {
   type: "text",
 };
+import chartScatter from "@phosphor-icons/core/assets/duotone/chart-scatter-duotone.svg" with {
+  type: "text",
+};
 import checkCircle from "@phosphor-icons/core/assets/duotone/check-circle-duotone.svg" with {
   type: "text",
 };
@@ -45,6 +48,9 @@ import fish from "@phosphor-icons/core/assets/duotone/fish-simple-duotone.svg" w
 import floppy from "@phosphor-icons/core/assets/duotone/floppy-disk-duotone.svg" with {
   type: "text",
 };
+import footprints from "@phosphor-icons/core/assets/duotone/footprints-duotone.svg" with {
+  type: "text",
+};
 import gauge from "@phosphor-icons/core/assets/duotone/gauge-duotone.svg" with {
   type: "text",
 };
@@ -61,6 +67,12 @@ import image from "@phosphor-icons/core/assets/duotone/image-duotone.svg" with {
   type: "text",
 };
 import key from "@phosphor-icons/core/assets/duotone/key-duotone.svg" with {
+  type: "text",
+};
+import lighthouse from "@phosphor-icons/core/assets/duotone/lighthouse-duotone.svg" with {
+  type: "text",
+};
+import mapTrifold from "@phosphor-icons/core/assets/duotone/map-trifold-duotone.svg" with {
   type: "text",
 };
 import play from "@phosphor-icons/core/assets/duotone/play-duotone.svg" with {
@@ -81,7 +93,16 @@ import shuffle from "@phosphor-icons/core/assets/duotone/shuffle-duotone.svg" wi
 import siren from "@phosphor-icons/core/assets/duotone/siren-duotone.svg" with {
   type: "text",
 };
+import skull from "@phosphor-icons/core/assets/duotone/skull-duotone.svg" with {
+  type: "text",
+};
 import stack from "@phosphor-icons/core/assets/duotone/stack-duotone.svg" with {
+  type: "text",
+};
+import stairs from "@phosphor-icons/core/assets/duotone/stairs-duotone.svg" with {
+  type: "text",
+};
+import sword from "@phosphor-icons/core/assets/duotone/sword-duotone.svg" with {
   type: "text",
 };
 import terminal from "@phosphor-icons/core/assets/duotone/terminal-window-duotone.svg" with {
@@ -97,6 +118,12 @@ import trash from "@phosphor-icons/core/assets/duotone/trash-duotone.svg" with {
   type: "text",
 };
 import warning from "@phosphor-icons/core/assets/duotone/warning-circle-duotone.svg" with {
+  type: "text",
+};
+import waves from "@phosphor-icons/core/assets/duotone/waves-duotone.svg" with {
+  type: "text",
+};
+import wind from "@phosphor-icons/core/assets/duotone/wind-duotone.svg" with {
   type: "text",
 };
 import gameCityCar from "./icons/game/city-car.svg" with { type: "text" };
@@ -156,6 +183,16 @@ const SOURCES = {
   landing,
   fog,
   radio,
+  // Phosphor: The Oracle's and Undercroft's marks.
+  lighthouse,
+  wind,
+  chartScatter,
+  waves,
+  sword,
+  skull,
+  stairs,
+  mapTrifold,
+  footprints,
   // game-icons.net: dungeon accents.
   dungeonGate: gameDungeonGate,
   cityCar: gameCityCar,

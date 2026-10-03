@@ -17,6 +17,7 @@ import {
   decideTimeoutMs,
   isDeciderId,
 } from "../deciders/registry.ts";
+import { poolCalibration } from "../dungeons/oracle/score.ts";
 import { dungeonById, dungeons } from "../dungeons/registry.ts";
 import { type RunResult, runEpisode } from "../dungeons/run.ts";
 import { BASE_SET, CaseStore } from "../server/cases.ts";
@@ -109,6 +110,31 @@ function table(results: RunResult[]): string {
   return [line(head), line(head.map(() => "---")), ...rows.map(line)].join(
     "\n",
   );
+}
+
+/** Reliability per model and level, every seed's bins pooled; empty when no run reports calibration. */
+function calibrationTable(results: RunResult[]): string {
+  const groups = new Map<string, RunResult[]>();
+  for (const r of results)
+    if (r.outcome.calibration) {
+      const key = `${r.model} · ${r.level}`;
+      groups.set(key, [...(groups.get(key) ?? []), r]);
+    }
+  if (!groups.size) return "";
+  const pct = (p: number | undefined) =>
+    p === undefined ? "—" : `${Math.round(p * 100)}%`;
+  const rows = [...groups].flatMap(([key, runs]) =>
+    poolCalibration(runs.map((r) => r.outcome.calibration ?? [])).map(
+      (bin) =>
+        `| ${key} | ${pct(bin.from)}–${pct(bin.to)} | ${bin.n} | ${pct(bin.forecast)} | ${pct(bin.observed)} | ${pct(bin.truth)} |`,
+    ),
+  );
+  return [
+    "\nCalibration, seeds pooled: the forecast's bin, how many, its mean, how often it came true, and the mean true chance\n",
+    "| model · level | bin | n | forecast | came true | true chance |",
+    "| --- | --- | ---: | ---: | ---: | ---: |",
+    ...rows,
+  ].join("\n");
 }
 
 async function main(argv: string[]): Promise<void> {
@@ -215,7 +241,7 @@ async function main(argv: string[]): Promise<void> {
   }
   if (!values.json)
     console.log(
-      `\n${dungeon.title} · ${deciderId} · ${models.join(", ")}${values.evaluation ? " · evaluation mode" : ""}${cases ? ` · cases ${cases.name} ${cases.hash}` : ""}\n\n${table(results)}`,
+      `\n${dungeon.title} · ${deciderId} · ${models.join(", ")}${values.evaluation ? " · evaluation mode" : ""}${cases ? ` · cases ${cases.name} ${cases.hash}` : ""}\n\n${table(results)}${calibrationTable(results)}`,
     );
   if (results.some((r) => r.error || r.outcome.passed === false))
     process.exitCode = 1;

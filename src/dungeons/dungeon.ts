@@ -44,6 +44,23 @@ export interface DecisionRecord {
   violation?: string;
 }
 
+/**
+ * One bin of a reliability diagram: the forecasts whose probability fell in
+ * [from, to), with their mean, the rate their outcomes came true, and,
+ * where the dungeon knows it, the mean true probability.
+ */
+export interface CalibrationBin {
+  from: number;
+  to: number;
+  n: number;
+  /** The decider's mean probability in the bin. */
+  forecast: number;
+  /** The share of outcomes that came true. */
+  observed: number;
+  /** The mean true probability, when the dungeon knows each case's. */
+  truth?: number;
+}
+
 export interface Outcome {
   finished: boolean;
   /** Whether the run met the level's pass bound; absent until finished. */
@@ -51,6 +68,8 @@ export interface Outcome {
   violations: number;
   /** Dungeon-defined numbers, the columns of a comparison table. */
   metrics: Record<string, number>;
+  /** Probabilities against outcomes, for a dungeon that scores forecasts. */
+  calibration?: CalibrationBin[];
   records: DecisionRecord[];
 }
 

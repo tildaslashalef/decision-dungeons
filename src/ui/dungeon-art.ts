@@ -419,6 +419,139 @@ function drawTower(key: string): SVGElement {
   );
 }
 
+/** A harbour at first light: the breakwater, its lighthouse, the ferry at the quay. */
+function drawOracle(key: string): SVGElement {
+  const sky = `${key}-sky`;
+  const sea = `${key}-sea`;
+  const waves: SVGElement[] = [];
+  for (let i = 0; i < 9; i++) {
+    const y = 236 + i * 18 + (i * i) / 2;
+    const amp = 2 + i * 0.6;
+    waves.push(
+      path(`M0 ${y} Q 37 ${y - amp} 75 ${y} T 150 ${y} T 225 ${y} T 300 ${y}`, {
+        stroke: "#ffffff",
+        "stroke-opacity": 0.12 + i * 0.02,
+        fill: "none",
+      }),
+    );
+  }
+  return frame(
+    "A harbour at first light, a lighthouse on the breakwater and a ferry at the quay",
+    svg(
+      "defs",
+      {},
+      gradient(sky, [
+        [0, "#1c2b4a"],
+        [0.5, "#5a6f9c"],
+        [0.85, "#e9b48a"],
+        [1, "#f6d3a4"],
+      ]),
+      gradient(sea, [
+        [0, "#3d5a7c"],
+        [1, "#16253a"],
+      ]),
+    ),
+    rect(0, 0, 300, 400, `url(#${sky})`),
+    rect(0, 214, 300, 186, `url(#${sea})`),
+    ...waves,
+    // The breakwater reaching out from the right, the lighthouse at its head.
+    path("M300 226 L170 226 L162 236 L300 236 Z", { fill: "#2a3140" }),
+    path("M182 226 L186 150 L198 150 L202 226 Z", { fill: "#eef0f4" }),
+    rect(184, 168, 16, 9, "#c2453a"),
+    rect(185, 196, 15, 9, "#c2453a"),
+    rect(181, 138, 22, 13, "#2a3140", { rx: 2 }),
+    svg("circle", { cx: 192, cy: 144, r: 5, fill: "#fff3cf" }),
+    path("M192 144 L40 112 L40 168 Z", { fill: "#fff3cf", opacity: 0.18 }),
+    // The ferry, waiting.
+    path("M24 262 L128 262 L118 282 L34 282 Z", { fill: "#eef0f4" }),
+    rect(46, 246, 60, 16, "#d9dde3", { rx: 3 }),
+    rect(62, 232, 22, 14, "#c9cdd3", { rx: 2 }),
+    rect(68, 222, 8, 10, "#b5562d"),
+    ...[54, 66, 78, 90].map((x) => rect(x, 251, 7, 5, "#3b4a6a", { rx: 1 })),
+    path("M34 282 L118 282 L116 286 L36 286 Z", { fill: "#b5562d" }),
+  );
+}
+
+/** A torchlit dungeon from above: stone tiles, a key, a locked door, the stairs down. */
+function drawUndercroft(key: string): SVGElement {
+  const glow = `${key}-glow`;
+  const tiles: SVGElement[] = [];
+  const map = [
+    "##########",
+    "#....#...#",
+    "#.##.#.#.#",
+    "#.#..D.#.#",
+    "#.#.####.#",
+    "#...#..k.#",
+    "###.#.##.#",
+    "#...#..#.#",
+    "#.###.##.#",
+    "#..@...>.#",
+    "#.######.#",
+    "#........#",
+    "##########",
+  ];
+  map.forEach((row, y) => {
+    [...row].forEach((ch, x) => {
+      const px = x * 30;
+      const py = y * 30 + 10;
+      tiles.push(
+        rect(px, py, 29, 29, ch === "#" ? "#2b2620" : "#5b5246", {
+          rx: 2,
+        }),
+      );
+      if (ch === "D")
+        tiles.push(rect(px + 4, py + 2, 21, 25, "#c58b2b", { rx: 3 }));
+      if (ch === "k")
+        tiles.push(
+          svg("circle", {
+            cx: px + 11,
+            cy: py + 15,
+            r: 5,
+            fill: "none",
+            stroke: "#f2c14e",
+            "stroke-width": 3,
+          }),
+          rect(px + 15, py + 13, 10, 4, "#f2c14e"),
+        );
+      if (ch === ">")
+        for (let i = 0; i < 4; i++)
+          tiles.push(
+            rect(px + 4 + i * 3, py + 5 + i * 5, 21 - i * 6, 4, "#1a1612"),
+          );
+      if (ch === "@")
+        tiles.push(
+          svg("circle", { cx: px + 15, cy: py + 10, r: 5, fill: "#f6e7c8" }),
+          rect(px + 9, py + 15, 12, 11, "#3e6ae1", { rx: 3 }),
+        );
+    });
+  });
+  return frame(
+    "A dungeon seen from above by torchlight: corridors, a key, a locked door, and the stairs down",
+    svg(
+      "defs",
+      {},
+      svg(
+        "radialGradient",
+        { id: glow, cx: 0.4, cy: 0.72, r: 0.65 },
+        svg("stop", {
+          offset: 0,
+          "stop-color": "#ffb347",
+          "stop-opacity": 0.35,
+        }),
+        svg("stop", {
+          offset: 1,
+          "stop-color": "#000000",
+          "stop-opacity": 0.75,
+        }),
+      ),
+    ),
+    rect(0, 0, 300, 400, "#15120f"),
+    ...tiles,
+    rect(0, 0, 300, 400, `url(#${glow})`),
+  );
+}
+
 /** Any dungeon without its own illustration: a doorway into the dark. */
 function drawDoor(key: string): SVGElement {
   const depth = `${key}-depth`;
@@ -515,6 +648,29 @@ const ART: Record<string, DungeonArt> = {
       { icon: "gauge", text: "Limits and totals" },
     ],
     draw: drawReceipts,
+  },
+  oracle: {
+    accent: "#e07a3f",
+    tagline:
+      "Will the ferry sail? Forecast it, scored against the true chance.",
+    emblem: "lighthouse",
+    facts: [
+      { icon: "wind", text: "Wind, swell, fog, crew" },
+      { icon: "chartScatter", text: "True probabilities" },
+      { icon: "waves", text: "Five ways to read a day" },
+    ],
+    draw: drawOracle,
+  },
+  undercroft: {
+    accent: "#c58b2b",
+    tagline: "Crawl a seeded dungeon to the stairs, one move at a time.",
+    emblem: "sword",
+    facts: [
+      { icon: "mapTrifold", text: "ASCII maps and tile pictures" },
+      { icon: "key", text: "Keys, doors, monsters" },
+      { icon: "footprints", text: "Steps against the optimum" },
+    ],
+    draw: drawUndercroft,
   },
   crossing: {
     accent: "#e82127",

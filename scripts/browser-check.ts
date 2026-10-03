@@ -84,6 +84,7 @@ for (const [width, height] of [
     ["/d/driving", ".picker", "lobby-driving"],
     ["/d/inbox", ".picker", "lobby-inbox"],
     ["/d/tower", ".picker", "lobby-tower"],
+    ["/d/oracle", ".picker", "lobby-oracle"],
     ["/config", ".card-nuclis", "config"],
   ] as const) {
     await page.goto(`${BASE}${path}`);
@@ -138,6 +139,7 @@ for (const [title, id, level] of [
   ["Inbox", "inbox", "phishing"],
   ["Ticket triage", "tickets", "urgency"],
   ["Logs", "logs", "thresholds"],
+  ["The Oracle", "oracle", "contradiction"],
 ] as const) {
   const verdict = await play(level, "rule/baseline", `${id}-rule`, [title, id]);
   if (!/Passed|Failed/.test(verdict)) problems.push(`${id} did not finish`);
