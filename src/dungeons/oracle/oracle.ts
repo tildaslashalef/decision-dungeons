@@ -315,19 +315,25 @@ function rule(request: Request): Answers {
   return answers;
 }
 
+/** A day's answered questions as forecasts against their outcomes and truths. */
+export function dayForecasts(
+  c: TextCase | undefined,
+  answers: Answers | undefined,
+): Forecast[] {
+  if (!c?.odds || !answers) return [];
+  return Object.entries(c.odds).flatMap(([q, truth]) => {
+    const answer = answers[q];
+    return answer?.type === "noul"
+      ? [{ p: answer.noul, outcome: c.truth[q] === true, truth }]
+      : [];
+  });
+}
+
 /** Each answered question of the run as a forecast against its outcome and its truth. */
 export function forecasts(run: TextRun): Forecast[] {
-  const out: Forecast[] = [];
-  run.answers.forEach((answers, i) => {
-    const c = run.cases[i];
-    if (!c?.odds) return;
-    for (const [q, truth] of Object.entries(c.odds)) {
-      const answer = answers[q];
-      if (answer?.type !== "noul") continue;
-      out.push({ p: answer.noul, outcome: c.truth[q] === true, truth });
-    }
-  });
-  return out;
+  return run.answers.flatMap((answers, i) =>
+    dayForecasts(run.cases[i], answers),
+  );
 }
 
 const pct = (p: number) => `${Math.round(p * 100)}%`;

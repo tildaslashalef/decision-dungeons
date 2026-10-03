@@ -234,6 +234,11 @@ describe("undercroft runs", () => {
     const state = () =>
       undercroft.observe(run).request.state as Record<string, unknown>;
     expect(state().last_move).toBeUndefined();
+    // A request is a snapshot: later moves do not rewrite what it said.
+    const first = state();
+    run.keys.push("gold");
+    expect(first.keys_held).toEqual([]);
+    run.keys.pop();
     // The start is the top-left corner: north is always a wall.
     await move("north");
     expect(state().last_move).toBe("north: walked into a wall, did not move");

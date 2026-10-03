@@ -96,7 +96,8 @@ export interface Dungeon<Run> {
   create(seed: number, level: string, options?: RunOptions): Run;
   /**
    * Work the next observation needs that cannot be done synchronously
-   * (encoding a picture), awaited before every `observe`; absent: none.
+   * (encoding a picture), awaited before every `observe`; absent: none. A
+   * dungeon with it is never played through `observeAll`.
    */
   render?(run: Run): Promise<void>;
   observe(run: Run): Observation;

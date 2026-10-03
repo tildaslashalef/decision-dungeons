@@ -24,8 +24,12 @@ export const LOG_LOSS_EPS = 1e-4;
 const mean = (values: number[]) =>
   values.reduce((n, v) => n + v, 0) / values.length;
 
+/** The bin holding `p`, by comparing with the edges: p / 0.2 puts 0.6 just under 3. */
 export function binOf(p: number): number {
-  return Math.min(BIN_EDGES.length - 2, Math.floor(p / 0.2));
+  let bin = 0;
+  while (bin < BIN_EDGES.length - 2 && p >= (BIN_EDGES[bin + 1] as number))
+    bin++;
+  return bin;
 }
 
 /** The reliability diagram's bins, empty bins left out. */

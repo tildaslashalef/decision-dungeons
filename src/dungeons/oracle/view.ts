@@ -8,7 +8,12 @@ import type { PlayStatus } from "../../ui/store.ts";
 import type { CalibrationBin } from "../dungeon.ts";
 import type { TextCase } from "../text/cases.ts";
 import type { TextRun } from "../text/text-dungeon.ts";
-import { forecasts, oracleState, PASS_TRUTH_GAP } from "./oracle.ts";
+import {
+  dayForecasts,
+  forecasts,
+  oracleState,
+  PASS_TRUTH_GAP,
+} from "./oracle.ts";
 import { calibration, type Forecast, forecastMetrics } from "./score.ts";
 
 /** Marks: blue the outcomes, orange the truth, ink the autopilot. */
@@ -354,18 +359,9 @@ export function oracleView(run: TextRun, status: PlayStatus): HTMLElement {
   const answers = answered ? run.answers[index] : undefined;
   const all = forecasts(run);
   const metrics = forecastMetrics(all);
-  const gapOf = (i: number) => {
-    const a = run.answers[i];
-    const day = run.cases[i];
-    if (!a || !day?.odds) return undefined;
-    const gaps = Object.entries(day.odds).flatMap(([q, t]) => {
-      const answer = a[q];
-      return answer?.type === "noul" ? [Math.abs(answer.noul - t)] : [];
-    });
-    return gaps.length
-      ? gaps.reduce((n, g) => n + g, 0) / gaps.length
-      : undefined;
-  };
+  /** A day's own truth gap, scored as the run is. */
+  const gapOf = (i: number) =>
+    forecastMetrics(dayForecasts(run.cases[i], run.answers[i])).truth_gap;
   const gap = answered ? gapOf(index) : undefined;
   return h(
     "div",

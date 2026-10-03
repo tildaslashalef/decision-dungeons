@@ -1,7 +1,8 @@
 // A minimal PNG writer: 8-bit palette images, one IDAT chunk, every row
 // unfiltered, compressed by the platform's zlib (`CompressionStream`), which
-// Bun and browsers both have. Seeded pictures are then the same bytes in
-// `bun run eval` and in the browser, and nothing needs a renderer.
+// Bun and browsers both have, so nothing needs a renderer. The pixels are
+// the same everywhere; the compressed bytes are the runtime's zlib's (Bun
+// and Chromium were checked to agree, docs/plan.md § Decisions).
 
 const SIGNATURE = [137, 80, 78, 71, 13, 10, 26, 10];
 

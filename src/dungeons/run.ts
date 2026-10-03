@@ -81,7 +81,8 @@ export async function runEpisode(
           code: "unavailable",
           message: e instanceof Error ? e.message : String(e),
         };
-  const batched = !!decideMany && !!dungeon.observeAll;
+  // A dungeon that renders before each observation plays one turn at a time.
+  const batched = !!decideMany && !!dungeon.observeAll && !dungeon.render;
   if (batched && decideMany && dungeon.observeAll) {
     const observations = dungeon.observeAll(run);
     const ask = observations.filter(

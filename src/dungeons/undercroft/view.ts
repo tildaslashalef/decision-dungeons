@@ -19,7 +19,9 @@ const drawn = new Map<string, string>();
 const pending = new Set<string>();
 
 function picture(run: UndercroftRun, img: HTMLImageElement): void {
-  const key = `${run.level}:${run.seed}:${run.turns}:${run.hero.row},${run.hero.col}`;
+  // The trail decides the picture: keys taken, doors opened, what fog has shown.
+  const key = `${run.level}:${run.seed}:${run.trail.map((p) => `${p.row},${p.col}`).join(";")}`;
+  img.dataset.picture = key;
   const ready = drawn.get(key);
   if (ready) {
     img.src = ready;
@@ -41,7 +43,6 @@ function picture(run: UndercroftRun, img: HTMLImageElement): void {
     ))
       el.src = url;
   });
-  img.dataset.picture = key;
 }
 
 /** Arrows around the tile a decision was made on, each as long and strong as its probability. */

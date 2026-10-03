@@ -14,6 +14,7 @@ import {
 } from "../src/dungeons/oracle/generate.ts";
 import { oracle, oracleState } from "../src/dungeons/oracle/oracle.ts";
 import {
+  binOf,
   calibration,
   forecastMetrics,
   poolCalibration,
@@ -164,6 +165,11 @@ describe("the oracle's scores", () => {
     expect(numbers.outcome.metrics.truth_gap as number).toBeLessThan(
       random.outcome.metrics.truth_gap as number,
     );
+  });
+
+  test("a forecast on a bin's edge falls in the bin above", () => {
+    expect([0, 0.2, 0.4, 0.6, 0.8, 1].map(binOf)).toEqual([0, 1, 2, 3, 4, 4]);
+    expect(binOf(0.5999)).toBe(2);
   });
 
   test("metrics leave out what does not apply and survive certain answers", () => {

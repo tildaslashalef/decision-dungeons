@@ -145,12 +145,6 @@ export interface UndercroftRun {
 }
 
 const keyOf = (p: Pos) => `${p.row},${p.col}`;
-const sameMap = (m: UndercroftMap): UndercroftMap => ({
-  ...m,
-  start: { ...m.start },
-  stairs: { ...m.stairs },
-  tiles: m.tiles.map((row) => [...row]),
-});
 
 /** The map a level plays for a seed, as built (before any move). */
 export function levelMap(level: string, seed: number): UndercroftMap {
@@ -230,7 +224,7 @@ export function undercroftRequest(run: UndercroftRun): Request {
   if (!level) throw new Error(`undercroft has no level ${run.level}`);
   const facts: Record<string, JsonValue> = {
     ...(run.lastMove ? { last_move: run.lastMove } : {}),
-    keys_held: run.keys,
+    keys_held: [...run.keys],
     hit_points: run.hp,
     moves_left: run.limit - run.turns,
   };
@@ -356,7 +350,8 @@ export const undercroft: Dungeon<UndercroftRun> = {
     ({ plan: _, map: __, fog: ___, show: ____, ...level }) => level,
   ),
   create(seed, level) {
-    const map = sameMap(levelMap(level, seed));
+    // A fresh map each call, so the run may change its tiles.
+    const map = levelMap(level, seed);
     const optimal = optimalMoves(map);
     const run: UndercroftRun = {
       seed,

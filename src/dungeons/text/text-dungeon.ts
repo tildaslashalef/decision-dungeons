@@ -158,6 +158,15 @@ export function textDungeon(spec: TextSpec): Dungeon<TextRun> {
     apply(run, answers: Answers) {
       const c = run.cases[run.index];
       if (!c) return;
+      run.answers.push(answers);
+      if (spec.record) {
+        run.records.push({
+          index: run.index,
+          summary: spec.record(c, answers),
+        });
+        run.index++;
+        return;
+      }
       let correct = true;
       const parts: string[] = [];
       for (const [id, truth] of Object.entries(c.truth)) {
@@ -178,16 +187,11 @@ export function textDungeon(spec: TextSpec): Dungeon<TextRun> {
             : `${id} ${shown(value)} (expected ${shown(truth)})`,
         );
       }
-      run.answers.push(answers);
-      run.records.push(
-        spec.record
-          ? { index: run.index, summary: spec.record(c, answers) }
-          : {
-              index: run.index,
-              summary: `${spec.summary(c)}: ${parts.join(", ")}`,
-              correct,
-            },
-      );
+      run.records.push({
+        index: run.index,
+        summary: `${spec.summary(c)}: ${parts.join(", ")}`,
+        correct,
+      });
       run.index++;
     },
     step() {},

@@ -96,7 +96,7 @@ export interface EvensongRun {
   records: DecisionRecord[];
 }
 
-const RULES = `Rules of the loft. Begin on I with its root in the bass. Tonic chords (I, vi, iii) may go anywhere. IV may go to ii, to V or V7, or back to I; ii goes only to V or V7. The dominant (V, V7) goes to I or vi, never back to ii or IV. Never let the melody and the bass form a perfect fifth, or an octave, on two chords in a row while both move. Never put the leading tone (the 7th degree) in both the melody and the bass. The bass never leaps a tritone. A V7's seventh (the 4th degree) in the melody must fall to the 3rd degree next. Each phrase but the last ends on V with its root in the bass; the hymn ends V or V7, then I, both with their roots in the bass.`;
+const RULES = `Rules of the loft. Begin on I with its root in the bass. Any chord may be held, in either position, under the next note. Tonic chords (I, vi, iii) may go anywhere. IV may go to ii, to V or V7, or back to I; ii goes on only to V or V7. The dominant (V, V7) goes to I or vi, never back to ii or IV. Never let the melody and the bass form a perfect fifth, or an octave, on two chords in a row while both move. Never put the leading tone (the 7th degree) in both the melody and the bass. The bass never leaps a tritone. A V7's seventh (the 4th degree) in the melody must fall to the 3rd degree next. Each phrase but the last ends on V with its root in the bass; the hymn ends V or V7, then I, both with their roots in the bass.`;
 
 const ASK =
   "You are the organist at evensong, harmonizing a hymn tune with one chord under each melody note. Roman numerals name the chords of the key; a 6 means the chord's third is in the bass instead of its root.";
