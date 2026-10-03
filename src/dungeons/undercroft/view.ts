@@ -11,6 +11,7 @@ import {
   inSight,
   known,
   PASS_FACTOR,
+  stuck,
   type UndercroftRun,
 } from "./undercroft.ts";
 
@@ -129,17 +130,19 @@ export function undercroftView(
         ? h("span", { class: "verdict ok" }, "Reached the stairs")
         : run.dead
           ? h("span", { class: "verdict bad" }, "Died")
-          : run.turns >= run.limit
-            ? h("span", { class: "verdict bad" }, "Out of turns")
-            : h(
-                "span",
-                { class: "verdict pending" },
-                status === "deciding"
-                  ? "Deciding…"
-                  : status === "failed"
-                    ? "No answer"
-                    : "Exploring",
-              ),
+          : stuck(run)
+            ? h("span", { class: "verdict bad" }, "Stuck")
+            : run.turns >= run.limit
+              ? h("span", { class: "verdict bad" }, "Out of turns")
+              : h(
+                  "span",
+                  { class: "verdict pending" },
+                  status === "deciding"
+                    ? "Deciding…"
+                    : status === "failed"
+                      ? "No answer"
+                      : "Exploring",
+                ),
     ),
     h(
       "div",

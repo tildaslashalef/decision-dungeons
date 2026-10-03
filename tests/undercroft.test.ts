@@ -15,6 +15,7 @@ import {
 import { mapImage, mapPicture } from "../src/dungeons/undercroft/picture.ts";
 import {
   levelMap,
+  STUCK_LIMIT,
   textMap,
   type UndercroftRun,
   undercroft,
@@ -254,6 +255,25 @@ describe("undercroft runs", () => {
     expect(run.steps).toBe(1);
     await move("east");
     expect(state().last_move).toBe("east: walked into a wall, did not move");
+  });
+
+  test("a run ends, failed, after STUCK_LIMIT blocked moves in a row", async () => {
+    const run = undercroft.create(1, "corridors") as UndercroftRun;
+    for (let i = 0; i < STUCK_LIMIT; i++) {
+      expect(undercroft.outcome(run).finished).toBe(false);
+      await playTurn(dungeon, run, async () => ({
+        decider: "x",
+        model: "x",
+        answers: { move: { type: "choice", choice: "north" } },
+        timings: { total: 0 },
+      }));
+    }
+    const outcome = undercroft.outcome(run);
+    expect(outcome.finished).toBe(true);
+    expect(outcome.passed).toBe(false);
+    expect(outcome.violations).toBe(STUCK_LIMIT);
+    expect(run.turns).toBe(STUCK_LIMIT);
+    expect(() => undercroft.observe(run)).toThrow("over");
   });
 
   test("fog hides what is out of sight until the hero comes near", () => {

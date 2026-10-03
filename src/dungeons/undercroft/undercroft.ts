@@ -37,6 +37,8 @@ import { mapPicture } from "./picture.ts";
 export const TURN_LIMIT_FACTOR = 3;
 /** A run passes reaching the stairs alive within this many times the optimum's moves. */
 export const PASS_FACTOR = 2;
+/** A run ends, failed, after this many blocked moves in a row: the hero is stuck. */
+export const STUCK_LIMIT = 10;
 /** Under fog the hero sees this many tiles in every direction. */
 export const SIGHT = 2;
 
@@ -339,8 +341,13 @@ const BUMP: Record<string, string> = {
   "door:red": "the red door is locked",
 };
 
+/** Whether the run ended on `STUCK_LIMIT` blocked moves in a row. */
+export function stuck(run: UndercroftRun): boolean {
+  return run.bumpsInARow >= STUCK_LIMIT;
+}
+
 function finished(run: UndercroftRun): boolean {
-  return run.reached || run.dead || run.turns >= run.limit;
+  return run.reached || run.dead || stuck(run) || run.turns >= run.limit;
 }
 
 export const undercroft: Dungeon<UndercroftRun> = {
@@ -413,7 +420,7 @@ export const undercroft: Dungeon<UndercroftRun> = {
       run.lastMove = `${d}: ${why}, did not move${n > 1 ? ` (${n} blocked moves in a row; you have not moved since)` : ""}`;
       run.records.push({
         index: run.records.length,
-        summary: `${turn}, ${why}`,
+        summary: `${turn}, ${why}${stuck(run) ? `, stuck after ${n} blocked moves in a row` : ""}`,
         violation: why,
       });
       return;

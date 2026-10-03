@@ -18,7 +18,7 @@ play headless from the command line and produce comparison tables.
 | **Logs** | Decides whether to page on-call from production logs | Page or not, numbers against a policy, root cause, long windows, page and cause at once |
 | **Receipts** (images) | Reimburses expense receipts against a policy, reads them | The policy from the data, the picture, or both; the total; everything on the slip |
 | **The Oracle** | Gives the chance the morning ferry sails; scored against each day's true chance, not only the outcome | The facts as a table, a harbour log, scattered notices, a misleading captain's note; four questions a day |
-| **Undercroft** (images) | Crawls a dungeon one move a turn: keys and doors, monsters, fog | Corridors, keys, monsters, fog; the map as a tile picture, or picture and text |
+| **Undercroft** (images) | Crawls a dungeon one move a turn: keys and doors, monsters, fog; ten blocked moves in a row end the run as stuck | Corridors, keys, monsters, fog; the map as a tile picture, or picture and text |
 | **Evensong** | Harmonizes a hymn tune at the organ, one chord a note, by the rules of harmony; the browser plays it | One phrase, a hymn, a chorale, the hymn by heart |
 | **Crossing** | Drives or stops at a signalled line | Signal, distance, both |
 
