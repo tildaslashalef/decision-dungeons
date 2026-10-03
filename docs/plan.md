@@ -1525,12 +1525,12 @@ Validated on the Apple M4 Pro, Bun 1.4.2:
 
   What it shows: no model reaches the stairs on any map, with the map as
   text, as a picture, or both. Laya answers `north` (the first option) on
-  nearly every turn; before `last_move` laya-multilingual did on every one
-  of 1,818 turns. clef-flash moves a few tiles and then pushes into the
+  nearly every turn; before `last_move` laya-multilingual bumped on 1,818
+  of its 1,824 turns. clef-flash moves a few tiles and then pushes into the
   same wall (on `corridors` seed 2 it went east toward stairs two tiles
   away through a wall, 90 bumps), or paces between two tiles (78 moves on
   `corridors` seed 1, never farther). laya-multilingual never reached the
-  cascade's 0.85 on a four-way move, so the cascade sent all 3,016 moves to
+  cascade's 0.85 on a four-way move, so the cascade sent all 3,024 moves to
   clef-flash and played its game exactly. Seeing the map adds nothing
   measurable here. Single runs per seed, not a benchmark.
 
@@ -1578,7 +1578,7 @@ Validated on the Apple M4 Pro, Bun 1.4.2:
   consecutive fifths and octaves (9 with the rules, 0 by heart). Its
   commonest fault either way is a phrase not ending on V. laya's choices
   are identical with and without the rules, answer for answer. The
-  cascade almost always escalated, so it plays as clef-flash. Single runs
+  cascade escalated 127 of 128 chords, so it plays as clef-flash. Single runs
   per seed, not a benchmark.
 
 ### Pick up here
