@@ -6,13 +6,14 @@ dungeon, its level, and the **autopilot** (which decider, which model), then
 watches it play, with a debug sidebar showing what the decider read and
 answered. The same dungeons run headless and produce comparison tables.
 
-Status (2026-10-02): milestones 1 to 5 are done: the skeleton, driving
-(headless and proven bit-identical against the reference simulator, then its UI with the
-world inspector, evaluation mode, and five scenario checks), the text
-dungeons (Inbox, Ticket triage, Logs, cases in SQLite), and Night Tower,
-the second 3D dungeon; nuclis is reached through `nuclis serve`'s HTTP
-API. Milestone 6 (vision) waits for an image model (*Progress* -> *Pick
-up here*). A new session starts at *Start here* below.
+Status (2026-10-03): milestones 1 to 5, 7, and 8 are done, with a ninth
+dungeon beside them: the skeleton, driving (headless and proven
+bit-identical against the reference simulator, then its UI), the text
+dungeons (Inbox, Ticket triage, Logs, cases in SQLite), Night Tower, The
+Oracle (forecasts scored against true probabilities), Undercroft (a
+dungeon crawler with text maps and tile pictures), and Evensong (the
+autopilot harmonizes hymns at the organ). Milestone 6 (vision) has its
+first dungeon, Receipts. A new session starts at *Start here* below.
 
 ## Start here
 
@@ -258,7 +259,8 @@ decision-dungeons/
   src/
     contract/      request, answer, decider, API types; validation; decideWith
     deciders/      nuclis.ts, nuclis-http.ts, typesafe.ts, random.ts, registry.ts
-    lib/           seeded randomness (the reference simulator's mulberry32, exactly)
+    lib/           seeded randomness (the reference simulator's mulberry32,
+                   exactly); png.ts, a minimal palette PNG writer
     server/        Bun.serve: app.ts (API), config.ts, cases.ts (case sets in
                    SQLite, the generators' registry), assets.ts (models,
                    textures, draco, the driving worker), icons.ts, log.ts,
@@ -277,6 +279,16 @@ decision-dungeons/
       tower/       Night Tower: sim.ts (traffic, runway, rules), tower.ts
                    (levels, request, rule, outcome), ui/ (stage.ts,
                    scene.ts, tower.css)
+      oracle/      The Oracle: generate.ts (days, the hidden formula, the
+                   draws), oracle.ts (levels, presentations, rule,
+                   scoring), score.ts (truth gap, Brier, calibration),
+                   view.ts (the day and the reliability diagram)
+      undercroft/  map.ts (seeded maps, breadth-first search), picture.ts
+                   (tile pictures), undercroft.ts (levels, request, rule),
+                   view.ts
+      evensong/    music.ts (keys, chords, the rules, the planning
+                   organist, tunes), evensong.ts, view.ts (two staves),
+                   organ.ts (Web Audio, browser only)
       driving/
         world/     geometry, grid (town, city), highway, road, reroute
         sim/       simulation, vehicle, traffic, collisions, courtesy,
@@ -306,6 +318,7 @@ The dungeon interface keeps the simulation headless and deterministic:
 interface Dungeon<Run> {
   id: string; title: string; levels: Level[];
   create(seed: number, level: string): Run;
+  render?(run: Run): Promise<void>; // async work before each observe (a picture)
   observe(run: Run): { request: Request; resolved?: Answers }; // local answers when one option
   apply(run: Run, answers: Answers): void;
   advance?(run: Run): void;       // turn-based: time to the next decision
@@ -451,13 +464,17 @@ its errors. The Oracle measures both directly.
 
 - **The world.** Harborline's harbour runs a morning ferry. Each case is
   one day's harbour log, and the question is "Will the morning ferry
-  sail?" (`noul`). A seeded hidden formula turns the day's facts into a
-  real chance: a logistic over wind and gusts, swell, visibility and fog,
+  sail?" (`noul`). A hidden formula (fixed code of `oracle@1`, so every
+  case set asks about the same world) turns the day's facts into a real
+  chance: a logistic over wind and gusts, swell, visibility and fog,
   the wind's direction against the harbour mouth (an interaction), crew on
   duty against crew required, an engine notice, a port-authority
   advisory, and the captain's record; then the outcome is drawn from that
-  chance with the case's seeded generator. The case stores both the true
-  probability and the outcome (`TextCase.odds`, beside `truth`).
+  chance with the case's own seeded generator. The case stores both the
+  true probability and the outcome (`TextCase.odds`, beside `truth`, in
+  its own column of the case store). The formula's scale was set so the
+  chances spread over the whole range (mean 0.51; no more than a quarter
+  of days within 0.1 of certain).
 - **What the decider reads.** The log, and in the question's instructions
   the harbour master's handbook: the formula's directions in words ("high
   gusts rarely let her sail; a westerly at the mouth is worse than the
@@ -467,21 +484,30 @@ its errors. The Oracle measures both directly.
   day's prose log, among routine entries. `scattered`: the facts across
   several notices, some corrected by a later one. `contradiction`: the
   captain's note disagrees with the instruments, and the formula follows
-  the instruments. `many` (tagged `many-questions`): several questions
+  the instruments (the handbook says so). The four play the same days
+  (`log`, `scattered`, and `contradiction` are `casesOf: "numbers"`), so
+  a seed's runs differ only in how the facts are shown. `many` (tagged `many-questions`): several questions
   about each day, each with its own true chance (sails at all, sails on
   time, carries over 200 passengers, the café opens). Cases live in a case
   set like the text dungeons' (`bun run seed`), generator `oracle@1`.
 - **Scoring.** Per run: `truth_gap`, the mean |p − true p|; Brier against
   the outcomes beside the **oracle's Brier**, that of the true
   probabilities (the floor no decider beats in expectation); skill
-  against climatology (the base rate); log loss; and calibration, the
-  outcome rate per bin of the decider's p (and the true p per bin). A run
-  passes when its truth gap is under a bound set from the measured
-  deciders (record it in *Decisions*). Truths are never labels a model
+  against climatology (the run's own base rate; omitted when every
+  outcome was the same); log loss (p clamped 1e-4 from 0 and 1); and
+  calibration (`Outcome.calibration`), the outcome rate per fifth of the
+  decider's p and the mean true p per bin, which `bun run eval` pools
+  over seeds. The `many` level pools its four questions. A run passes
+  when its truth gap is at most a bound set from the measured deciders
+  (*Decisions*). Truths are never labels a model
   wrote: the formula and the draw are seeded code.
-- **The rule** is a deliberately partial forecaster (a logistic on wind
-  and swell only), a baseline between random and the oracle; the oracle
-  itself is a reference column in results, not a decider.
+- **The rule** is a deliberately partial forecaster: the best logistic on
+  the mean wind and the swell alone (σ(3.05 − 0.109·wind − 0.76·swell),
+  fitted against the true chances of 6,000 days; expected truth gap
+  0.115, a constant forecaster's 0.29), read off the table or the text,
+  the latest correction winning. On `many` it answers the other questions
+  as half its sailing chance, the café at even odds. The oracle itself is
+  a reference column in results (`oracle_brier`), not a decider.
 - **The view.** The day's log on the left; on the right the decider's p,
   the true p, and the outcome, then a live reliability chart over the run
   (follow the `dataviz` skill) and the truth gap so far.
@@ -491,11 +517,17 @@ its errors. The Oracle measures both directly.
 The project's name made literal, and the first dungeon whose decisions
 compound: each move changes the next situation, as an agent's does.
 
-- **The world.** A seeded grid of rooms and corridors (9×9 to 15×15
-  tiles): walls, coloured keys and their locked doors, static monsters
-  (a move next to one costs a hit point), the exit stairs, and some gold.
-  Generated from the seed so the exit is always reachable; the shortest
-  path over (position, keys held) is known by breadth-first search.
+- **The world.** A seeded grid of corridors (11×11 or 13×13 tiles, cut
+  as a maze by a seeded depth-first walk, some walls knocked through for
+  loops): walls, coloured keys and their locked doors, static monsters
+  (a move that ends next to one costs one of three hit points), the exit
+  stairs (the floor tile farthest from the start), and some gold.
+  Generated from the seed so the exit is always reachable without a hit
+  point lost; the optimum, the fewest such moves over (position, keys
+  held), is known by breadth-first search. Doors sit on the way out of a
+  loop-free maze with each key off the way before its door, so every key
+  is needed in turn; monsters are placed one by one where they lengthen
+  the safe optimum most (4–14 moves on seeds 1–6).
 - **The decision.** One per turn: `move`, a `choice` of north, east,
   south, west, each option saying only the direction (the map carries the
   facts). Turn-based through `Dungeon.advance`, as driving and Night
@@ -504,25 +536,72 @@ compound: each move changes the next situation, as an agent's does.
   hero's position, keys held, hit points, and the goal. Picture levels:
   the same map as a tile picture (`Request.images`), the facts stated in
   text kept to hit points and keys. Pictures are drawn in TypeScript, not
-  in a browser: coloured tiles and small pixel sprites (hero, key, door,
-  monster, stairs) encoded by a minimal PNG writer (`src/lib/png.ts`:
-  CRC-32, zlib through `CompressionStream`, which Bun and browsers both
-  have), so the browser and `bun run eval` draw the same bytes and no
-  Chromium is needed at play time.
-- **Levels.** `corridors` (a maze), `keys` (doors in an order),
-  `monsters` (a safe way round), `fog` (only the tiles within two steps
-  are shown, the rest as remembered), `picture` (the keys map as a
-  picture only, tagged `images`), `picture-both` (picture and text).
+  in a browser: 28-pixel tiles of small sprites (hero, key, door,
+  monster, stairs, gold) in one fixed palette, encoded by a minimal PNG
+  writer (`src/lib/png.ts`: 8-bit palette, CRC-32, zlib through
+  `CompressionStream`, which Bun and browsers both have), so the browser
+  and `bun run eval` draw the same bytes and no Chromium is needed at play
+  time. Encoding is async, so the dungeon draws the picture in
+  `Dungeon.render`, which `playTurn` awaits before each observation.
+- **Levels.** `corridors` (an 11×11 maze with a few loops), `keys` (11×11,
+  the gold door then the red), `monsters` (13×13 with loops, a safe way
+  round), `fog` (13×13; only the tiles within two steps, Chebyshev, are
+  shown, the rest as remembered or `?`), `picture` (the keys maps as a
+  picture only, tagged `images`), `picture-both` (picture and text); the
+  three keys levels play the same maps for a seed.
 - **Scoring.** Reached the exit, steps against the optimal, efficiency,
   bumps into walls and locked doors (violations), hit points lost, gold;
   a turn limit of three times the optimal; passed when the exit is
   reached within twice the optimal steps without dying.
-- **Deciders.** The rule is the breadth-first planner (the optimum);
-  random is the floor; the cascade fits naturally (Laya walks the
-  corridors, clef-flash decides at forks).
+- **Deciders.** The rule is the breadth-first planner on the map the
+  request shows (the optimum when the map is known; under fog it plans
+  through unseen tiles as open and heads for the nearest one until the
+  stairs are seen); random is the floor; the cascade screens with Laya and
+  sends unsure moves and every picture to clef-flash.
 - **The view.** The map drawn from the same tiles at a larger scale, the
   hero's trail, the decider's probabilities as arrows around the hero,
   HUD with keys, hit points, steps against the optimal.
+
+## Dungeon 5: Evensong
+
+The user asked for one more dungeon "that can show how decision models
+can be used in a very creative way". Evensong: the autopilot is the
+organist, harmonizing a hymn tune one chord under each melody note, and
+the play view plays what it chose on an organ.
+
+- **The tune.** Seeded, in C, D, F, or G major: four-note phrases that
+  begin on a note of the tonic chord, end each inner phrase on a note of
+  V, and close on the tonic from a note of V; the melody keeps its
+  direction more often than not and never see-saws. A tune is kept only
+  when a flawless harmony exists.
+- **The decision.** `chord`, a `choice` among the chords whose tones hold
+  the note: I, ii, iii, IV, V, vi in root position or first inversion
+  ("6"), and V7 in root position. Each option says the chord's quality and
+  notes, its bass note (placed nearest the last bass, E2 to A3), how the
+  bass moves, and the interval between the melody and the bass, so every
+  fact a rule needs is in the request.
+- **The rules of the loft**, each a fault: begin on I in root position;
+  consecutive fifths or octaves between melody and bass while both move;
+  retrogressions (the dominant back to ii or IV, ii anywhere but the
+  dominant, IV to vi or iii); the leading tone in both melody and bass; a
+  tritone leap in the bass; a V7 seventh in the melody that does not fall
+  to the third; each inner phrase ends on V (a half cadence); the hymn
+  ends V or V7, then I, roots in the bass. Judgement is these rules,
+  never a model's taste.
+- **Levels.** `phrase` (4 notes), `hymn` (8), `chorale` (12), each with
+  the rules written in the question, and `by-heart`: the hymn tunes with
+  no rules stated, to ask whether a model knows harmony untold.
+- **Scoring.** A run passes with no fault; metrics count chords right and
+  each kind of fault, and root-position chords.
+- **The rule** is an organist who plans the whole tune by dynamic
+  programming over (note, chord, bass pitch): the fewest faults, then the
+  fewest repeated chords and inversions, reading the tune and the harmony
+  so far back from the request.
+- **The view.** The hymn on two staves (melody above, bass below, the
+  numeral under each chord, faults in red), how sure the organist was of
+  the last chord (its probabilities), and an organ (`organ.ts`, Web Audio,
+  four voices with simple inner-voice filling) that plays the hymn, or
+  each chord as it lands, once a person clicks.
 
 ## Headless runs
 
@@ -586,6 +665,8 @@ three.js Ferrari (MIT). Asset license files travel with the assets.
 7. **The Oracle** (*Dungeon 3*): calibration against true probabilities.
 8. **Undercroft** (*Dungeon 4*): a dungeon crawler, text maps and tile
    pictures.
+9. **Evensong** (*Dungeon 5*): the user's second surprise, harmony at the
+   organ.
 
 ## Decisions
 
@@ -660,6 +741,53 @@ three.js Ferrari (MIT). Asset license files travel with the assets.
   at 0.85; `bun run eval --threshold` sweeps others. The threshold has no
   settings-page field (the page is approved as it is, and the model id
   already carries it) (2026-10-03).
+- The Oracle's hidden formula is fixed code of `oracle@1` (its weights
+  are constants), so every case set asks about the same world; only the
+  days and the draws are seeded, each case from its own generator, so a
+  case never moves when more are written. Its `log`, `scattered`, and
+  `contradiction` levels play the `numbers` days (`casesOf`), so the
+  presentations compare on equal cases (2026-10-03).
+- `TextCase.odds`, the true probability per question, is stored in its own
+  column (schema version 3, `ALTER TABLE … ADD COLUMN`); the set's hash
+  covers it only when present, so sets without odds keep their hashes and
+  the user's base sets gain the Oracle in place (2026-10-03).
+- Forecast scoring lives in the result, not the table: `Outcome.calibration`
+  (five bins of the decider's p, each with its count, mean forecast,
+  outcome rate, and mean true p) beside `truth_gap`, `brier`,
+  `oracle_brier`, `skill` (against the run's own base rate, omitted when
+  every outcome was the same), and `log_loss` (p clamped 1e-4 from 0 and
+  1, since deciders round to four places). `bun run eval` prints the bins
+  pooled over seeds below its table. The text builder takes `score` and
+  `record` hooks for dungeons whose cases have no single right answer
+  (2026-10-03).
+- The Oracle passes a run at a truth gap of 0.10 or less
+  (`PASS_TRUTH_GAP`): under the best wind-and-swell forecaster's expected
+  0.115 (6,000 days), so a pass means reading more of the day than wind
+  and swell. Measured on seeds 1–4 (*Progress*, milestone 7): the rule
+  passes 4 of 20 runs on the luck of the draw, no model passes any (the
+  best, clef-flash, at 0.16–0.20 on the readable levels); at 0.15 the
+  rule would pass 19 of 20 and the bound would say nothing (2026-10-03).
+- Undercroft's pictures are drawn by `src/lib/png.ts` through
+  `CompressionStream`, as planned; checked once that Bun 1.4.2 and
+  Chromium (playwright-core 1.63.0) deflate the same 200 KB to the same
+  5,991 bytes, and a test pins the keys map's picture by hash. Encoding is
+  async while `observe` is not, so the interface gained
+  `Dungeon.render(run)`, awaited by `playTurn` before each observation;
+  `observe` refuses a picture drawn for an earlier turn (2026-10-03).
+- Undercroft's sizes: `corridors` and the keys maps 11×11 (optimum about
+  40–60 moves; at 13×13 the keys maps took 66–74, which made a clef-flash
+  run 200 turns long), `monsters` and `fog` 13×13. Monsters go where they
+  lengthen the safe optimum most: placed at random beside the way, they
+  lengthened it on 1 of 6 maps. Under fog, runs are scored against the
+  optimum on the whole map, and the rule explores (2026-10-03).
+- The card view's pause between turns is per dungeon (`dungeonPace`):
+  Undercroft 280 ms (its turns are many and small), Evensong 900 ms, the
+  others 700 (2026-10-03).
+- The user asked for one more dungeon showing a creative use of decision
+  models: Evensong (*Dungeon 5*), harmony at the organ judged by stated
+  rules, with a Web Audio organ in the browser (no dependency, no asset;
+  audio starts only on a click). New dungeons' marks are Phosphor icons,
+  already a dependency (2026-10-03).
 - Scope: the user asked for the whole plan end to end, a second 3D
   dungeon of this project's design (milestone 5), and the text dungeons'
   cases in SQLite under `~/.decision-dungeons` with a seed script that can
@@ -1284,6 +1412,66 @@ Validated on the Apple M4 Pro:
   all, so nearly everything goes to clef; on Logs and Receipts it is
   confidently wrong (Receipts at 0.75 keeps 15 and gets 7 right), so a
   low threshold costs accuracy. Single runs, one seed, not a benchmark.
+
+### Milestone 7, The Oracle: done (2026-10-03, commit `ff61c37`)
+
+Delivered: *Dungeon 3* as above: `oracle@1` (120 `numbers` days, 80
+`many` days in a base set, hash `34c1d7a1192269c3`), five levels, the
+truth gap, Brier beside the oracle's, skill, log loss, and calibration
+bins (`Outcome.calibration`, pooled by `bun run eval`), the fitted
+wind-and-swell rule, the play view (the day as the autopilot read it, a
+track per question with the autopilot's chance against the true one, a
+live reliability diagram built to the `dataviz` skill, the truth gap so
+far), its gateway and lobby. `TextCase.odds` and schema 3 in the case
+store; the text builder's `score` and `record` hooks.
+
+Validated on the Apple M4 Pro (macOS 27), Bun 1.4.2:
+
+- `bun test` (with `NUCLIS_URL` at a closed port, so the 3 live tests
+  skip while clef-flash held the GPU): every test passes, among them
+  `tests/oracle.test.ts`: outcomes drawn at the true rates (3,000 days,
+  within 0.03 per question), a case unmoved by writing more, the four
+  presentations playing the same days, odds kept by the store, a
+  forecaster who answers the true chances scoring a gap of 0 and the
+  oracle's Brier, the rule reading every presentation alike.
+- In the browser (throwaway server, port 7100): the rule on `numbers`
+  and `contradiction`, laya-multilingual on `scattered` and `many`; no
+  console errors, no page scroll at 1440×900. Looked at
+  `artifacts/oracle/{lobby,numbers-rule-finished,scattered-laya-ml-running,many-laya-ml-finished}.png`
+  and `artifacts/screenshots/{oracle-rule-running,lobby-oracle-1024x640}.png`.
+- Measured at `ff61c37`, seeds 1–4, base set `34c1d7a1192269c3`, nuclis
+  0.4.0-dev on Metal, one eval at a time (`bun run eval --dungeon oracle
+  --decider <id> [--model <m>] --seeds 1-4`; the cascade is
+  `laya-multilingual:clef-flash@0.85`). Mean truth gap over the four runs
+  of each level (lower is better; the rule's equal rows are the same days
+  read from four presentations):
+
+  | decider | numbers | log | scattered | contradiction | many |
+  | --- | ---: | ---: | ---: | ---: | ---: |
+  | rule (wind and swell) | 0.106 | 0.106 | 0.106 | 0.106 | 0.149 |
+  | clef-flash | 0.194 | 0.177 | 0.197 | 0.400 | 0.157 |
+  | laya | 0.275 | 0.271 | 0.285 | 0.266 | 0.335 |
+  | laya-multilingual | 0.395 | 0.331 | 0.255 | 0.275 | 0.475 |
+  | cascade | 0.395 | 0.324 | 0.222 | 0.412 | 0.219 |
+  | random | 0.274 | 0.365 | 0.363 | 0.363 | 0.329 |
+
+  Brier against the oracle's (0.204 on the shared days, 0.180 on `many`):
+  clef-flash 0.285–0.425, laya 0.242–0.295, laya-multilingual
+  0.271–0.456. Time per decision: laya 110–400 ms, laya-multilingual
+  63–186 ms, clef-flash 1.6–3.7 s; the cascade judged 0 of 80 days on
+  `numbers`, 8 on `log`, 61 on `scattered`, 52 on `contradiction`, 66 on
+  `many`.
+
+  What it shows: no model beats a two-number logistic. laya-multilingual
+  says she sails at about 97% on nearly every `numbers` day (the pooled
+  calibration: 80 of 80 forecasts in the top bin, 60% came true), and it
+  is surest exactly where it is wrong, so the cascade never escalates
+  there: the measured reason the cascade failed before. laya stays near
+  even odds (a constant forecaster's gap is about 0.29). clef-flash reads
+  the facts best, but on `contradiction` it believes the captain over the
+  instruments the handbook says to trust (54 of 80 forecasts under 20%
+  where the true chance averaged 52%), its worst level by far. Single
+  runs per seed, not a benchmark.
 
 ### Pick up here
 

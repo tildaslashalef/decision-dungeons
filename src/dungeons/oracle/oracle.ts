@@ -31,9 +31,10 @@ import { calibration, type Forecast, forecastMetrics } from "./score.ts";
 
 /**
  * A run passes when its mean distance from the true chances is at most
- * this. Set from measured deciders (docs/plan.md § Decisions).
+ * this: under the best wind-and-swell forecaster's expected 0.115, so a
+ * pass means reading more of the day (docs/plan.md § Decisions).
  */
-export const PASS_TRUTH_GAP = 0.15;
+export const PASS_TRUTH_GAP = 0.1;
 
 const HANDBOOK = `Harbour master's handbook for the ${DEPARTS} ferry to ${ISLAND}. Gusts matter more than the mean wind: above about 22 knots every extra knot of gust counts against her. A swell over 1.2 m counts against her, the more the higher it is. The harbour mouth faces west: a wind from the west, south-west, or north-west is worse than the same wind from the east, and the stronger it blows the more so. Visibility under one mile counts against her, the thicker the fog the more. She needs her full crew of six, and each hand short counts heavily. An open engine fault counts heavily, a minor defect a little. A port caution counts a little, a small-craft advisory more, a gale warning most. A captain with long years in command sails in weather a new one would not. When a captain's note disagrees with the instruments, believe the instruments.`;
 
@@ -65,7 +66,7 @@ const LEVELS: TextLevel[] = [
     id: "numbers",
     title: "Numbers",
     description:
-      "The day's facts as a table: wind, gusts, swell, fog, crew, engine, advisory, captain. Scored against each day's true chance; pass within 0.15 of it on average.",
+      "The day's facts as a table: wind, gusts, swell, fog, crew, engine, advisory, captain. Scored against each day's true chance; pass within 0.10 of it on average.",
     questions: { sails: SAILS },
   },
   {
