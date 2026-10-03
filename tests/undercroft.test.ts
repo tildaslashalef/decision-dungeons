@@ -243,6 +243,17 @@ describe("undercroft runs", () => {
     await move("north");
     expect(state().last_move).toBe("north: walked into a wall, did not move");
     expect(run.bumps).toBe(1);
+    // A repeated bump must not send the same state again.
+    await move("north");
+    expect(state().last_move).toBe(
+      "north: walked into a wall, did not move (2 blocked moves in a row; you have not moved since)",
+    );
+    expect(run.bumps).toBe(2);
+    // South of the start is floor on this map; a step resets the count.
+    await move("south");
+    expect(run.steps).toBe(1);
+    await move("east");
+    expect(state().last_move).toBe("east: walked into a wall, did not move");
   });
 
   test("fog hides what is out of sight until the hero comes near", () => {

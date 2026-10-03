@@ -125,6 +125,8 @@ export interface UndercroftRun {
   turns: number;
   steps: number;
   bumps: number;
+  /** Bumps since the hero last moved; the request counts them so a repeat never reads as new. */
+  bumpsInARow: number;
   hpLost: number;
   optimal: number;
   limit: number;
@@ -364,6 +366,7 @@ export const undercroft: Dungeon<UndercroftRun> = {
       turns: 0,
       steps: 0,
       bumps: 0,
+      bumpsInARow: 0,
       hpLost: 0,
       optimal,
       limit: optimal * TURN_LIMIT_FACTOR,
@@ -402,8 +405,12 @@ export const undercroft: Dungeon<UndercroftRun> = {
     const turn = `turn ${run.turns}: ${d}`;
     if (blocked(tile, new Set(run.keys))) {
       run.bumps++;
+      run.bumpsInARow++;
       const why = BUMP[tile] ?? "blocked";
-      run.lastMove = `${d}: ${why}, did not move`;
+      // A stateless decider sees only the request: without the count, every
+      // bump after the first sends the same state and gets the same answer.
+      const n = run.bumpsInARow;
+      run.lastMove = `${d}: ${why}, did not move${n > 1 ? ` (${n} blocked moves in a row; you have not moved since)` : ""}`;
       run.records.push({
         index: run.records.length,
         summary: `${turn}, ${why}`,
@@ -413,6 +420,7 @@ export const undercroft: Dungeon<UndercroftRun> = {
     }
     run.hero = target;
     run.steps++;
+    run.bumpsInARow = 0;
     run.trail.push({ ...target });
     const notes: string[] = [];
     const clear = () => {
