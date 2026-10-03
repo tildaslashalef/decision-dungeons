@@ -2,7 +2,8 @@
 // of candidate paths, road edges, traffic; instructions only for the
 // situations at hand), with each path's facts also written into its option
 // text and situational instructions first, so a model that reads 512
-// tokens sees what it is choosing between (docs/plan.md § Decisions).
+// tokens sees what it is choosing between. Every decider gets this same
+// request, so comparisons stay on equal input.
 // Questions with a single option are answered here, not asked.
 
 import type { Answers, ChoiceAnswer } from "../../../contract/answer.ts";

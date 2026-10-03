@@ -1,6 +1,21 @@
+# Dependencies and builds
 node_modules/
 dist/
+*.tsbuildinfo
+coverage/
+
+# Secrets and local settings: keys live in the environment or in
+# ~/.decision-dungeons/config.json, never in the repository.
 .env*
+.claude/
+.idea/
+.vscode/
+
+# Run output: screenshots, measurements, case databases, logs
 artifacts/
+*.db
+*.db-wal
+*.db-shm
 *.log
+
 .DS_Store

@@ -11,20 +11,19 @@ play or runs it headless for comparison tables. The first dungeon is
 autopilot driving, a rewrite of an existing driving simulator (the
 reference simulator; `NOTICE.md` names it and its origin).
 
-[docs/plan.md](docs/plan.md) is the plan: its context, references,
-architecture, milestones, decisions, and *Progress*. Read it first, every
-session. There is no other roadmap.
+`README.md` describes the dungeons, the deciders, and how to run and check
+them; the git history records what was built and why.
 
 ## Sessions
 
-- **Start** by reading `docs/plan.md` § *Progress*. If a milestone is in
-  progress, summarize where it stands and continue it; otherwise ask what
-  to work on.
-- **End** by updating *Progress*: what the session delivered (with the
-  commands and numbers that prove it), what remains, where to pick up. The
-  hand-off is the plan, never the conversation.
-- A decision that outlives a session (a dependency, a format, a rule) goes
-  into *Decisions* with its date, in the commit that acts on it.
+- **Start** by reading `README.md` and the recent `git log`, then ask what
+  to work on unless the request already says.
+- **End** with commits whose messages carry the reason and the numbers
+  that prove the work (commands, seeds, results), and a report of what
+  changed, what was validated, and what remains.
+- A decision that outlives a session (a dependency, a format, a rule) is
+  stated in the commit that acts on it, and in `README.md` when a user
+  needs it.
 
 ## Working mode
 
@@ -45,9 +44,9 @@ remove stale guidance instead of keeping competing versions.
   simulation). Never paste its files wholesale. Its assets (models,
   textures, sky) are copied with their license and attribution files, and
   `NOTICE.md` records both the code's origin and every asset's license.
-- **nuclis** (`~/Code/nuclis`) is a black box reached only through its
-  local HTTP API (below). Never import its code, run its binary, or depend
-  on its file layout.
+- **nuclis** (<https://github.com/tildaslashalef/nuclis>) is a black box
+  reached only through its local HTTP API (below). Never import its code,
+  run its binary, or depend on its file layout.
 - **TypeSafe Jev** is reached only through its public HTTPS API.
 
 ## Typed decisions come from the local nuclis API
@@ -57,9 +56,10 @@ several, scores along a rubric) come from **nuclis**, a local inference
 server on this machine; never call a hosted LLM for them (TypeSafe Jev
 stays as one decider among others, chosen by the player).
 
-- **The contract is `~/Code/nuclis/docs/reference/api.md`.** Read it
-  before writing or changing code that talks to the server: routes,
-  fields, error codes, limits, batching. Where it disagrees with anything
+- **The contract is nuclis's `docs/reference/api.md`** (in its
+  repository or a local checkout). Read it before writing or changing
+  code that talks to the server: routes, fields, error codes, limits,
+  batching. Where it disagrees with anything
   here, it wins.
 - **The server.** Base URL `http://127.0.0.1:8000/v1`, from the config
   (`NUCLIS_URL` or the settings page), defaulting to that. The user starts
@@ -143,12 +143,13 @@ For code changes:
 1. `bun test` (contract, deciders against a stubbed nuclis API, dungeon
    logic, error paths), `bunx tsc --noEmit`, `bunx biome check`.
 2. A change to a simulation or a decider: run `bun run eval` on the
-   affected dungeon and seeds; for the driving port, match the reference simulator with
-   the deterministic rule decider as `docs/plan.md` § *Proving the port*
-   describes.
+   affected dungeon and seeds; for the driving port, run
+   `scripts/driving-reference.ts all` against the reference simulator:
+   seeds 1–4 in each world and the stop-line check must stay
+   bit-identical with the deterministic rule decider.
 3. A change a player can see: start the dev server, drive it in a
    headless browser (Playwright through `bunx`), and look at the
-   screenshots before calling it done; cite them in *Progress*.
+   screenshots before calling it done; name them in the report.
 4. Measurements name the machine, the decider and model, the seeds, the
    commit, and the nuclis version; never present an estimate as a
    measurement.
@@ -164,8 +165,8 @@ A comment earns its place by saying what the code cannot: an invariant, an
 ownership rule, a non-obvious reason, a hazard. Module headers are a short
 orientation; declarations get a one- or two-sentence contract; inline
 comments give the non-obvious why, never the what. No history or plan
-narration ("was X, now Y", "milestone 2"): a comment must stay true after
-the plan is gone. Specifications live in `docs/`, linked, not restated.
+narration ("was X, now Y", "milestone 2"): a comment must stay true as
+the project changes.
 
 ## Commits
 
@@ -184,5 +185,5 @@ committing. Short subjects; a body only when it explains a reason or a
 tradeoff. **Do not add `Co-Authored-By:` or any other co-author or
 attribution trailer.**
 
-Routine local commits are authorized. The repository is local only: do
-not add a remote, push, or publish.
+Routine local commits are authorized. Do not add a remote, push, or
+publish: the user does.

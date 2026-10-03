@@ -1,6 +1,5 @@
 // The decision request every decider reads: Jev's shape, which the nuclis
-// API also reads. Specified in docs/plan.md § The decision
-// contract.
+// API also reads, so swapping deciders changes nothing here.
 
 export type JsonValue =
   | null

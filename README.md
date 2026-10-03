@@ -171,3 +171,8 @@ scripts/       browser checks, the JevPilot reference comparison, icon rendering
 
 The driving dungeon is a rewrite of Standard Agents' JevPilot
 (<https://github.com/standardagents/jevpilot>), used with permission. Asset licenses and attributions are in [NOTICE.md](NOTICE.md).
+
+## License
+
+The code is [MIT](LICENSE). Third-party assets and packages keep their own
+licenses, listed in [NOTICE.md](NOTICE.md).

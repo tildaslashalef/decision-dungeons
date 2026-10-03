@@ -1,5 +1,4 @@
-// The HTTP API's bodies, shared by the server and the browser. Specified in
-// docs/plan.md § Server and config page.
+// The HTTP API's bodies, shared by the server and the browser.
 
 import type { DeciderStatus, ModelInfo } from "./decider.ts";
 import type { DecideErrorCode } from "./errors.ts";

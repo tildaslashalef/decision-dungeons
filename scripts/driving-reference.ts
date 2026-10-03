@@ -1,6 +1,6 @@
-// Proves the driving port against the reference simulator (NOTICE.md;
-// docs/plan.md § Proving the port): runs its simulation and ours side by
-// side with the same deterministic rule, compares every decision, and
+// Proves the driving port against the reference simulator (NOTICE.md):
+// runs its simulation and ours side by side with the same deterministic
+// rule, compares every decision (all must be bit-identical), and
 // prints one JSON line per run. The reference checkout is read from
 // DRIVING_REFERENCE; this is a development check, not part of `bun test`.
 //
