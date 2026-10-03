@@ -412,7 +412,7 @@ Restructured:
 
 **Proving the port.** The rule decider is deterministic, so it is the
 oracle: for seeds 1–4 in each world and for the stop-line check, the port
-and the reference simulator (the commits `NOTICE.md` records) must arrive
+and the reference simulator (its repository, linked in `NOTICE.md`) must arrive
 alike, with the same violations and stop distances within 0.1 m.
 Differences are explained or fixed before the UI work. Done: every run
 is bit-identical (*Progress*, milestone 2); `scripts/driving-reference.ts`
@@ -805,6 +805,9 @@ three.js Ferrari (MIT). Asset license files travel with the assets.
   picker merges them), a line under Fixed rule and Random saying what they
   are, and a link to https://console.typesafe.ai under TypeSafe Jev, at the
   user's request (2026-10-03).
+- nuclis's mark is Phosphor's atom: its name is a play on nucleus, the
+  dense core (the user's note); the game-icons.net processor it replaces
+  is removed with its credit (2026-10-03).
 - Scope: the user asked for the whole plan end to end, a second 3D
   dungeon of this project's design (milestone 5), and the text dungeons'
   cases in SQLite under `~/.decision-dungeons` with a seed script that can

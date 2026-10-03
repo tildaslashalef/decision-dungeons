@@ -3,17 +3,16 @@
 ## Code origin
 
 Decision Dungeons rewrites parts of **JevPilot** by Standard Agents
-(upstream commit `e1beeb1`, with the `nuclis-decider` branch at `4cca4fc`),
-used with permission. Nothing is copied: JevPilot was read to learn what
-it does, and the behaviour was implemented again in this project's own
-structure. What comes from it so far:
+(<https://github.com/standardagents/jevpilot>), used with permission.
+Nothing is copied: JevPilot was read to learn what it does, and the
+behaviour was implemented again in this project's own structure. What
+comes from it so far:
 
-- the nuclis decider (`nuclis decide` as a subprocess) and the idea of
-  rewriting a request for a short-budget model;
+- the nuclis decider and the idea of rewriting a request for a
+  short-budget model;
 - the TypeSafe Jev decider, its pricing, and its error handling;
 - the debug sidebar's content and look, and the visual language of the UI
-  (light glass panels, typography, colours).
-
+  (light glass panels, typography, colours);
 - the driving dungeon: its worlds, simulation, candidate planner, and
   request (`src/dungeons/driving/{world,sim,decide}`), and its 3D scene,
   HUD, minimap, candidate paths, inspector, and crash effects
@@ -42,7 +41,7 @@ set to `currentColor`; the shapes are unchanged.
 | Icon | Author |
 | --- | --- |
 | Dungeon gate, City car, Traffic lights red, Crossroad, Horizon road, Traffic cone, Rule book, Dice six faces five, Torch | [Delapouite](https://delapouite.com) |
-| Processor, Fluffy cloud | [Lorc](https://lorcblog.blogspot.com) |
+| Fluffy cloud | [Lorc](https://lorcblog.blogspot.com) |
 
 The app icon set in `public/icons/` is this project's own work.
 Development tools (TypeScript, Biome, Bun's types) are not shipped.

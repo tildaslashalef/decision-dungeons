@@ -129,7 +129,8 @@ drive the UI in headless Chromium through `playwright-core`; see each
 script's header.
 
 The driving simulation is checked decision by decision against JevPilot,
-which it rewrites, given a JevPilot checkout (branch `nuclis-decider`):
+which it rewrites, given a clone of
+<https://github.com/standardagents/jevpilot>:
 
 ```sh
 DRIVING_REFERENCE=/path/to/jevpilot bun scripts/driving-reference.ts all
@@ -151,5 +152,5 @@ scripts/       browser checks, the JevPilot reference comparison, icon rendering
 
 ## Credits
 
-The driving dungeon is a rewrite of Standard Agents' JevPilot, used with
-permission. Asset licenses and attributions are in [NOTICE.md](NOTICE.md).
+The driving dungeon is a rewrite of Standard Agents' JevPilot
+(<https://github.com/standardagents/jevpilot>), used with permission. Asset licenses and attributions are in [NOTICE.md](NOTICE.md).
