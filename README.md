@@ -17,11 +17,14 @@ play headless from the command line and produce comparison tables.
 | **Ticket triage** | Routes support tickets, scores urgency, spots refund requests | Routing, urgency, refunds, four languages, all three at once |
 | **Logs** | Decides whether to page on-call from production logs | Page or not, numbers against a policy, root cause, long windows, page and cause at once |
 | **Receipts** (images) | Reimburses expense receipts against a policy, reads them | The policy from the data, the picture, or both; the total; everything on the slip |
+| **The Oracle** | Gives the chance the morning ferry sails; scored against each day's true chance, not only the outcome | The facts as a table, a harbour log, scattered notices, a misleading captain's note; four questions a day |
+| **Undercroft** (images) | Crawls a dungeon one move a turn: keys and doors, monsters, fog | Corridors, keys, monsters, fog; the map as a tile picture, or picture and text |
+| **Evensong** | Harmonizes a hymn tune at the organ, one chord a note, by the rules of harmony; the browser plays it | One phrase, a hymn, a chorale, the hymn by heart |
 | **Crossing** | Drives or stops at a signalled line | Signal, distance, both |
 
 Every run is deterministic: the same seed and the same answers give the
-same run, in the browser and headless. Every case has a known answer or a
-stated pass bound, so each decision is scored.
+same run, in the browser and headless. Every case has a known answer, a
+true probability, or a stated pass bound, so each decision is scored.
 
 ## Deciders
 
@@ -57,7 +60,8 @@ bun run dev        # http://127.0.0.1:7000
 Open the gate, choose a dungeon, then a level, an autopilot, and a seed.
 In play, **N** toggles the debug sidebar. In the 3D dungeons, **C**
 switches cameras; driving's **T** toggles turn-based and real time, and
-Night Tower's **1–3** set the time speed.
+Night Tower's **1–3** set the time speed. In Evensong, **Play the hymn**
+plays what the organist chose (audio starts only on a click).
 
 ## Headless runs
 
@@ -80,7 +84,7 @@ states into one GPU pass (Laya); clef-flash is sent one case at a time.
 ## Case sets
 
 The text dungeons play synthetic cases (emails, tickets, log windows,
-receipts) written by seeded generators, so every label follows from how
+receipts, harbour days) written by seeded generators, so every label follows from how
 the case was built. They live in SQLite at
 `~/.decision-dungeons/dungeons.db`. A set's cases never change (a set only
 gains whole new levels), sets are content-hashed, and each result records
@@ -135,7 +139,9 @@ DRIVING_REFERENCE=/path/to/jevpilot bun scripts/driving-reference.ts all
 src/
   contract/    request and answer types, validation, the decide path
   deciders/    nuclis, TypeSafe, random
-  dungeons/    driving, tower, inbox, tickets, logs, crossing, and the shared text builder
+  dungeons/    driving, tower, inbox, tickets, logs, receipts, oracle, undercroft,
+               evensong, crossing, and the shared text builder
+  lib/         seeded randomness, a minimal PNG writer
   server/      Bun.serve API, config, case store, logging
   ui/          gate, lobbies, settings, play view, debug sidebar
   cli/         eval and seed
