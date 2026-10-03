@@ -86,6 +86,7 @@ for (const [width, height] of [
     ["/d/tower", ".picker", "lobby-tower"],
     ["/d/oracle", ".picker", "lobby-oracle"],
     ["/d/undercroft", ".picker", "lobby-undercroft"],
+    ["/d/evensong", ".picker", "lobby-evensong"],
     ["/config", ".card-nuclis", "config"],
   ] as const) {
     await page.goto(`${BASE}${path}`);
@@ -173,6 +174,27 @@ for (const [title, id, level] of [
   if (await rule.isEnabled())
     problems.push("the rule is offered on a picture-only Undercroft level");
   await shot("lobby-undercroft-picture");
+}
+
+// Evensong: the rule organist plays a hymn without a fault.
+{
+  await lobby("Evensong", "evensong");
+  await page.locator('label.choice:has(input[value="hymn"])').click();
+  await pick("rule/baseline");
+  await page.getByRole("button", { name: "Start run" }).click();
+  await page.locator(".es-score").waitFor();
+  await page
+    .locator(".outcome .pass, .outcome .fail")
+    .waitFor({ timeout: 60_000 });
+  await shot("evensong-rule-finished");
+  const verdict = await page.locator(".outcome").innerText();
+  console.log(`evensong-rule: ${verdict.replaceAll("\n", " ")}`);
+  if (!verdict.includes("Passed"))
+    problems.push("the rule did not pass Evensong");
+  // The organ plays on a click, and the page keeps working.
+  await page.getByRole("button", { name: "Play the hymn" }).click();
+  await page.getByRole("button", { name: "Exit" }).click();
+  await page.waitForURL("**/d/evensong");
 }
 
 // A real nuclis model, one decision per case.

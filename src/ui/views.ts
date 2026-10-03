@@ -7,6 +7,8 @@ import {
   mountDrivingStage,
   type StageContext,
 } from "../dungeons/driving/ui/stage.ts";
+import type { EvensongRun } from "../dungeons/evensong/evensong.ts";
+import { evensongView } from "../dungeons/evensong/view.ts";
 import { oracleView } from "../dungeons/oracle/view.ts";
 import type { TextRun } from "../dungeons/text/text-dungeon.ts";
 import { textView } from "../dungeons/text/view.ts";
@@ -26,10 +28,11 @@ const views: Record<string, View> = {
   receipts: (run, status) => textView("receipt", run as TextRun, status),
   oracle: (run, status) => oracleView(run as TextRun, status),
   undercroft: (run, status) => undercroftView(run as UndercroftRun, status),
+  evensong: (run, status) => evensongView(run as EvensongRun, status),
 };
 
 /** Pause between turns in the card view, ms: long enough to read each answer. */
-const PACE_MS: Record<string, number> = { undercroft: 280 };
+const PACE_MS: Record<string, number> = { undercroft: 280, evensong: 900 };
 export const dungeonPace = (id: string): number => PACE_MS[id] ?? 700;
 
 /**

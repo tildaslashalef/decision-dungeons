@@ -1896,6 +1896,89 @@ button.primary:hover {
   }
 }
 
+/* Evensong: the hymn on two staves, the organist's hesitation */
+.es-score {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: calc(100dvh - 430px);
+  min-height: 180px;
+  margin: 8px 0 4px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #fffdf8;
+}
+.es-label {
+  font-size: 10px;
+  fill: var(--muted);
+}
+.es-acc {
+  font-size: 15px;
+}
+.es-numeral {
+  font:
+    600 14px "Fraunces Variable",
+    Georgia,
+    serif;
+  fill: #171a20;
+}
+.es-numeral.bad {
+  fill: #c62828;
+}
+.es-below {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  gap: 18px;
+  margin-top: 12px;
+}
+.es-hesitation {
+  display: grid;
+  align-content: start;
+  gap: 5px;
+  font-size: 12.5px;
+}
+.es-bar {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) 40px;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.es-bar span {
+  font-family: "Fraunces Variable", Georgia, serif;
+  font-weight: 600;
+  color: #171a20;
+}
+.es-track {
+  height: 8px;
+  border-radius: 4px;
+  background: #eef0f3;
+  overflow: hidden;
+}
+.es-fill {
+  display: block;
+  height: 100%;
+  background: #b9a2e0;
+}
+.es-bar.chosen .es-fill {
+  background: #6b3fb8;
+}
+.es-side {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+}
+.es-buttons {
+  display: flex;
+  gap: 8px;
+}
+.es-listen.on {
+  background: #6b3fb81a;
+  border-color: #6b3fb8;
+  color: #4b2a8a;
+}
+
 /* Debug sidebar */
 .debug-sidebar {
   background: #fbfbfcf7;

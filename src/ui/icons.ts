@@ -75,6 +75,12 @@ import lighthouse from "@phosphor-icons/core/assets/duotone/lighthouse-duotone.s
 import mapTrifold from "@phosphor-icons/core/assets/duotone/map-trifold-duotone.svg" with {
   type: "text",
 };
+import musicNotes from "@phosphor-icons/core/assets/duotone/music-notes-duotone.svg" with {
+  type: "text",
+};
+import pianoKeys from "@phosphor-icons/core/assets/duotone/piano-keys-duotone.svg" with {
+  type: "text",
+};
 import play from "@phosphor-icons/core/assets/duotone/play-duotone.svg" with {
   type: "text",
 };
@@ -82,6 +88,9 @@ import plugs from "@phosphor-icons/core/assets/duotone/plugs-connected-duotone.s
   type: "text",
 };
 import receipt from "@phosphor-icons/core/assets/duotone/receipt-duotone.svg" with {
+  type: "text",
+};
+import scales from "@phosphor-icons/core/assets/duotone/scales-duotone.svg" with {
   type: "text",
 };
 import scroll from "@phosphor-icons/core/assets/duotone/scroll-duotone.svg" with {
@@ -193,6 +202,10 @@ const SOURCES = {
   stairs,
   mapTrifold,
   footprints,
+  // Phosphor: Evensong's marks.
+  musicNotes,
+  pianoKeys,
+  scales,
   // game-icons.net: dungeon accents.
   dungeonGate: gameDungeonGate,
   cityCar: gameCityCar,

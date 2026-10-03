@@ -4,6 +4,7 @@
 import { crossing } from "./crossing/crossing.ts";
 import { driving } from "./driving/driving.ts";
 import type { AnyDungeon } from "./dungeon.ts";
+import { evensong } from "./evensong/evensong.ts";
 import { inbox } from "./inbox/inbox.ts";
 import { logs } from "./logs/logs.ts";
 import { oracle } from "./oracle/oracle.ts";
@@ -21,6 +22,7 @@ export const dungeons: Record<string, AnyDungeon> = {
   [logs.id]: logs as AnyDungeon,
   [receipts.id]: receipts as AnyDungeon,
   [oracle.id]: oracle as AnyDungeon,
+  [evensong.id]: evensong as AnyDungeon,
   [crossing.id]: crossing as AnyDungeon,
 };
 

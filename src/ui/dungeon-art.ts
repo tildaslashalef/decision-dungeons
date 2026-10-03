@@ -552,6 +552,84 @@ function drawUndercroft(key: string): SVGElement {
   );
 }
 
+/** A chapel organ at dusk: its pipes under a rose window, candles lit. */
+function drawEvensong(key: string): SVGElement {
+  const sky = `${key}-sky`;
+  const pipe = `${key}-pipe`;
+  const pipes: SVGElement[] = [];
+  const heights = [96, 120, 146, 172, 196, 172, 146, 120, 96];
+  heights.forEach((ph, i) => {
+    const x = 66 + i * 19;
+    const top = 330 - ph;
+    pipes.push(
+      rect(x, top, 14, ph, `url(#${pipe})`, { rx: 3 }),
+      path(
+        `M${x} ${top + ph - 26} L${x + 7} ${top + ph - 34} L${x + 14} ${top + ph - 26} Z`,
+        {
+          fill: "#3b2a18",
+        },
+      ),
+    );
+  });
+  const petals: SVGElement[] = [];
+  for (let i = 0; i < 8; i++) {
+    const a = (i * Math.PI) / 4;
+    petals.push(
+      svg("circle", {
+        cx: 150 + Math.cos(a) * 22,
+        cy: 92 + Math.sin(a) * 22,
+        r: 11,
+        fill: ["#c2453a", "#3e6ae1", "#e0a83a", "#2f9e44"][i % 4] as string,
+        opacity: 0.85,
+      }),
+    );
+  }
+  return frame(
+    "A chapel organ at dusk, its pipes under a stained-glass rose window",
+    svg(
+      "defs",
+      {},
+      gradient(sky, [
+        [0, "#1d1630"],
+        [1, "#3a2a3e"],
+      ]),
+      gradient(
+        pipe,
+        [
+          [0, "#8a7350"],
+          [0.45, "#f0d9a0"],
+          [1, "#7a6040"],
+        ],
+        false,
+      ),
+    ),
+    rect(0, 0, 300, 400, `url(#${sky})`),
+    svg("circle", {
+      cx: 150,
+      cy: 92,
+      r: 50,
+      fill: "#2a1f33",
+      stroke: "#6b5470",
+      "stroke-width": 4,
+    }),
+    ...petals,
+    svg("circle", { cx: 150, cy: 92, r: 12, fill: "#f6d3a4" }),
+    ...pipes,
+    rect(52, 330, 196, 70, "#4a3220"),
+    rect(70, 344, 160, 10, "#f5efe2", { rx: 2 }),
+    ...Array.from({ length: 11 }, (_, i) =>
+      rect(76 + i * 14, 344, 6, 6, "#1d1630"),
+    ),
+    // Candles either side.
+    rect(26, 300, 8, 40, "#f5efe2", { rx: 2 }),
+    rect(266, 300, 8, 40, "#f5efe2", { rx: 2 }),
+    svg("circle", { cx: 30, cy: 294, r: 5, fill: "#ffcf6b" }),
+    svg("circle", { cx: 270, cy: 294, r: 5, fill: "#ffcf6b" }),
+    svg("circle", { cx: 30, cy: 294, r: 16, fill: "#ffcf6b", opacity: 0.18 }),
+    svg("circle", { cx: 270, cy: 294, r: 16, fill: "#ffcf6b", opacity: 0.18 }),
+  );
+}
+
 /** Any dungeon without its own illustration: a doorway into the dark. */
 function drawDoor(key: string): SVGElement {
   const depth = `${key}-depth`;
@@ -671,6 +749,18 @@ const ART: Record<string, DungeonArt> = {
       { icon: "footprints", text: "Steps against the optimum" },
     ],
     draw: drawUndercroft,
+  },
+  evensong: {
+    accent: "#9b6bd6",
+    tagline:
+      "Play the organ: a chord under every note of a hymn, by the rules.",
+    emblem: "musicNotes",
+    facts: [
+      { icon: "pianoKeys", text: "Hear what it chose" },
+      { icon: "scales", text: "Rules of harmony" },
+      { icon: "ruleBook", text: "Rules written, or by heart" },
+    ],
+    draw: drawEvensong,
   },
   crossing: {
     accent: "#e82127",
