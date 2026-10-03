@@ -6,7 +6,7 @@ import { h } from "./dom.ts";
 import { type IconName, svgIcon } from "./icons.ts";
 
 const DECIDER_ICONS: Record<string, IconName> = {
-  nuclis: "processor",
+  nuclis: "atom",
   cascade: "stack",
   typesafe: "cloud",
   rule: "ruleBook",

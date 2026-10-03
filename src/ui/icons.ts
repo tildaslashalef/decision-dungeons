@@ -21,6 +21,9 @@ import landing from "@phosphor-icons/core/assets/duotone/airplane-landing-duoton
 import airplane from "@phosphor-icons/core/assets/duotone/airplane-tilt-duotone.svg" with {
   type: "text",
 };
+import atom from "@phosphor-icons/core/assets/duotone/atom-duotone.svg" with {
+  type: "text",
+};
 import radio from "@phosphor-icons/core/assets/duotone/broadcast-duotone.svg" with {
   type: "text",
 };
@@ -147,7 +150,6 @@ import gameCloud from "./icons/game/fluffy-cloud.svg" with { type: "text" };
 import gameHorizonRoad from "./icons/game/horizon-road.svg" with {
   type: "text",
 };
-import gameProcessor from "./icons/game/processor.svg" with { type: "text" };
 import gameRuleBook from "./icons/game/rule-book.svg" with { type: "text" };
 import gameTorch from "./icons/game/torch.svg" with { type: "text" };
 import gameTrafficCone from "./icons/game/traffic-cone.svg" with {
@@ -202,6 +204,8 @@ const SOURCES = {
   stairs,
   mapTrifold,
   footprints,
+  // Phosphor: nuclis, a play on nucleus.
+  atom,
   // Phosphor: Evensong's marks.
   musicNotes,
   pianoKeys,
@@ -216,7 +220,6 @@ const SOURCES = {
   ruleBook: gameRuleBook,
   dice: gameDice,
   torch: gameTorch,
-  processor: gameProcessor,
   cloud: gameCloud,
 } as const;
 

@@ -17,5 +17,4 @@ the shapes are unchanged.
 | rule-book.svg | Rule book | Delapouite |
 | dice-six-faces-five.svg | Dice six faces five | Delapouite |
 | torch.svg | Torch | Delapouite |
-| processor.svg | Processor | Lorc |
 | fluffy-cloud.svg | Fluffy cloud | Lorc |
