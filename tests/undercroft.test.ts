@@ -222,6 +222,24 @@ describe("undercroft runs", () => {
     expect(() => undercroft.observe(run)).toThrow("render");
   });
 
+  test("the next request says what the last move did", async () => {
+    const run = undercroft.create(1, "corridors") as UndercroftRun;
+    const move = (choice: string) =>
+      playTurn(dungeon, run, async () => ({
+        decider: "x",
+        model: "x",
+        answers: { move: { type: "choice", choice } },
+        timings: { total: 0 },
+      }));
+    const state = () =>
+      undercroft.observe(run).request.state as Record<string, unknown>;
+    expect(state().last_move).toBeUndefined();
+    // The start is the top-left corner: north is always a wall.
+    await move("north");
+    expect(state().last_move).toBe("north: walked into a wall, did not move");
+    expect(run.bumps).toBe(1);
+  });
+
   test("fog hides what is out of sight until the hero comes near", () => {
     const run = undercroft.create(1, "fog") as UndercroftRun;
     const before = textMap(run).join("").split("?").length;

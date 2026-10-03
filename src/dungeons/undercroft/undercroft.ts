@@ -138,6 +138,8 @@ export interface UndercroftRun {
   /** The last move's answer and where the hero stood to make it, for the view's arrows. */
   lastAnswer?: ChoiceAnswer;
   lastFrom?: Pos;
+  /** What the last move did, as the next request tells it: "north: walked into a wall". */
+  lastMove?: string;
   /** The picture the next request carries, drawn at `turn` by `render`. */
   picture?: { turn: number; url: string };
 }
@@ -227,6 +229,7 @@ export function undercroftRequest(run: UndercroftRun): Request {
   const level = levelOf(run.level);
   if (!level) throw new Error(`undercroft has no level ${run.level}`);
   const facts: Record<string, JsonValue> = {
+    ...(run.lastMove ? { last_move: run.lastMove } : {}),
     keys_held: run.keys,
     hit_points: run.hp,
     moves_left: run.limit - run.turns,
@@ -405,6 +408,7 @@ export const undercroft: Dungeon<UndercroftRun> = {
     if (blocked(tile, new Set(run.keys))) {
       run.bumps++;
       const why = BUMP[tile] ?? "blocked";
+      run.lastMove = `${d}: ${why}, did not move`;
       run.records.push({
         index: run.records.length,
         summary: `${turn}, ${why}`,
@@ -445,6 +449,7 @@ export const undercroft: Dungeon<UndercroftRun> = {
         notes.push("died");
       }
     }
+    run.lastMove = `${d}: moved to row ${target.row}, column ${target.col}${notes.length ? `, ${notes.join(", ")}` : ""}`;
     run.records.push({
       index: run.records.length,
       summary: `${turn} to (${target.row}, ${target.col})${notes.length ? `, ${notes.join(", ")}` : ""}`,
