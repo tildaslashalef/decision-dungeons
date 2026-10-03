@@ -28,15 +28,21 @@ true probability, or a stated pass bound, so each decision is scored.
 
 ## Deciders
 
-- **nuclis**: local decision models (`laya`, `laya-multilingual`,
-  `clef-flash`, and any decision model nuclis adds) through `nuclis
-  serve`'s HTTP API. Laya answers in milliseconds; clef-flash, a 9B
-  model, takes about a second or more per state.
-- **Cascade**: a fast nuclis model (Laya) screens every case and a slow one
-  (clef-flash) decides the ones it is unsure of, could not read whole, or
-  cannot see; `--model laya-multilingual:clef-flash --threshold 0.75,0.85`
-  sweeps how sure the screener must be.
-- **TypeSafe Jev**: the hosted API, billed per input token; needs a key.
+- **nuclis**: local decision models served by
+  [nuclis](https://github.com/tildaslashalef/nuclis) (by this project's
+  author) over its HTTP API: `laya`, `laya-multilingual`, `clef-flash`, and
+  any decision model nuclis adds, listed by the server itself. Two modes,
+  one row in the lobby:
+  - *Single model*: one model answers every decision. Laya answers in
+    milliseconds; clef-flash, a 9B model that also reads pictures, takes
+    about a second or more per state.
+  - *Cascade*: a fast model (Laya) screens every decision and a slow one
+    (clef-flash) takes those it is unsure of, could not read whole, or
+    cannot see. In `bun run eval`, `--decider cascade --model
+    laya-multilingual:clef-flash --threshold 0.75,0.85` sweeps how sure the
+    screener must be.
+- **TypeSafe Jev**: the hosted API, billed per input token; needs a key
+  from [console.typesafe.ai](https://console.typesafe.ai).
 - **Fixed rule**: each dungeon's deterministic baseline.
 - **Random**: seeded uniform choice; the floor.
 
@@ -46,9 +52,20 @@ is not finite, or a missing answer is a typed error, never repaired.
 ## Requirements
 
 - [Bun](https://bun.sh) 1.4
-- For nuclis: `nuclis serve` running locally (default
-  `http://127.0.0.1:8000/v1`). The rule and random deciders need nothing.
-- For TypeSafe Jev: an API key.
+- For nuclis: [nuclis](https://github.com/tildaslashalef/nuclis) installed
+  and its models pulled, then the server running (see nuclis's own setup
+  guide):
+
+  ```sh
+  nuclis model pull laya-multilingual   # and laya, clef-flash as wanted
+  nuclis serve                          # http://127.0.0.1:8000/v1
+  ```
+
+  Decision Dungeons only talks to the running server; set `NUCLIS_URL` or
+  the settings page if it listens elsewhere. The rule and random deciders
+  need nothing.
+- For TypeSafe Jev: an API key from
+  [console.typesafe.ai](https://console.typesafe.ai).
 
 ## Quick start
 
