@@ -193,7 +193,8 @@ export function undercroftView(
         ),
         h(
           "ol",
-          { class: "uc-log" },
+          // Newest first, numbered by turn.
+          { class: "uc-log", reversed: true, start: run.records.length },
           recent.map((r) =>
             h("li", { class: r.violation ? "bad" : "" }, r.summary),
           ),

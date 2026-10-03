@@ -272,7 +272,8 @@ export function evensongView(
         h("div", { class: "es-buttons" }, whole, listen),
         h(
           "ol",
-          { class: "uc-log" },
+          // Newest first, numbered by note.
+          { class: "uc-log", reversed: true, start: run.records.length },
           run.records
             .slice()
             .reverse()

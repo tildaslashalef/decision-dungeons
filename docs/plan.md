@@ -1473,23 +1473,139 @@ Validated on the Apple M4 Pro (macOS 27), Bun 1.4.2:
   where the true chance averaged 52%), its worst level by far. Single
   runs per seed, not a benchmark.
 
+### Milestone 8, Undercroft: done (2026-10-03, commits `520c6e5`, `f38a10a`)
+
+Delivered: *Dungeon 4* as above: seeded maps and the breadth-first
+optimum (`map.ts`), six levels, the planner as the rule, the tile
+pictures through `src/lib/png.ts` and `Dungeon.render`, the play view (the
+map from the same tiles at a larger scale, the trail, fog dimmed, the last
+decision's probabilities as arrows, hit points, keys, moves against the
+optimum and the pass bound), its gateway and lobby (the picture-only level
+disables the rule and Laya). Each request says what the last move did
+(`last_move`), added after the first measurement: without it a decider
+that bumped once saw the same state until the turn limit.
+
+Validated on the Apple M4 Pro, Bun 1.4.2:
+
+- `bun test`: 136 pass (3 of them live against nuclis), among them
+  `tests/undercroft.test.ts`: CRC-32 against the standard check value and
+  `Bun.hash.crc32`, a map picture decoded back (chunks, CRCs, zlib, rows)
+  to the pixels it was drawn from, the keys map of seed 1 pinned by hash,
+  every level's map with a safe way out, keys needed in order, monsters
+  lengthening the optimum on six seeds, the rule at the optimum on every
+  known map, random failing with bumps, the picture only where shown,
+  `observe` refusing a stale picture, `last_move`, fog.
+- In the browser (port 7100): the rule on `keys` (42 moves, the optimum),
+  `fog`, and `corridors`; clef-flash on `picture` for four turns (the
+  debug sidebar shows each move's probability, 2.1–2.2 s a move), then
+  paused and left, nuclis's queue idle after. Looked at
+  `artifacts/undercroft/{keys-rule-running,keys-rule-finished,fog-rule-running,picture-clef-running}.png`
+  and `artifacts/screenshots/{lobby-undercroft-picture,lobby-undercroft-1024x640,undercroft-rule-finished}.png`.
+- Measured, seeds 1–4, nuclis 0.4.0-dev on Metal, one eval at a time:
+  the rule and random at `f5a7999` (random before `last_move`, so its
+  answers, hashed from the request, would differ now; the rule reads only
+  the map), laya-multilingual at `9415664` (before `last_move`) and again
+  with laya at `6dc909e`, clef-flash and the cascade
+  (`laya-multilingual:clef-flash@0.85`) at `d044b11` (with `last_move`).
+  Passed runs of 4 per level, moves against the optimum per seed, bumps
+  summed over the four runs:
+
+  | decider | corridors | keys | monsters | fog | picture | picture-both |
+  | --- | --- | --- | --- | --- | --- | --- |
+  | rule | 4/4, at the optimum | 4/4, at the optimum | 4/4, at the optimum | 4/4, efficiency 0.59–1 | `rejected` (no map in text) | 4/4, at the optimum |
+  | random | 0/4, 168 bumps | 0/4, 316 | 0/4, 221, one death | 0/4, 200 | 0/4, 319 | 0/4, 339 |
+  | laya | 0/4, 0 moves, 330 bumps | 0/4, 0 moves, 600 | 0/4, 0 moves, 504 | 0/4, 12 moves, 378 | — | — |
+  | laya-multilingual | 0/4, 56 moves on seed 1, 274 | 0/4, 84 moves on seed 1, 516 | 0/4, 0 moves, 504 | 0/4, 0 moves, 390 | — | — |
+  | clef-flash | 0/4 (78/26 6/32 0/28 2/24), 244 | 0/4 (4/42 0/62 0/56 84/40), 512 | 0/4 (2/40 0/52 132/44 2/32), 368 | 0/4 (0–2 moves), 386 | 0/4 (0–3 moves), 595 | 0/4 (2/42 0/62 0/56 80/40), 518 |
+  | cascade | as clef-flash, move for move | | | | | |
+
+  Time per move: laya-multilingual about 53 ms, laya 120–140 ms,
+  clef-flash 1.8 s on text and 2.3–2.8 s with the picture (a run to the
+  turn limit took 5–8 minutes).
+
+  What it shows: no model reaches the stairs on any map, with the map as
+  text, as a picture, or both. Laya answers `north` (the first option) on
+  nearly every turn; before `last_move` laya-multilingual did on every one
+  of 1,818 turns. clef-flash moves a few tiles and then pushes into the
+  same wall (on `corridors` seed 2 it went east toward stairs two tiles
+  away through a wall, 90 bumps), or paces between two tiles (78 moves on
+  `corridors` seed 1, never farther). laya-multilingual never reached the
+  cascade's 0.85 on a four-way move, so the cascade sent all 3,016 moves to
+  clef-flash and played its game exactly. Seeing the map adds nothing
+  measurable here. Single runs per seed, not a benchmark.
+
+### Evensong: done (2026-10-03, commits `f5a7999`, `d044b11`)
+
+Delivered: *Dungeon 5*: the music (`music.ts`: keys and spelling, the
+chords a note can take, the rules as faults, the dynamic-programming
+organist, seeded tunes), four levels, the two-stave view with the
+organist's probabilities and the Web Audio organ, gateway and lobby. A
+V7 whose seventh cannot fall was first counted twice (on the V7 and again
+on the next chord); it now counts once (`d044b11`), and the written rules
+allow a held chord, as the judge does (`9258712`).
+
+Validated on the Apple M4 Pro, Bun 1.4.2:
+
+- `bun test`: `tests/evensong.test.ts`: notes spelled and read back in
+  every key, each kind of fault caught (consecutive fifths, a dominant
+  falling back, the doubled leading tone, a missing cadence), the organ's
+  voicing in chord tones from melody down to bass, the rule flawless on
+  every level for seeds 1–4 (and 32 of 32 tunes on seeds 1–8 in `bun run
+  eval`), random faulting every chorale, `by-heart` asking the same tunes
+  without the rules.
+- In the browser (port 7100): the rule on `hymn` and `chorale` (passed,
+  the hymn played on the organ on a click with no console errors);
+  clef-flash on `phrase` (failed: V7 under the first note, its seventh not
+  falling). Looked at
+  `artifacts/evensong/{lobby,hymn-rule-finished,chorale-rule-finished,phrase-clef-finished}.png`,
+  `artifacts/screenshots/{evensong-rule-finished,lobby-evensong-1280x720}.png`.
+- Measured at `6dc909e`, seeds 1–4, nuclis 0.4.0-dev on Metal, one eval
+  at a time (`bun run eval --dungeon evensong --decider <id> --seeds
+  1-4`). Passed runs of 4, then faults per run:
+
+  | decider | phrase (4 notes) | hymn (8) | chorale (12) | by heart (8) | time per chord |
+  | --- | --- | --- | --- | --- | ---: |
+  | rule | 4/4, 0 | 4/4, 0 | 4/4, 0 | 4/4, 0 | 0 |
+  | clef-flash | 2/4, 2 0 2 0 | 0/4, 1 4 4 5 | 0/4, 4 5 3 3 | 0/4, 1 1 1 3 | 2.1–3.1 s |
+  | cascade | 2/4, 2 0 2 0 | 0/4, 1 4 4 5 | 0/4, 4 5 3 3 | 0/4, 1 1 1 4 | 2.1–3.2 s |
+  | laya | 0/4, 3 1 3 3 | 0/4, 2 6 3 2 | 0/4, 7 5 6 6 | 0/4, 2 6 3 2 | 110–145 ms |
+  | laya-multilingual | 0/4, 2 2 2 3 | 0/4, 5 6 5 5 | 0/4, 5 8 4 5 | 0/4, 7 5 5 5 | 59–72 ms |
+  | random | 0/4, 1 1 2 3 | 0/4, 6 6 6 5 | 0/4, 8 6 9 4 | 0/4, 5 4 3 4 | 0 |
+
+  What it shows: only clef-flash ever plays a phrase cleanly, and it plays
+  better by heart (26 of 32 chords clean) than with the rules written out
+  (18 of 32 on the same hymns): stated rules made it worse, chiefly with
+  consecutive fifths and octaves (9 with the rules, 0 by heart). Its
+  commonest fault either way is a phrase not ending on V. laya's choices
+  are identical with and without the rules, answer for answer. The
+  cascade almost always escalated, so it plays as clef-flash. Single runs
+  per seed, not a benchmark.
+
 ### Pick up here
 
-Milestones 1-5 are done; clef-flash is supported, every text dungeon asks
-all its questions at once on one level, the Laya→clef cascade is a
-decider, and milestone 6 has its first dungeon (Receipts). What is left,
-in order:
+Milestones 1–5, 7, and 8 are done, with Evensong beside them; clef-flash
+is supported, every text dungeon asks all its questions at once on one
+level, the Laya→clef cascade is a decider, and milestone 6 has its first
+dungeon (Receipts). What is left, in order:
 
-1. **Milestone 7, The Oracle** (*Dungeon 3*).
-2. **Milestone 8, Undercroft** (*Dungeon 4*).
-3. **Milestone 6, the next vision dungeons** (*Milestones*): driving
+1. **Questions for the user** (each changes what a decider sees, so it is
+   theirs to decide):
+   - Undercroft gives the decider no memory beyond `last_move`: clef-flash
+     paces between two tiles. Should the request carry the recent moves or
+     the trail (marked on the text map and the picture)?
+   - The Oracle's pass bound (0.10) is passed by no model yet; keep it as
+     the bar, or relax it?
+   - Evensong's `by-heart` level judges rules it does not state (the half
+     cadence above all); keep that as the point of the level?
+2. **Milestone 6, the next vision dungeons** (*Milestones*): driving
    frames with a blind-state level, dashboards beside logs, interface
    screenshots, rendered inbox mail. Receipts' line prices could be made
    realistic first.
-4. **Wider measurements**: clef-flash and the cascade in the comparison
+3. **Wider measurements**: clef-flash and the cascade in the comparison
    tables (driving turn-based, text dungeons, Night Tower, Receipts) over
-   seeds 1-4, one eval at a time since clef holds the GPU; the cascade
+   seeds 1–4, one eval at a time since clef holds the GPU; the cascade
    with `laya` (English) as the screener too; TypeSafe Jev when the user
-   approves a paid run.
-5. **Night Tower, if the user wants more of it**: a ground radar view,
+   approves a paid run. The Oracle can measure any new model's
+   calibration directly.
+4. **Night Tower, if the user wants more of it**: a ground radar view,
    arrivals' speed control, a second runway.
