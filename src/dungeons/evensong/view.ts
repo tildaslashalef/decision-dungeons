@@ -2,8 +2,10 @@
 // chosen bass below, a numeral under each chord, faults in red), how sure
 // the organist was of the last chord, and an organ to hear what it played.
 
+import { shownCase } from "../../ui/browse.ts";
 import { h, svg } from "../../ui/dom.ts";
 import type { PlayStatus } from "../../ui/store.ts";
+import type { Browse } from "../../ui/views.ts";
 import type { EvensongRun } from "./evensong.ts";
 import { LETTERS, spell } from "./music.ts";
 import { play } from "./organ.ts";
@@ -91,7 +93,11 @@ function head(
   return out;
 }
 
-function score(run: EvensongRun, current: number): SVGElement {
+function score(
+  run: EvensongRun,
+  current: number,
+  select?: (index: number) => void,
+): SVGElement {
   const { tune } = run;
   const n = tune.melody.length;
   const gap = (W - LEFT - 30) / Math.max(1, n - 1);
@@ -128,6 +134,20 @@ function score(run: EvensongRun, current: number): SVGElement {
         fill: "#3e6ae118",
       }),
     );
+  // While cases can be picked, each placed chord's column is a click target.
+  if (select)
+    run.placed.forEach((_, i) => {
+      const target = svg("rect", {
+        x: x(i) - 18,
+        y: 20,
+        width: 36,
+        height: BASS_BOTTOM + 40,
+        fill: "transparent",
+        class: "es-pick",
+      });
+      target.addEventListener("click", () => select(i));
+      parts.push(target);
+    });
   tune.melody.forEach((note, i) => {
     const placed = run.placed[i];
     const bad = (run.faults[i]?.length ?? 0) > 0;
@@ -194,10 +214,13 @@ function hesitation(run: EvensongRun, index: number): HTMLElement | null {
 export function evensongView(
   run: EvensongRun,
   status: PlayStatus,
+  browse: Browse = {},
 ): HTMLElement {
   const n = run.tune.melody.length;
   const done = run.placed.length;
-  const last = done - 1;
+  // The chord shown: the one just placed, or one a person picked.
+  const shown = shownCase(done, n, status, browse);
+  const last = shown.answered ? shown.index : done - 1;
   const lastFaults = run.faults[last] ?? [];
   // Play each new chord as it lands, once a person has turned the organ on.
   const now = `${run.level}:${run.seed}:${done}`;
@@ -243,7 +266,7 @@ export function evensongView(
       h(
         "span",
         { class: "eyebrow" },
-        `Note ${Math.min(done + (status === "deciding" ? 1 : 0), n)} of ${n} · ${run.tune.key.name} · seed ${run.seed}`,
+        `Note ${status === "deciding" ? Math.min(done + 1, n) : Math.max(1, last + 1)} of ${n} · ${run.tune.key.name} · seed ${run.seed}`,
       ),
       status === "deciding"
         ? h("span", { class: "verdict pending" }, "At the keys…")
@@ -261,7 +284,7 @@ export function evensongView(
                 `${run.placed[last]?.option.id} · clean`,
               ),
     ),
-    score(run, status === "deciding" ? done : Math.max(0, last)),
+    score(run, status === "deciding" ? done : Math.max(0, last), browse.select),
     h(
       "div",
       { class: "es-below" },

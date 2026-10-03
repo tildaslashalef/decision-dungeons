@@ -1,8 +1,10 @@
 // The Crossing dungeon in the browser: the road up to the stop line, the
 // car at its distance, the signal, and every case's result so far.
 
+import { caseStrip, shownCase } from "../../ui/browse.ts";
 import { type Child, h, svg } from "../../ui/dom.ts";
 import type { PlayStatus } from "../../ui/store.ts";
+import type { Browse } from "../../ui/views.ts";
 import type { CrossingCase, CrossingRun } from "./crossing.ts";
 import { STOP_WITHIN_M } from "./crossing.ts";
 
@@ -91,11 +93,14 @@ function fact(label: string, value: Child): HTMLElement {
 export function crossingView(
   run: CrossingRun,
   status: PlayStatus,
+  browse: Browse = {},
 ): HTMLElement {
-  const answered = status !== "deciding" && run.index > 0;
-  const index = answered
-    ? run.index - 1
-    : Math.min(run.index, run.cases.length - 1);
+  const { index, answered } = shownCase(
+    run.index,
+    run.cases.length,
+    status,
+    browse,
+  );
   const c = run.cases[index];
   const record = answered ? run.records[index] : undefined;
   if (!c) return h("div", {});
@@ -138,14 +143,15 @@ export function crossingView(
       fact("Answer", answered ? (run.answers[index] ?? "—") : "—"),
       fact("Expected", answered ? c.expected : "—"),
     ),
-    h(
-      "ol",
-      { class: "case-strip", "aria-label": "Cases" },
-      run.cases.map((_, i) => {
+    caseStrip(
+      run.cases.length,
+      index,
+      (i) => {
         const r = run.records[i];
-        const state = r ? (r.correct ? "ok" : "bad") : i === index ? "now" : "";
-        return h("li", { class: state, title: r?.summary ?? `Case ${i + 1}` });
-      }),
+        return r ? (r.correct ? "ok" : "bad") : "";
+      },
+      (i) => run.records[i]?.summary ?? `Case ${i + 1}`,
+      browse,
     ),
   );
 }

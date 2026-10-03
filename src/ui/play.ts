@@ -2,7 +2,15 @@
 // paced so a person can follow it. Simulated time does not run while the
 // autopilot decides, so a slow decider plays the same game as a fast one.
 
-import { ArrowLeft, Bug, Pause, Play, RotateCcw } from "lucide";
+import {
+  ArrowLeft,
+  Bug,
+  ChevronLeft,
+  ChevronRight,
+  Pause,
+  Play,
+  RotateCcw,
+} from "lucide";
 import type { Outcome } from "../dungeons/dungeon.ts";
 import { dungeonById } from "../dungeons/registry.ts";
 import { playTurn } from "../dungeons/turn.ts";
@@ -15,7 +23,8 @@ import {
   type Selection,
   type Store,
 } from "./store.ts";
-import { dungeonPace, dungeonStage, dungeonView } from "./views.ts";
+import { runSwitcher } from "./switcher.ts";
+import { browsable, dungeonPace, dungeonStage, dungeonView } from "./views.ts";
 
 const clock = () => new Date().toLocaleTimeString([], { hour12: false });
 
@@ -105,6 +114,32 @@ export class Player {
     this.patch({ status: "paused" });
   }
 
+  /** Starts again with part of the selection changed: the top bar's switches. */
+  switchTo(change: Partial<Selection>): void {
+    if (!this.store.get().play) return;
+    // The store's selection, which a stage keeps current as it restarts itself.
+    const selection = { ...this.store.get().selection, ...change };
+    this.store.set({ selection });
+    this.start(selection);
+  }
+
+  /** Reads back case `index` (clamped), when the run is not deciding. */
+  browse(index: number): void {
+    const play = this.store.get().play;
+    if (!play || !canBrowse(play)) return;
+    const last = play.outcome.records.length - 1;
+    if (last < 0) return;
+    this.patch({ focus: Math.max(0, Math.min(last, index)) });
+  }
+
+  /** Steps the case being read back by `delta`, from the last one when none is chosen. */
+  step(delta: number): void {
+    const play = this.store.get().play;
+    if (!play) return;
+    const at = play.focus ?? play.outcome.records.length - 1;
+    this.browse(at + delta);
+  }
+
   resume(): void {
     const play = this.store.get().play;
     if (!play || play.status === "finished") return;
@@ -113,7 +148,7 @@ export class Player {
       return;
     }
     this.token++;
-    this.patch({ status: "waiting" });
+    this.patch({ status: "waiting", focus: undefined });
     void this.loop(this.token);
   }
 
@@ -225,6 +260,17 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+/** Cases can be read back whenever nothing is being decided. */
+export function canBrowse(play: PlayState): boolean {
+  return (
+    play.run !== null &&
+    browsable(play.selection.dungeon) &&
+    (play.status === "finished" ||
+      play.status === "paused" ||
+      play.status === "failed")
+  );
+}
+
 function outcomeLine(outcome: Outcome): string {
   const m = outcome.metrics;
   const parts: string[] = [];
@@ -250,6 +296,7 @@ export function playView(store: Store, player: Player): HTMLElement {
   const level = dungeon?.levels.find((l) => l.id === play.selection.level);
   const { status, outcome, selection } = play;
   const running = status === "deciding" || status === "waiting";
+  const browse = canBrowse(play) && outcome.records.length > 0;
 
   const hud = h(
     "header",
@@ -268,17 +315,25 @@ export function playView(store: Store, player: Player): HTMLElement {
       "div",
       { class: "hud-title" },
       h("b", {}, dungeon?.title ?? selection.dungeon),
-      h(
-        "span",
-        {},
-        `${level?.title ?? selection.level} · seed ${selection.seed}`,
-      ),
+      h("span", {}, `seed ${selection.seed}`),
     ),
+    runSwitcher(store, selection, (change) => player.switchTo(change)),
     h(
       "div",
-      { class: `engaged ${status}` },
+      {
+        class: `engaged ${status}`,
+        title: `${selection.decider} · ${selection.model} on ${level?.title ?? selection.level}`,
+      },
       h("i", { class: "dot" }),
-      `${selection.decider} · ${selection.model} ${status === "finished" ? "finished" : status === "paused" ? "paused" : status === "failed" ? "stopped" : "engaged"}`,
+      status === "finished"
+        ? "finished"
+        : status === "paused"
+          ? "paused"
+          : status === "failed"
+            ? "stopped"
+            : status === "loading"
+              ? "loading"
+              : "engaged",
     ),
     h(
       "div",
@@ -320,7 +375,10 @@ export function playView(store: Store, player: Player): HTMLElement {
     "div",
     { class: "stage card glass" },
     dungeon && play.run !== null
-      ? dungeonView(dungeon.id, play.run, status)
+      ? dungeonView(dungeon.id, play.run, status, {
+          ...(browse && play.focus !== undefined ? { focus: play.focus } : {}),
+          select: browse ? (i) => player.browse(i) : undefined,
+        })
       : status === "loading"
         ? h("p", { class: "loading-text" }, "Loading the cases…")
         : null,
@@ -335,6 +393,39 @@ export function playView(store: Store, player: Player): HTMLElement {
           )
         : null,
       h("span", {}, outcomeLine(outcome)),
+      browse
+        ? h(
+            "span",
+            { class: "browse" },
+            h(
+              "button",
+              {
+                type: "button",
+                class: "browse-btn",
+                "aria-label": "Previous case",
+                title: "Previous case (←)",
+                onclick: () => player.step(-1),
+              },
+              icon(ChevronLeft),
+            ),
+            h(
+              "span",
+              {},
+              `${(play.focus ?? outcome.records.length - 1) + 1} of ${outcome.records.length}`,
+            ),
+            h(
+              "button",
+              {
+                type: "button",
+                class: "browse-btn",
+                "aria-label": "Next case",
+                title: "Next case (→)",
+                onclick: () => player.step(1),
+              },
+              icon(ChevronRight),
+            ),
+          )
+        : null,
       outcome.metrics.accuracy !== undefined
         ? h(
             "span",

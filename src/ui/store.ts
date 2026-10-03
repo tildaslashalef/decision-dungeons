@@ -47,6 +47,8 @@ export interface PlayState {
   error?: { code: string; message: string };
   /** The request being decided now, or the last one decided. */
   current?: DebugEntry;
+  /** The case a person is reading back, by index, while the run is not deciding. */
+  focus?: number | undefined;
 }
 
 export interface State {

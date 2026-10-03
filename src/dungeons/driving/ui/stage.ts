@@ -45,6 +45,7 @@ import {
   type Selection,
   type Store,
 } from "../../../ui/store.ts";
+import { runSwitcher } from "../../../ui/switcher.ts";
 import {
   candidateName,
   type Selection as PathSelection,
@@ -67,6 +68,8 @@ export interface StageContext {
   selection: Selection;
   /** Leaves the run for the dungeon's lobby. */
   exit(): void;
+  /** Starts again with part of the selection changed (the top bar's switches). */
+  switchTo(change: Partial<Selection>): void;
 }
 
 type Mode = "turn" | "realtime";
@@ -283,6 +286,9 @@ export function mountDrivingStage(
         icon(RotateCw),
       ),
     ),
+    runSwitcher(store, selection, (change) => ctx.switchTo(change), {
+      level: false,
+    }),
   );
   const turnIcon = h("span", { class: "dd-turn-icon" });
   const nextManeuver = h("strong", {}, "Continue straight");

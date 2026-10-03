@@ -145,6 +145,12 @@ for (const [title, id, level] of [
 ] as const) {
   const verdict = await play(level, "rule/baseline", `${id}-rule`, [title, id]);
   if (!/Passed|Failed/.test(verdict)) problems.push(`${id} did not finish`);
+  // A finished run reads its cases back, and its top bar switches the run.
+  await page.keyboard.press("ArrowLeft");
+  if (!(await page.locator(".browse").innerText()).includes("19 of 20"))
+    problems.push(`${id}: ArrowLeft did not show the case before the last`);
+  if (!(await page.locator('.hud select[name="switch-autopilot"]').count()))
+    problems.push(`${id}: no autopilot switch in the top bar`);
   await page.getByRole("button", { name: "Exit" }).click();
   await page.waitForURL(`**/d/${id}`);
 }

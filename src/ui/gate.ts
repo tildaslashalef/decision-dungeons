@@ -161,6 +161,9 @@ export function gatePage(store: Store, actions: GateActions): HTMLElement {
     cards.push(card);
   });
 
+  // Two rows of gateways while they fit, a third past twelve dungeons.
+  const cols = Math.min(6, Math.max(1, Math.ceil(all.length / 2)));
+  const rows = Math.ceil(all.length / cols);
   const row = h(
     "nav",
     {
@@ -174,11 +177,17 @@ export function gatePage(store: Store, actions: GateActions): HTMLElement {
             ? Math.min(all.length - 1, current + 1)
             : key === "ArrowLeft"
               ? Math.max(0, current - 1)
-              : key === "Home"
-                ? 0
-                : key === "End"
-                  ? all.length - 1
-                  : -1;
+              : key === "ArrowDown"
+                ? Math.min(all.length - 1, current + cols)
+                : key === "ArrowUp"
+                  ? current - cols < 0
+                    ? -1
+                    : current - cols
+                  : key === "Home"
+                    ? 0
+                    : key === "End"
+                      ? all.length - 1
+                      : -1;
         if (next < 0) return;
         event.preventDefault();
         select(next, true);
@@ -191,7 +200,7 @@ export function gatePage(store: Store, actions: GateActions): HTMLElement {
 
   return h(
     "main",
-    { class: "gate scene" },
+    { class: "gate scene", style: `--cols:${cols};--rows:${rows}` },
     sky(),
     floor(),
     topbar(actions.home, actions.config),

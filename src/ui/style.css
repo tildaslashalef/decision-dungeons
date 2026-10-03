@@ -449,9 +449,16 @@ button.primary:hover {
 
 /* The gate: a world-select screen that always fits one viewport. */
 .gate {
-  /* Gateways are sized from the height left after the bar, title, plate,
-     caption, and footer. */
-  --portal-h: clamp(150px, calc(100dvh - 440px), 380px);
+  /* Gateways are sized so their rows fit the height left after the bar,
+     title, plates, caption, and footer, and their columns the width. */
+  --portal-h: clamp(
+    92px,
+    min(
+      calc((100dvh - 400px) / var(--rows, 2) - 70px),
+      calc((100vw - 120px) / var(--cols, 5) / 0.78 - 30px)
+    ),
+    250px
+  );
   height: 100dvh;
   min-height: 560px;
   display: grid;
@@ -470,37 +477,29 @@ button.primary:hover {
   font-size: 14px;
 }
 .portals {
-  display: flex;
-  align-items: flex-end;
-  gap: clamp(24px, 3vw, 52px);
+  display: grid;
+  grid-template-columns: repeat(var(--cols, 5), auto);
+  justify-content: center;
+  align-content: center;
+  column-gap: clamp(18px, 2.4vw, 44px);
+  row-gap: clamp(10px, 2.2dvh, 26px);
   min-height: 0;
-  margin: 0 calc(-1 * clamp(20px, 3.4vw, 56px));
-  padding: 26px clamp(20px, 3.4vw, 56px) 10px;
-  overflow-x: auto;
-  overflow-y: hidden;
-  scroll-snap-type: x proximity;
-  scrollbar-width: thin;
-  scrollbar-color: #9aa0b455 transparent;
+  padding: 14px 0 6px;
 }
 .portal {
   position: relative;
   flex: none;
-  width: calc(var(--portal-h) * 0.78);
+  /* At least wide enough for a name on the plate, the arch centred above. */
+  width: max(calc(var(--portal-h) * 0.78), 172px);
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 10px;
-  scroll-snap-align: center;
   container-type: inline-size;
   animation: emerge 800ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
   animation-delay: calc(var(--i) * 120ms);
 }
-.portal:first-child {
-  margin-left: auto;
-}
-.portal:last-child {
-  margin-right: auto;
-}
+
 .portal:focus-visible {
   outline: none;
 }
@@ -663,6 +662,16 @@ button.primary:hover {
   overflow: hidden;
 }
 @container (max-width: 210px) {
+  .portal-tags {
+    display: none;
+  }
+}
+@container (max-width: 200px) {
+  .plate-name {
+    font-size: 13px;
+  }
+}
+@media (max-height: 820px) {
   .portal-tags {
     display: none;
   }
@@ -1317,11 +1326,12 @@ button.primary:hover {
 }
 
 /* Play */
+/* The card sits in the middle of the space under the top bar. */
 .play {
   min-height: 100vh;
-  padding: 84px 20px 40px;
+  padding: 96px 20px 32px;
   display: grid;
-  place-items: start center;
+  place-items: center;
   transition: padding 0.2s;
 }
 .play.with-debug {
@@ -1348,7 +1358,7 @@ button.primary:hover {
   color: var(--muted);
 }
 .engaged {
-  margin: 0 auto;
+  margin-right: auto;
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -1445,6 +1455,93 @@ button.primary:hover {
 .banner button {
   border: 1px solid #e8212740;
   background: #ffffff;
+}
+
+/* The run's quick switches in a top bar */
+.switcher {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  min-width: 0;
+}
+.switch-select {
+  max-width: 220px;
+  min-width: 0;
+  padding: 5px 26px 5px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #ffffff
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%236b7077' stroke-width='1.5'/%3E%3C/svg%3E")
+    no-repeat right 9px center;
+  appearance: none;
+  color: #171a20;
+  font:
+    500 12.5px / 1.3 "DM Sans Variable",
+    system-ui,
+    sans-serif;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+.switch-select:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 1px;
+}
+.switcher-dark .switch-select {
+  border-color: #ffffff2b;
+  background-color: #ffffff14;
+  color: #eef0f4;
+}
+.switcher-dark .switch-select option,
+.switcher-dark .switch-select optgroup {
+  color: #171a20;
+}
+@media (max-width: 1180px) {
+  .switch-select {
+    max-width: 150px;
+  }
+}
+
+/* Reading cases back */
+.browse {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+}
+.browse-btn {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: #ffffff;
+}
+.browse-btn > svg {
+  width: 16px;
+  height: 16px;
+}
+.case-strip li {
+  position: relative;
+}
+.strip-pick {
+  position: absolute;
+  inset: -6px 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+.case-strip.browsing li.shown {
+  box-shadow:
+    0 0 0 2px #fbfbfc,
+    0 0 0 4px #171a20;
+}
+.es-pick {
+  cursor: pointer;
 }
 
 /* Crossing */

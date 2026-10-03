@@ -4,8 +4,10 @@
 // bottom.
 
 import type { Answer } from "../../contract/answer.ts";
+import { caseStrip, shownCase } from "../../ui/browse.ts";
 import { type Child, h } from "../../ui/dom.ts";
 import type { PlayStatus } from "../../ui/store.ts";
+import type { Browse } from "../../ui/views.ts";
 import type { Email } from "../inbox/generate.ts";
 import type { LogWindow } from "../logs/generate.ts";
 import { printed, type ReceiptInput, SYMBOLS } from "../receipts/generate.ts";
@@ -192,11 +194,14 @@ export function textView(
   kind: Document,
   run: TextRun,
   status: PlayStatus,
+  browse: Browse = {},
 ): HTMLElement {
-  const answered = status !== "deciding" && run.index > 0;
-  const index = answered
-    ? run.index - 1
-    : Math.min(run.index, run.cases.length - 1);
+  const { index, answered } = shownCase(
+    run.index,
+    run.cases.length,
+    status,
+    browse,
+  );
   const c = run.cases[index];
   if (!c) return h("div", {});
   const record = answered ? run.records[index] : undefined;
@@ -264,14 +269,15 @@ export function textView(
           : null,
       ),
     ),
-    h(
-      "ol",
-      { class: "case-strip", "aria-label": "Cases" },
-      run.cases.map((_, i) => {
+    caseStrip(
+      run.cases.length,
+      index,
+      (i) => {
         const r = run.records[i];
-        const state = r ? (r.correct ? "ok" : "bad") : i === index ? "now" : "";
-        return h("li", { class: state, title: r?.summary ?? `Case ${i + 1}` });
-      }),
+        return r ? (r.correct ? "ok" : "bad") : "";
+      },
+      (i) => run.records[i]?.summary ?? `Case ${i + 1}`,
+      browse,
     ),
   );
 }

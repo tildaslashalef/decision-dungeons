@@ -11,7 +11,7 @@ import { debugSidebar } from "./debug.ts";
 import { replace } from "./dom.ts";
 import { focusGate, gatePage, orderedDungeons } from "./gate.ts";
 import { lobbyPage } from "./lobby.ts";
-import { Player, playView } from "./play.ts";
+import { canBrowse, Player, playView } from "./play.ts";
 import { type PlayState, type Selection, type State, Store } from "./store.ts";
 import { dungeonStage } from "./views.ts";
 
@@ -149,6 +149,7 @@ function render(): void {
         store,
         selection: play.selection,
         exit: () => player.exit(),
+        switchTo: (change) => player.switchTo(change),
       }),
     };
     return;
@@ -243,6 +244,18 @@ window.addEventListener("keydown", (event) => {
   if (target?.closest("input, select, textarea")) return;
   if (event.key === "n" || event.key === "N")
     store.set({ debugOpen: !store.get().debugOpen });
+  // Reading cases back in a card view once nothing is being decided.
+  const { route, play } = store.get();
+  if (
+    route === "play" &&
+    play &&
+    !dungeonStage(play.selection.dungeon) &&
+    canBrowse(play) &&
+    (event.key === "ArrowLeft" || event.key === "ArrowRight")
+  ) {
+    event.preventDefault();
+    player.step(event.key === "ArrowLeft" ? -1 : 1);
+  }
 });
 
 render();

@@ -18,18 +18,40 @@ import { undercroftView } from "../dungeons/undercroft/view.ts";
 import { h } from "./dom.ts";
 import type { PlayStatus } from "./store.ts";
 
-type View = (run: unknown, status: PlayStatus) => HTMLElement;
+/**
+ * Reading cases back: the case shown (absent: the view's own choice, the
+ * one being asked or just answered) and how to choose another (absent:
+ * the run is deciding, so cases cannot be chosen).
+ */
+export interface Browse {
+  focus?: number;
+  select?: ((index: number) => void) | undefined;
+}
+
+type View = (run: unknown, status: PlayStatus, browse: Browse) => HTMLElement;
 
 const views: Record<string, View> = {
-  crossing: (run, status) => crossingView(run as CrossingRun, status),
-  inbox: (run, status) => textView("email", run as TextRun, status),
-  tickets: (run, status) => textView("ticket", run as TextRun, status),
-  logs: (run, status) => textView("logs", run as TextRun, status),
-  receipts: (run, status) => textView("receipt", run as TextRun, status),
-  oracle: (run, status) => oracleView(run as TextRun, status),
+  crossing: (run, status, b) => crossingView(run as CrossingRun, status, b),
+  inbox: (run, status, b) => textView("email", run as TextRun, status, b),
+  tickets: (run, status, b) => textView("ticket", run as TextRun, status, b),
+  logs: (run, status, b) => textView("logs", run as TextRun, status, b),
+  receipts: (run, status, b) => textView("receipt", run as TextRun, status, b),
+  oracle: (run, status, b) => oracleView(run as TextRun, status, b),
   undercroft: (run, status) => undercroftView(run as UndercroftRun, status),
-  evensong: (run, status) => evensongView(run as EvensongRun, status),
+  evensong: (run, status, b) => evensongView(run as EvensongRun, status, b),
 };
+
+/** Dungeons whose view can show any answered case again. */
+const BROWSABLE = new Set([
+  "crossing",
+  "inbox",
+  "tickets",
+  "logs",
+  "receipts",
+  "oracle",
+  "evensong",
+]);
+export const browsable = (id: string): boolean => BROWSABLE.has(id);
 
 /** Pause between turns in the card view, ms: long enough to read each answer. */
 const PACE_MS: Record<string, number> = { undercroft: 280, evensong: 900 };
@@ -54,6 +76,7 @@ export function dungeonView(
   id: string,
   run: unknown,
   status: PlayStatus,
+  browse: Browse = {},
 ): HTMLElement {
-  return views[id]?.(run, status) ?? h("p", {}, `No view for ${id}.`);
+  return views[id]?.(run, status, browse) ?? h("p", {}, `No view for ${id}.`);
 }

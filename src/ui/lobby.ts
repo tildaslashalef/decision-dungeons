@@ -62,7 +62,7 @@ export function forLevel(
 }
 
 /** For a level the chosen autopilot cannot play: a model that sees pictures, else the usual default. */
-function fallback(deciders: DeciderView[]): Autopilot | undefined {
+export function fallback(deciders: DeciderView[]): Autopilot | undefined {
   for (const view of deciders) {
     if (view.id === "random") continue;
     const model = view.models.find((m) => m.available && m.images);

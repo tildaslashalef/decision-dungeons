@@ -19,6 +19,7 @@ import type { Answers, Decision } from "../../../contract/answer.ts";
 import { ApiError, api } from "../../../ui/api.ts";
 import { h, icon, replace } from "../../../ui/dom.ts";
 import { DEBUG_HISTORY, type DebugEntry } from "../../../ui/store.ts";
+import { runSwitcher } from "../../../ui/switcher.ts";
 import type { StageContext } from "../../driving/ui/stage.ts";
 import {
   DT,
@@ -154,6 +155,9 @@ export function mountTowerStage(
           `${level?.title ?? selection.level} · seed ${selection.seed}`,
         ),
       ),
+      runSwitcher(store, selection, (change) => ctx.switchTo(change), {
+        tone: "dark",
+      }),
       h("div", { class: "tw-clock" }, h("span", {}, "Alder Tower"), clockText),
       h(
         "button",

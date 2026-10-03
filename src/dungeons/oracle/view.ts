@@ -3,8 +3,10 @@
 // true chance and what happened, the run's reliability diagram, and the
 // truth gap so far.
 
+import { caseStrip, shownCase } from "../../ui/browse.ts";
 import { type Child, h, svg } from "../../ui/dom.ts";
 import type { PlayStatus } from "../../ui/store.ts";
+import type { Browse } from "../../ui/views.ts";
 import type { CalibrationBin } from "../dungeon.ts";
 import type { TextCase } from "../text/cases.ts";
 import type { TextRun } from "../text/text-dungeon.ts";
@@ -349,11 +351,17 @@ function figure(label: string, value: Child, note?: string): HTMLElement {
 }
 
 /** While a decision is out, the day being asked; otherwise the one just answered, with the truth. */
-export function oracleView(run: TextRun, status: PlayStatus): HTMLElement {
-  const answered = status !== "deciding" && run.index > 0;
-  const index = answered
-    ? run.index - 1
-    : Math.min(run.index, run.cases.length - 1);
+export function oracleView(
+  run: TextRun,
+  status: PlayStatus,
+  browse: Browse = {},
+): HTMLElement {
+  const { index, answered } = shownCase(
+    run.index,
+    run.cases.length,
+    status,
+    browse,
+  );
   const c = run.cases[index];
   if (!c) return h("div", {});
   const answers = answered ? run.answers[index] : undefined;
@@ -430,24 +438,16 @@ export function oracleView(run: TextRun, status: PlayStatus): HTMLElement {
         ),
       ),
     ),
-    h(
-      "ol",
-      { class: "case-strip", "aria-label": "Days" },
-      run.cases.map((_, i) => {
+    caseStrip(
+      run.cases.length,
+      index,
+      (i) => {
         const g = gapOf(i);
-        const state =
-          g !== undefined
-            ? g <= PASS_TRUTH_GAP
-              ? "ok"
-              : "bad"
-            : i === index
-              ? "now"
-              : "";
-        return h("li", {
-          class: state,
-          title: run.records[i]?.summary ?? `Day ${i + 1}`,
-        });
-      }),
+        return g === undefined ? "" : g <= PASS_TRUTH_GAP ? "ok" : "bad";
+      },
+      (i) => run.records[i]?.summary ?? `Day ${i + 1}`,
+      browse,
+      "Days",
     ),
   );
 }

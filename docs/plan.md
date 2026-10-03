@@ -85,8 +85,9 @@ in `AGENTS.md`.
   icon links), or the whole site returns 500. It does not follow
   `new Worker(new URL(...))`: the driving worker is built on request and
   served at `/workers/driving-sim.js` (`src/server/assets.ts`).
-- **The user approved the gate and the settings page as they are.** Do
-  not restructure them without asking; new pages follow their language
+- **The user approved the gate (as a grid since 2026-10-03, *Decisions*)
+  and the settings page as they are.** Do not restructure them without
+  asking; new pages follow their language
   (night sky, arch gateways, white cards, Fraunces and DM Sans). Icons
   only where they carry meaning, never in front of a heading or a plain
   label.
@@ -788,6 +789,17 @@ three.js Ferrari (MIT). Asset license files travel with the assets.
   rules, with a Web Audio organ in the browser (no dependency, no asset;
   audio starts only on a click). New dungeons' marks are Phosphor icons,
   already a dependency (2026-10-03).
+- At the user's request (2026-10-03, after seeing ten dungeons on one
+  row): the gate is a grid of gateways, two rows while there are twelve
+  or fewer, sized so both rows fit every desktop viewport (tags hide below
+  820 px of height; ↑/↓ move by a row); every run's top bar, the card
+  view's and both 3D stages', switches the autopilot, the level, and the
+  case set, restarting the run as the lobby would; a card view's cases can
+  be read back once nothing is being decided (finished, paused, or
+  stopped) with ←/→, the arrows by the outcome, or a click on the case
+  strip (Evensong: a chord's column). Undercroft is one crawl, not cases,
+  so it has no reading back. The card view sits centred under the top bar
+  (2026-10-03).
 - Scope: the user asked for the whole plan end to end, a second 3D
   dungeon of this project's design (milestone 5), and the text dungeons'
   cases in SQLite under `~/.decision-dungeons` with a seed script that can
