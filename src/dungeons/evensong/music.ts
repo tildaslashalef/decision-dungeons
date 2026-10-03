@@ -231,15 +231,6 @@ export function faults(
       });
     if (Math.abs(current.bass - previous.bass) % 12 === 6)
       out.push({ fault: "voice", text: "the bass leaps a tritone" });
-    if (
-      previous.option.numeral === "V7" &&
-      degree(previous.melody.step) === 3 &&
-      degree(current.melody.step) !== 2
-    )
-      out.push({
-        fault: "voice",
-        text: "the seventh of V7 does not fall to the third",
-      });
   }
   if (degree(current.melody.step) === 6 && bassDegree(o) === 6)
     out.push({
@@ -249,9 +240,10 @@ export function faults(
   if (o.numeral === "V7" && degree(current.melody.step) === 3) {
     const next = tune.melody[index + 1];
     if (!next || degree(next.step) !== 2)
+      // The melody is given, so the seventh's fall is judged on the V7 itself.
       out.push({
         fault: "voice",
-        text: "the seventh of V7 has nowhere to fall",
+        text: "the seventh of V7 does not fall to the third next",
       });
   }
   if (!last && tune.phraseEnds.includes(index) && o.id !== "V")
