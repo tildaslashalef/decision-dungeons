@@ -800,6 +800,11 @@ three.js Ferrari (MIT). Asset license files travel with the assets.
   strip (Evensong: a chord's column). Undercroft is one crawl, not cases,
   so it has no reading back. The card view sits centred under the top bar
   (2026-10-03).
+- The lobby's autopilot picker gives nuclis one row with a Single model /
+  Cascade switch (the Cascade decider stays its own decider; only the
+  picker merges them), a line under Fixed rule and Random saying what they
+  are, and a link to https://console.typesafe.ai under TypeSafe Jev, at the
+  user's request (2026-10-03).
 - Scope: the user asked for the whole plan end to end, a second 3D
   dungeon of this project's design (milestone 5), and the text dungeons'
   cases in SQLite under `~/.decision-dungeons` with a seed script that can
