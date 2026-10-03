@@ -15,10 +15,7 @@ import {
   type Selection,
   type Store,
 } from "./store.ts";
-import { dungeonStage, dungeonView } from "./views.ts";
-
-/** Pause between turns, so each answer stays on screen long enough to read. */
-const PACE_MS = 700;
+import { dungeonPace, dungeonStage, dungeonView } from "./views.ts";
 
 const clock = () => new Date().toLocaleTimeString([], { hour12: false });
 
@@ -219,7 +216,7 @@ export class Player {
         status: outcome.finished ? "finished" : "waiting",
       });
       if (outcome.finished) return;
-      await sleep(PACE_MS);
+      await sleep(dungeonPace(dungeon.id));
     }
   }
 }
@@ -238,6 +235,8 @@ function outcomeLine(outcome: Outcome): string {
         : `${m.decided} decided`,
     );
   if (m.correct !== undefined) parts.push(`${m.correct} correct`);
+  if (m.steps !== undefined && m.optimal !== undefined)
+    parts.push(`${m.steps} moves, optimum ${m.optimal}`);
   parts.push(
     `${outcome.violations} violation${outcome.violations === 1 ? "" : "s"}`,
   );

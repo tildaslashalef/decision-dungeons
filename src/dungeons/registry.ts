@@ -10,10 +10,12 @@ import { oracle } from "./oracle/oracle.ts";
 import { receipts } from "./receipts/receipts.ts";
 import { tickets } from "./tickets/tickets.ts";
 import { tower } from "./tower/tower.ts";
+import { undercroft } from "./undercroft/undercroft.ts";
 
 export const dungeons: Record<string, AnyDungeon> = {
   [driving.id]: driving as AnyDungeon,
   [tower.id]: tower as AnyDungeon,
+  [undercroft.id]: undercroft as AnyDungeon,
   [inbox.id]: inbox as AnyDungeon,
   [tickets.id]: tickets as AnyDungeon,
   [logs.id]: logs as AnyDungeon,

@@ -21,6 +21,7 @@ export async function playTurn(
   run: unknown,
   decide: DecideFn,
 ): Promise<Turn> {
+  await dungeon.render?.(run);
   const observation = dungeon.observe(run);
   const asked = Object.keys(observation.request.questions).length > 0;
   const decision = asked ? await decide(observation.request) : undefined;

@@ -85,6 +85,7 @@ for (const [width, height] of [
     ["/d/inbox", ".picker", "lobby-inbox"],
     ["/d/tower", ".picker", "lobby-tower"],
     ["/d/oracle", ".picker", "lobby-oracle"],
+    ["/d/undercroft", ".picker", "lobby-undercroft"],
     ["/config", ".card-nuclis", "config"],
   ] as const) {
     await page.goto(`${BASE}${path}`);
@@ -145,6 +146,33 @@ for (const [title, id, level] of [
   if (!/Passed|Failed/.test(verdict)) problems.push(`${id} did not finish`);
   await page.getByRole("button", { name: "Exit" }).click();
   await page.waitForURL(`**/d/${id}`);
+}
+
+// Undercroft: the rule walks the keys maze; a picture-only level turns the rule off.
+{
+  await lobby("Undercroft", "undercroft");
+  await page.locator('label.choice:has(input[value="corridors"])').click();
+  await pick("rule/baseline");
+  await page.getByRole("button", { name: "Start run" }).click();
+  await page.locator(".uc-map[src]").waitFor();
+  await shot("undercroft-rule-running");
+  await page
+    .locator(".outcome .pass, .outcome .fail")
+    .waitFor({ timeout: 120_000 });
+  await shot("undercroft-rule-finished");
+  const verdict = await page.locator(".outcome").innerText();
+  console.log(`undercroft-rule: ${verdict.replaceAll("\n", " ")}`);
+  if (!verdict.includes("Passed"))
+    problems.push("the rule did not pass Undercroft");
+  await page.getByRole("button", { name: "Exit" }).click();
+  await page.waitForURL("**/d/undercroft");
+  await page.locator('label.choice:has(input[value="picture"])').click();
+  const rule = page.locator(
+    'label.pill:has(input[value="rule/baseline"]) input',
+  );
+  if (await rule.isEnabled())
+    problems.push("the rule is offered on a picture-only Undercroft level");
+  await shot("lobby-undercroft-picture");
 }
 
 // A real nuclis model, one decision per case.

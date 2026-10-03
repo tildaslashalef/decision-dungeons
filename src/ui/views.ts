@@ -11,6 +11,8 @@ import { oracleView } from "../dungeons/oracle/view.ts";
 import type { TextRun } from "../dungeons/text/text-dungeon.ts";
 import { textView } from "../dungeons/text/view.ts";
 import { mountTowerStage } from "../dungeons/tower/ui/stage.ts";
+import type { UndercroftRun } from "../dungeons/undercroft/undercroft.ts";
+import { undercroftView } from "../dungeons/undercroft/view.ts";
 import { h } from "./dom.ts";
 import type { PlayStatus } from "./store.ts";
 
@@ -23,7 +25,12 @@ const views: Record<string, View> = {
   logs: (run, status) => textView("logs", run as TextRun, status),
   receipts: (run, status) => textView("receipt", run as TextRun, status),
   oracle: (run, status) => oracleView(run as TextRun, status),
+  undercroft: (run, status) => undercroftView(run as UndercroftRun, status),
 };
+
+/** Pause between turns in the card view, ms: long enough to read each answer. */
+const PACE_MS: Record<string, number> = { undercroft: 280 };
+export const dungeonPace = (id: string): number => PACE_MS[id] ?? 700;
 
 /**
  * A dungeon that owns the whole play screen (its own loop, HUD, and

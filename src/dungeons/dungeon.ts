@@ -94,6 +94,11 @@ export interface Dungeon<Run> {
   /** Plays cases from a stored case set, which `create` must be given. */
   caseSets?: true;
   create(seed: number, level: string, options?: RunOptions): Run;
+  /**
+   * Work the next observation needs that cannot be done synchronously
+   * (encoding a picture), awaited before every `observe`; absent: none.
+   */
+  render?(run: Run): Promise<void>;
   observe(run: Run): Observation;
   /**
    * Every remaining decision at once, for a dungeon whose decisions do not
