@@ -2551,3 +2551,197 @@ button.primary:hover {
   border-radius: 4px;
   box-shadow: 0 6px 18px #0000001f;
 }
+
+/* Bugfix Workbench styles */
+.workbench-container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 16px;
+  background: #0f1217;
+  color: #d5d9df;
+  border-radius: 8px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+.workbench-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+.workbench-meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.workbench-title {
+  font-weight: 600;
+  font-size: 15px;
+  color: #fff;
+}
+.workbench-turn {
+  font-size: 13px;
+  color: #9aa0a8;
+}
+.workbench-badge {
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.badge-active {
+  background: rgba(33, 150, 243, 0.2);
+  color: #64b5f6;
+  border: 1px solid rgba(33, 150, 243, 0.4);
+}
+.badge-pass {
+  background: rgba(76, 175, 80, 0.2);
+  color: #81c784;
+  border: 1px solid rgba(76, 175, 80, 0.4);
+}
+.badge-fail {
+  background: rgba(244, 67, 54, 0.2);
+  color: #e57373;
+  border: 1px solid rgba(244, 67, 54, 0.4);
+}
+.workbench-tabs {
+  display: flex;
+  gap: 4px;
+}
+.workbench-tab {
+  padding: 4px 10px;
+  background: #1c2026;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 4px;
+  color: #9aa0a8;
+  font:
+    12px ui-monospace,
+    SFMono-Regular,
+    monospace;
+  cursor: pointer;
+  transition: all 120ms ease;
+}
+.workbench-tab:hover {
+  background: #252b34;
+  color: #fff;
+}
+.workbench-tab.active {
+  background: #2c323d;
+  color: #64b5f6;
+  border-color: rgba(100, 181, 246, 0.4);
+}
+.workbench-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+@media (max-width: 900px) {
+  .workbench-grid {
+    grid-template-columns: 1fr;
+  }
+}
+.workbench-editor-col,
+.workbench-console-col {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.workbench-card {
+  background: #15181d;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.workbench-card-title {
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  font-size: 12px;
+  font-weight: 600;
+  color: #adb5bd;
+}
+.workbench-patch-card {
+  margin: 10px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+  background: #111418;
+}
+.workbench-patch-header {
+  padding: 6px 10px;
+  font-size: 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+.workbench-patch-summary {
+  color: #9aa0a8;
+}
+.test-summary-badge {
+  margin: 12px;
+  padding: 6px 12px;
+  border-radius: 4px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.test-summary-badge.pass {
+  background: rgba(76, 175, 80, 0.15);
+  color: #81c784;
+  border: 1px solid rgba(76, 175, 80, 0.3);
+}
+.test-summary-badge.fail {
+  background: rgba(244, 67, 54, 0.15);
+  color: #e57373;
+  border: 1px solid rgba(244, 67, 54, 0.3);
+}
+.test-failures-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-bottom: 12px;
+}
+.test-call {
+  font-weight: 600;
+  color: #ff8a80;
+  margin-bottom: 4px;
+}
+.workbench-placeholder {
+  padding: 24px;
+  text-align: center;
+  color: #6c757d;
+  font-size: 13px;
+}
+.workbench-timeline {
+  list-style: none;
+  margin: 0;
+  padding: 8px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 240px;
+  overflow-y: auto;
+}
+.timeline-item {
+  font:
+    12px / 1.4 ui-monospace,
+    monospace;
+  padding: 4px 8px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.02);
+}
+.timeline-item.ok {
+  border-left: 2px solid #81c784;
+}
+.timeline-item.err {
+  border-left: 2px solid #e57373;
+}
+.timeline-index {
+  color: #64b5f6;
+  font-weight: 600;
+}
+.timeline-summary {
+  color: #d5d9df;
+}

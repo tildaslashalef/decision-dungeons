@@ -1,6 +1,7 @@
 // Every dungeon, by id, in the order the gate shows them. Pure: the
 // server, the CLI, and the browser import it.
 
+import { bugfix } from "./bugfix/bugfix.ts";
 import { crossing } from "./crossing/crossing.ts";
 import { driving } from "./driving/driving.ts";
 import type { AnyDungeon } from "./dungeon.ts";
@@ -19,6 +20,7 @@ export const dungeons: Record<string, AnyDungeon> = {
   [tower.id]: tower as AnyDungeon,
   [undercroft.id]: undercroft as AnyDungeon,
   [review.id]: review as AnyDungeon,
+  [bugfix.id]: bugfix as AnyDungeon,
   [inbox.id]: inbox as AnyDungeon,
   [tickets.id]: tickets as AnyDungeon,
   [logs.id]: logs as AnyDungeon,

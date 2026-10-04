@@ -1,6 +1,8 @@
 // Each dungeon's browser view, by dungeon id. The run is opaque outside its
 // dungeon; this table pairs each run with the view written for its type.
 
+import type { BugfixRun } from "../dungeons/bugfix/bugfix.ts";
+import { bugfixView } from "../dungeons/bugfix/view.ts";
 import type { CrossingRun } from "../dungeons/crossing/crossing.ts";
 import { crossingView } from "../dungeons/crossing/view.ts";
 import {
@@ -37,6 +39,7 @@ const views: Record<string, View> = {
   logs: (run, status, b) => textView("logs", run as TextRun, status, b),
   receipts: (run, status, b) => textView("receipt", run as TextRun, status, b),
   review: (run, status, b) => textView("code", run as TextRun, status, b),
+  bugfix: (run, status, b) => bugfixView(run as BugfixRun, status, b),
   oracle: (run, status, b) => oracleView(run as TextRun, status, b),
   undercroft: (run, status) => undercroftView(run as UndercroftRun, status),
   evensong: (run, status, b) => evensongView(run as EvensongRun, status, b),
@@ -50,6 +53,7 @@ const BROWSABLE = new Set([
   "logs",
   "receipts",
   "review",
+  "bugfix",
   "oracle",
   "evensong",
 ]);

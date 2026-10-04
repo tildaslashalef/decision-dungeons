@@ -701,6 +701,78 @@ function drawReview(key: string): SVGElement {
   );
 }
 
+/** An interactive workbench showing code, a debug probe, and passing test indicators. */
+function drawBugfix(key: string): SVGElement {
+  const bg = `${key}-bg`;
+  const bar = `${key}-bar`;
+
+  const wx = 24;
+  const wy = 44;
+  const ww = 252;
+  const wh = 312;
+
+  const codeLines: SVGElement[] = [];
+  const lines = [
+    { indent: 0, w: 90, color: "#818cf8" },
+    { indent: 2, w: 120, color: "#94a3b8" },
+    { indent: 2, w: 140, color: "#38bdf8" },
+    { indent: 4, w: 85, color: "#38bdf8" },
+    { indent: 2, w: 40, color: "#94a3b8" },
+    { indent: 2, w: 155, color: "#fb7185" },
+    { indent: 4, w: 110, color: "#34d399" },
+    { indent: 4, w: 75, color: "#34d399" },
+    { indent: 2, w: 50, color: "#94a3b8" },
+    { indent: 0, w: 30, color: "#818cf8" },
+  ];
+
+  lines.forEach((l, i) => {
+    const y = wy + 48 + i * 19;
+    const x = wx + 20 + l.indent * 8;
+    codeLines.push(rect(x, y, l.w, 9, l.color, { rx: 2, opacity: 0.85 }));
+  });
+
+  const termY = wy + wh - 76;
+  const term = [
+    rect(wx + 8, termY, ww - 16, 68, "#090d13", { rx: 4 }),
+    rect(wx + 16, termY + 8, 48, 6, "#64748b", { rx: 2 }),
+    svg("circle", { cx: wx + 20, cy: termY + 28, r: 4, fill: "#34d399" }),
+    rect(wx + 30, termY + 25, 120, 6, "#94a3b8", { rx: 2 }),
+    svg("circle", { cx: wx + 20, cy: termY + 44, r: 4, fill: "#34d399" }),
+    rect(wx + 30, termY + 41, 140, 6, "#94a3b8", { rx: 2 }),
+    rect(wx + 30, termY + 57, 70, 5, "#34d399", { rx: 2, opacity: 0.9 }),
+  ];
+
+  return frame(
+    "A debugger workbench with source code, test runner console, and verified patches",
+    svg(
+      "defs",
+      {},
+      gradient(bg, [
+        [0, "#0b0f17"],
+        [1, "#161e2e"],
+      ]),
+      gradient(bar, [
+        [0, "#1e293b"],
+        [1, "#0f172a"],
+      ]),
+    ),
+    rect(wx, wy, ww, wh, `url(#${bg})`, {
+      rx: 8,
+      stroke: "#334155",
+      "stroke-width": 1.5,
+    }),
+    rect(wx, wy, ww, 30, `url(#${bar})`, { rx: 8 }),
+    rect(wx, wy + 20, ww, 10, `url(#${bar})`),
+    svg("circle", { cx: wx + 16, cy: wy + 15, r: 4.5, fill: "#ef4444" }),
+    svg("circle", { cx: wx + 29, cy: wy + 15, r: 4.5, fill: "#f59e0b" }),
+    svg("circle", { cx: wx + 42, cy: wy + 15, r: 4.5, fill: "#10b981" }),
+    rect(wx + 60, wy + 8, 70, 16, "#0f172a", { rx: 3 }),
+    rect(wx + 68, wy + 13, 40, 6, "#38bdf8", { rx: 1.5 }),
+    ...codeLines,
+    ...term,
+  );
+}
+
 /** Any dungeon without its own illustration: a doorway into the dark. */
 function drawDoor(key: string): SVGElement {
   const depth = `${key}-depth`;
@@ -798,6 +870,17 @@ const ART: Record<string, DungeonArt> = {
       { icon: "terminal", text: "CI triage" },
     ],
     draw: drawReview,
+  },
+  bugfix: {
+    accent: "#0ea5e9",
+    tagline: "Turn-based debugging agent repairing TypeScript programs.",
+    emblem: "bug",
+    facts: [
+      { icon: "code", text: "TypeScript AST" },
+      { icon: "bug", text: "Multi-turn Agent" },
+      { icon: "checkCircle", text: "Hidden Eval Suites" },
+    ],
+    draw: drawBugfix,
   },
   receipts: {
     accent: "#c2185b",
