@@ -16,6 +16,7 @@ import {
   RECEIPTS_GENERATOR,
   receiptCases,
 } from "../dungeons/receipts/generate.ts";
+import { REVIEW_GENERATOR, reviewCases } from "../dungeons/review/generate.ts";
 import type { CaseSet, CaseSetInfo, TextCase } from "../dungeons/text/cases.ts";
 import {
   TICKETS_GENERATOR,
@@ -77,6 +78,19 @@ export const GENERATORS: Record<string, Generator> = {
     id: ORACLE_GENERATOR,
     base: { numbers: 120, many: 80 },
     generate: oracleCases,
+  },
+  review: {
+    id: REVIEW_GENERATOR,
+    base: {
+      gate: 100,
+      locate: 80,
+      kind: 80,
+      returns: 60,
+      ci: 60,
+      long: 40,
+      "all-questions": 40,
+    },
+    generate: reviewCases,
   },
 };
 

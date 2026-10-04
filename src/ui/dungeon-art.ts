@@ -630,6 +630,77 @@ function drawEvensong(key: string): SVGElement {
   );
 }
 
+/** A code review diff window with additions and deletions. */
+function drawReview(key: string): SVGElement {
+  const bg = `${key}-bg`;
+  const codeLines: SVGElement[] = [];
+
+  const wx = 24;
+  const wy = 48;
+  const ww = 252;
+  const wh = 304;
+
+  const lines = [
+    { type: "normal", indent: 0, w: 90 },
+    { type: "normal", indent: 2, w: 120 },
+    { type: "del", indent: 2, w: 140 },
+    { type: "add", indent: 2, w: 155 },
+    { type: "normal", indent: 2, w: 80 },
+    { type: "normal", indent: 4, w: 110 },
+    { type: "del", indent: 4, w: 130 },
+    { type: "add", indent: 4, w: 125 },
+    { type: "normal", indent: 2, w: 60 },
+    { type: "normal", indent: 0, w: 30 },
+  ];
+
+  lines.forEach((l, i) => {
+    const y = wy + 55 + i * 22;
+    const x = wx + 20 + l.indent * 8;
+    if (l.type === "del") {
+      codeLines.push(
+        rect(wx + 8, y - 4, ww - 16, 18, "#e57373", { opacity: 0.16, rx: 2 }),
+        rect(wx + 12, y + 4, 6, 2, "#e57373"),
+        rect(x, y, l.w, 10, "#e57373", { rx: 2, opacity: 0.85 }),
+      );
+    } else if (l.type === "add") {
+      codeLines.push(
+        rect(wx + 8, y - 4, ww - 16, 18, "#81c784", { opacity: 0.16, rx: 2 }),
+        rect(wx + 12, y + 4, 6, 2, "#81c784"),
+        rect(wx + 14, y + 2, 2, 6, "#81c784"),
+        rect(x, y, l.w, 10, "#81c784", { rx: 2, opacity: 0.85 }),
+      );
+    } else {
+      codeLines.push(rect(x, y, l.w, 10, "#90a4ae", { rx: 2, opacity: 0.6 }));
+    }
+  });
+
+  return frame(
+    "A code review diff window with additions in green and deletions in red",
+    svg(
+      "defs",
+      {},
+      gradient(bg, [
+        [0, "#10141b"],
+        [1, "#1a212d"],
+      ]),
+    ),
+    rect(0, 0, 300, 400, `url(#${bg})`),
+    rect(wx, wy, ww, wh, "#151922", {
+      rx: 8,
+      stroke: "#2b3446",
+      "stroke-width": 1.5,
+    }),
+    rect(wx, wy, ww, 32, "#1c222e", { rx: 8 }),
+    rect(wx, wy + 24, ww, 8, "#1c222e"),
+    svg("circle", { cx: wx + 16, cy: wy + 16, r: 4.5, fill: "#e57373" }),
+    svg("circle", { cx: wx + 28, cy: wy + 16, r: 4.5, fill: "#ffb74d" }),
+    svg("circle", { cx: wx + 40, cy: wy + 16, r: 4.5, fill: "#81c784" }),
+    rect(wx + 60, wy + 8, 90, 18, "#252e3e", { rx: 4 }),
+    rect(wx + 72, wy + 14, 66, 6, "#b0bec5", { rx: 2 }),
+    ...codeLines,
+  );
+}
+
 /** Any dungeon without its own illustration: a doorway into the dark. */
 function drawDoor(key: string): SVGElement {
   const depth = `${key}-depth`;
@@ -715,6 +786,18 @@ const ART: Record<string, DungeonArt> = {
       { icon: "scroll", text: "Long windows" },
     ],
     draw: drawLogs,
+  },
+  review: {
+    accent: "#38bdf8",
+    tagline:
+      "Review pull requests: gate bugs, locate faults, classify defects.",
+    emblem: "code",
+    facts: [
+      { icon: "checkCircle", text: "Test-proven bugs" },
+      { icon: "warning", text: "Fault localization" },
+      { icon: "terminal", text: "CI triage" },
+    ],
+    draw: drawReview,
   },
   receipts: {
     accent: "#c2185b",

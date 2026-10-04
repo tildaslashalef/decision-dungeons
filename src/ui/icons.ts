@@ -27,6 +27,9 @@ import atom from "@phosphor-icons/core/assets/duotone/atom-duotone.svg" with {
 import radio from "@phosphor-icons/core/assets/duotone/broadcast-duotone.svg" with {
   type: "text",
 };
+import bug from "@phosphor-icons/core/assets/duotone/bug-duotone.svg" with {
+  type: "text",
+};
 import chartScatter from "@phosphor-icons/core/assets/duotone/chart-scatter-duotone.svg" with {
   type: "text",
 };
@@ -34,6 +37,9 @@ import checkCircle from "@phosphor-icons/core/assets/duotone/check-circle-duoton
   type: "text",
 };
 import fog from "@phosphor-icons/core/assets/duotone/cloud-fog-duotone.svg" with {
+  type: "text",
+};
+import code from "@phosphor-icons/core/assets/duotone/code-duotone.svg" with {
   type: "text",
 };
 import doorOpen from "@phosphor-icons/core/assets/duotone/door-open-duotone.svg" with {
@@ -190,6 +196,8 @@ const SOURCES = {
   receipt,
   eye,
   image,
+  code,
+  bug,
   airplane,
   landing,
   fog,

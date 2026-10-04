@@ -36,6 +36,7 @@ const views: Record<string, View> = {
   tickets: (run, status, b) => textView("ticket", run as TextRun, status, b),
   logs: (run, status, b) => textView("logs", run as TextRun, status, b),
   receipts: (run, status, b) => textView("receipt", run as TextRun, status, b),
+  review: (run, status, b) => textView("code", run as TextRun, status, b),
   oracle: (run, status, b) => oracleView(run as TextRun, status, b),
   undercroft: (run, status) => undercroftView(run as UndercroftRun, status),
   evensong: (run, status, b) => evensongView(run as EvensongRun, status, b),
@@ -48,6 +49,7 @@ const BROWSABLE = new Set([
   "tickets",
   "logs",
   "receipts",
+  "review",
   "oracle",
   "evensong",
 ]);

@@ -1780,6 +1780,48 @@ button.primary:hover {
 .doc-lines li.warn {
   color: #f6c86b;
 }
+.doc-code {
+  max-height: 360px;
+  overflow-y: auto;
+  margin: 0;
+  padding: 10px 14px;
+  background: #15181d;
+  color: #d5d9df;
+  font:
+    12px / 1.5 ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    monospace;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.doc-code .diff-add {
+  color: #81c784;
+  background: rgba(129, 199, 132, 0.12);
+  display: block;
+}
+.doc-code .diff-del {
+  color: #e57373;
+  background: rgba(229, 115, 115, 0.12);
+  display: block;
+}
+.doc-code .diff-hunk {
+  color: #64b5f6;
+  display: block;
+}
+.doc-test-card {
+  margin: 10px 14px;
+  padding: 8px 12px;
+  background: #1c2026;
+  border-left: 3px solid #ff8a80;
+  border-radius: 4px;
+  color: #d5d9df;
+  font:
+    12px / 1.55 ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    monospace;
+}
 .text-answers {
   display: grid;
   align-content: start;

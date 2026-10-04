@@ -9,6 +9,7 @@ import { inbox } from "./inbox/inbox.ts";
 import { logs } from "./logs/logs.ts";
 import { oracle } from "./oracle/oracle.ts";
 import { receipts } from "./receipts/receipts.ts";
+import { review } from "./review/review.ts";
 import { tickets } from "./tickets/tickets.ts";
 import { tower } from "./tower/tower.ts";
 import { undercroft } from "./undercroft/undercroft.ts";
@@ -17,6 +18,7 @@ export const dungeons: Record<string, AnyDungeon> = {
   [driving.id]: driving as AnyDungeon,
   [tower.id]: tower as AnyDungeon,
   [undercroft.id]: undercroft as AnyDungeon,
+  [review.id]: review as AnyDungeon,
   [inbox.id]: inbox as AnyDungeon,
   [tickets.id]: tickets as AnyDungeon,
   [logs.id]: logs as AnyDungeon,

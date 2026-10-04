@@ -16,7 +16,7 @@ import type { Ticket } from "../tickets/generate.ts";
 import type { TextCase, Truth } from "./cases.ts";
 import { answerValue, type TextRun } from "./text-dungeon.ts";
 
-export type Document = "email" | "ticket" | "logs" | "receipt";
+export type Document = "email" | "ticket" | "logs" | "receipt" | "code";
 
 const row = (label: string, value: Child, cls = "") =>
   h(
@@ -182,10 +182,109 @@ function receipt(c: TextCase, level: string): HTMLElement {
   );
 }
 
+function codeDoc(c: TextCase): HTMLElement {
+  const inp = c.input as Record<string, unknown>;
+  const title =
+    typeof inp.title === "string"
+      ? inp.title
+      : typeof inp.file === "string"
+        ? inp.file
+        : "TypeScript Code";
+
+  const rows: (HTMLElement | null)[] = [];
+  if (typeof inp.pr === "number") rows.push(row("PR", `#${inp.pr}`));
+  if (typeof inp.file === "string") rows.push(row("File", inp.file));
+  if (typeof inp.branch === "string") rows.push(row("Branch", inp.branch));
+  if (typeof inp.author === "string") rows.push(row("Author", inp.author));
+  if (typeof inp.description === "string")
+    rows.push(row("Summary", inp.description));
+
+  const content: HTMLElement[] = [];
+
+  const failingTest = inp.failing_test as
+    | { call?: string; expected?: string; actual?: string }
+    | undefined;
+  if (failingTest) {
+    content.push(
+      h(
+        "div",
+        { class: "doc-test-card" },
+        h("div", {}, h("b", {}, "Failing Test: "), failingTest.call ?? ""),
+        h("div", {}, h("span", {}, "Expected: "), failingTest.expected ?? ""),
+        h("div", {}, h("span", {}, "Actual: "), failingTest.actual ?? ""),
+      ),
+    );
+  }
+
+  if (typeof inp.call === "string") {
+    content.push(
+      h(
+        "div",
+        { class: "doc-test-card" },
+        h("div", {}, h("b", {}, "Evaluate: "), inp.call),
+      ),
+    );
+  }
+
+  if (typeof inp.diff === "string") {
+    const lines = inp.diff.split("\n");
+    content.push(
+      h(
+        "pre",
+        { class: "doc-code doc-diff" },
+        lines.map((line) => {
+          const cls = line.startsWith("+")
+            ? "diff-add"
+            : line.startsWith("-")
+              ? "diff-del"
+              : line.startsWith("@@")
+                ? "diff-hunk"
+                : "";
+          return h("span", { class: cls }, `${line}\n`);
+        }),
+      ),
+    );
+  } else if (typeof inp.code_with_line_numbers === "string") {
+    content.push(h("pre", { class: "doc-code" }, inp.code_with_line_numbers));
+  } else if (typeof inp.code === "string") {
+    content.push(h("pre", { class: "doc-code" }, inp.code));
+  }
+
+  if (Array.isArray(inp.ci_log)) {
+    content.push(
+      h(
+        "ol",
+        { class: "doc-lines doc-ci" },
+        (inp.ci_log as string[]).map((line) =>
+          h(
+            "li",
+            {
+              class: /FAIL|Error:|TimeoutError/i.test(line)
+                ? "error"
+                : /Warning:|flaky/i.test(line)
+                  ? "warn"
+                  : "",
+            },
+            line,
+          ),
+        ),
+      ),
+    );
+  }
+
+  return h(
+    "article",
+    { class: "doc doc-code-article" },
+    h("header", {}, h("h3", {}, title), ...rows),
+    ...content,
+  );
+}
+
 function document(kind: Document, c: TextCase, level: string): HTMLElement {
   if (kind === "email") return email(c.input as unknown as Email);
   if (kind === "ticket") return ticket(c.input as unknown as Ticket);
   if (kind === "receipt") return receipt(c, level);
+  if (kind === "code") return codeDoc(c);
   return logs(c.input as unknown as LogWindow);
 }
 
