@@ -19,6 +19,8 @@ play headless from the command line and produce comparison tables.
 | **Receipts** (images) | Reimburses expense receipts against a policy, reads them | The policy from the data, the picture, or both; the total; everything on the slip |
 | **The Oracle** | Gives the chance the morning ferry sails; scored against each day's true chance, not only the outcome | The facts as a table, a harbour log, scattered notices, a misleading captain's note; four questions a day |
 | **Undercroft** (images) | Crawls a dungeon one move a turn: keys and doors, monsters, fog; ten blocked moves in a row end the run as stuck | Corridors, keys, monsters, fog; the map as a tile picture, or picture and text |
+| **Code review** | Spots bugs in pull request diffs, locates faulty functions, categorizes bug kinds, and checks return values | Gate (pass/fail), locate function, bug kind, expected return, CI failure log, long diffs, all questions at once |
+| **Bugfix Workbench** | Turn-based debugging console: runs test suites, inspects functions, evaluates candidate diff patches, and avoids overfitting | Single bug, multi-function module, overfitting traps (public vs hidden tests), noisy candidate patches |
 | **Evensong** | Harmonizes a hymn tune at the organ, one chord a note, by the rules of harmony; the browser plays it | One phrase, a hymn, a chorale, the hymn by heart |
 | **Crossing** | Drives or stops at a signalled line | Signal, distance, both |
 
@@ -91,6 +93,12 @@ bun run check driving/stop-line --decider rule
 
 # A text dungeon from a named case set
 bun run eval --dungeon logs --level thresholds --decider rule --seeds 1-4 --set base
+
+# Code review across PR diffs and failing tests
+bun run eval --dungeon review --level gate,locate,kind --decider rule --seeds 1-4
+
+# Bugfix workbench: turn-based debugging with candidate patches
+bun run eval --dungeon bugfix --level single,overfit --decider rule --seeds 1-4
 ```
 
 Each run prints a JSON line, then a markdown table of the same results;
@@ -158,7 +166,7 @@ src/
   contract/    request and answer types, validation, the decide path
   deciders/    nuclis, TypeSafe, random
   dungeons/    driving, tower, inbox, tickets, logs, receipts, oracle, undercroft,
-               evensong, crossing, and the shared text builder
+               review, bugfix, code, evensong, crossing, and the shared text builder
   lib/         seeded randomness, a minimal PNG writer
   server/      Bun.serve API, config, case store, logging
   ui/          gate, lobbies, settings, play view, debug sidebar
